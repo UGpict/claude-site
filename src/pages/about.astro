@@ -1,0 +1,43 @@
+---
+import AboutHeroImage from '../assets/blog-placeholder-about.jpg';
+import Layout from '../layouts/BlogPost.astro';
+---
+
+<Layout
+	title="このブログについて"
+	description="「Claude をはじめる」は、Anthropic の AI を初心者向けにやさしく解説するブログです。"
+	pubDate={new Date('August 03 2026')}
+	heroImage={AboutHeroImage}
+>
+	<p>
+		「Claude をはじめる」は、Anthropic が開発する AI <strong>Claude</strong> を、
+		これから触ってみたい人・使いはじめたばかりの人に向けて、できるだけやさしく解説するブログです。
+	</p>
+
+	<h2>このブログで扱うこと</h2>
+	<ul>
+		<li><strong>Claude とは何か</strong> — AI の全体像、モデルの種類、どこで使えるのか</li>
+		<li><strong>Claude Code の使い方</strong> — ターミナルで動く AI エージェントの実践</li>
+		<li><strong>実際の開発事例</strong> — Claude と一緒に作ったプロジェクトの舞台裏</li>
+		<li><strong>初心者の制作記録</strong> — プログラミング未経験に近い状態からの一歩</li>
+	</ul>
+
+	<h2>なぜ書いているか</h2>
+	<p>
+		AI は「難しそう」「エンジニア向けでしょ」と思われがちですが、実際に触ってみると、
+		文章を書く・調べものをする・コードを書くといった作業を、対話しながら手伝ってくれる身近な道具です。
+		筆者自身も専門家ではなく、手探りで使いながら学んできました。同じように「気になっているけれど
+		最初の一歩が踏み出せない」という人の背中を、少しでも押せたらと思って書いています。
+	</p>
+
+	<h2>読み方のおすすめ</h2>
+	<p>
+		まったくの初心者なら、まず「Claude とは何か」から。手を動かしてみたくなったら「Claude Code の使い方」、
+		もっと具体的なイメージがほしくなったら開発事例と制作記録へ、という順番がおすすめです。
+	</p>
+
+	<p>
+		内容は執筆時点の情報にもとづいています。AI の進化は速いので、細かい仕様は公式ドキュメントも
+		あわせて確認してください。
+	</p>
+</Layout>

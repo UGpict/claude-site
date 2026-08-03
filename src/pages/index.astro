@@ -1,0 +1,51 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
+---
+
+<!doctype html>
+<html lang="ja">
+	<head>
+		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+	</head>
+	<body>
+		<Header />
+		<main>
+			<h1>Claude をはじめる 🤖</h1>
+			<p>
+				このブログは、Anthropic の AI「<strong>Claude</strong>」を、これから使ってみたい人・
+				使いはじめたばかりの人に向けてやさしく解説するサイトです。「そもそも Claude って何？」から、
+				開発者向けの <strong>Claude Code</strong> の使い方、そして実際に Claude と一緒に作った作品の
+				裏側までを、順番に読めるようにまとめています。
+			</p>
+
+			<h2>まず読んでほしい 4 記事</h2>
+			<ol>
+				<li>
+					<a href="/blog/claude-toha-nanika/">Claude とは何か — はじめての人のための入門</a><br />
+					Claude の正体、モデルの種類（Opus / Sonnet / Haiku）、どこで使えるのかを整理します。
+				</li>
+				<li>
+					<a href="/blog/claude-code-tsukaikata/">Claude Code の使い方 — ターミナルで動く AI エージェント</a><br />
+					コマンドラインから Claude に開発作業を任せる、実践的なワークフローを紹介します。
+				</li>
+				<li>
+					<a href="/blog/kangal-kaihatsu-jirei/">実例：Claude で「KangaL」を作った話</a><br />
+					攻撃 AI と防御 AI が競い合う詐欺検知プロジェクトを題材に、AI との開発の進め方を語ります。
+				</li>
+				<li>
+					<a href="/blog/shoshinsha-hitokara-tsukutta/">初心者がゼロから Web サイトを作った方法</a><br />
+					プログラミング未経験に近い状態から、Claude を相棒に一からサイトを立ち上げた記録です。
+				</li>
+			</ol>
+
+			<p>
+				どの記事も、専門用語はできるだけかみくだいて説明しています。上から順に読んでも、
+				気になるところから読んでも大丈夫です。<a href="/blog">記事一覧</a>もどうぞ。
+			</p>
+		</main>
+		<Footer />
+	</body>
+</html>
