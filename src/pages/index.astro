@@ -1,8 +1,25 @@
 ---
+import { Image } from 'astro:assets';
+import { getCollection } from 'astro:content';
 import BaseHead from '../components/BaseHead.astro';
 import Footer from '../components/Footer.astro';
+import FormattedDate from '../components/FormattedDate.astro';
 import Header from '../components/Header.astro';
 import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
+
+// 記事のカテゴリ表示（スラッグ→ラベル）。未定義は「記事」にフォールバック。
+const CATEGORY: Record<string, string> = {
+	'claude-toha-nanika': '入門',
+	'claude-code-tsukaikata': '使い方',
+	'kangal-kaihatsu-jirei': '開発事例',
+	'shoshinsha-hitokara-tsukutta': '制作記録',
+};
+const categoryOf = (id: string) => CATEGORY[id] ?? '記事';
+
+const posts = (await getCollection('blog')).sort(
+	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+const [featured, ...rest] = posts;
 ---
 
 <!doctype html>
@@ -12,40 +29,203 @@ import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
 	</head>
 	<body>
 		<Header />
-		<main>
-			<h1>Claude をはじめる 🤖</h1>
-			<p>
-				このブログは、Anthropic の AI「<strong>Claude</strong>」を、これから使ってみたい人・
-				使いはじめたばかりの人に向けてやさしく解説するサイトです。「そもそも Claude って何？」から、
-				開発者向けの <strong>Claude Code</strong> の使い方、そして実際に Claude と一緒に作った作品の
-				裏側までを、順番に読めるようにまとめています。
-			</p>
+		<main class="home">
+			<section class="intro">
+				<h1>{SITE_TITLE}</h1>
+				<p>{SITE_DESCRIPTION}</p>
+			</section>
 
-			<h2>まず読んでほしい 4 記事</h2>
-			<ol>
-				<li>
-					<a href="/blog/claude-toha-nanika/">Claude とは何か — はじめての人のための入門</a><br />
-					Claude の正体、モデルの種類（Opus / Sonnet / Haiku）、どこで使えるのかを整理します。
-				</li>
-				<li>
-					<a href="/blog/claude-code-tsukaikata/">Claude Code の使い方 — ターミナルで動く AI エージェント</a><br />
-					コマンドラインから Claude に開発作業を任せる、実践的なワークフローを紹介します。
-				</li>
-				<li>
-					<a href="/blog/kangal-kaihatsu-jirei/">実例：Claude で「KangaL」を作った話</a><br />
-					攻撃 AI と防御 AI が競い合う詐欺検知プロジェクトを題材に、AI との開発の進め方を語ります。
-				</li>
-				<li>
-					<a href="/blog/shoshinsha-hitokara-tsukutta/">初心者がゼロから Web サイトを作った方法</a><br />
-					プログラミング未経験に近い状態から、Claude を相棒に一からサイトを立ち上げた記録です。
-				</li>
-			</ol>
+			{
+				featured && (
+					<a class="card featured" href={`/blog/${featured.id}/`}>
+						{featured.data.heroImage && (
+							<div class="thumb">
+								<Image
+									src={featured.data.heroImage}
+									width={800}
+									height={450}
+									alt=""
+								/>
+							</div>
+						)}
+						<div class="body">
+							<div class="meta">
+								<span class="badge">{categoryOf(featured.id)}</span>
+								<FormattedDate date={featured.data.pubDate} />
+							</div>
+							<h2 class="title">{featured.data.title}</h2>
+							<p class="excerpt">{featured.data.description}</p>
+							<span class="more">続きを読む →</span>
+						</div>
+					</a>
+				)
+			}
 
-			<p>
-				どの記事も、専門用語はできるだけかみくだいて説明しています。上から順に読んでも、
-				気になるところから読んでも大丈夫です。<a href="/blog">記事一覧</a>もどうぞ。
-			</p>
+			<h2 class="section-heading">記事一覧</h2>
+			<ul class="grid">
+				{
+					rest.map((post) => (
+						<li>
+							<a class="card" href={`/blog/${post.id}/`}>
+								{post.data.heroImage && (
+									<div class="thumb">
+										<Image
+											src={post.data.heroImage}
+											width={480}
+											height={270}
+											alt=""
+										/>
+									</div>
+								)}
+								<div class="body">
+									<div class="meta">
+										<span class="badge">{categoryOf(post.id)}</span>
+										<FormattedDate date={post.data.pubDate} />
+									</div>
+									<h3 class="title">{post.data.title}</h3>
+									<p class="excerpt">{post.data.description}</p>
+								</div>
+							</a>
+						</li>
+					))
+				}
+			</ul>
 		</main>
 		<Footer />
 	</body>
 </html>
+
+<style>
+	main.home {
+		width: min(1120px, 100% - 2em);
+		padding: 2.5em 1em 4em;
+	}
+
+	.intro {
+		margin-bottom: 2.5rem;
+	}
+	.intro h1 {
+		font-size: 2.2rem;
+		margin-bottom: 0.4rem;
+	}
+	.intro p {
+		color: rgb(var(--gray));
+		font-size: 1.05rem;
+		margin: 0;
+		max-width: 46rem;
+	}
+
+	/* カード共通 */
+	.card {
+		display: block;
+		background: #fff;
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 12px;
+		overflow: hidden;
+		text-decoration: none;
+		color: inherit;
+		transition:
+			transform 0.15s ease,
+			box-shadow 0.15s ease,
+			border-color 0.15s ease;
+	}
+	.card:hover {
+		transform: translateY(-4px);
+		box-shadow: var(--box-shadow);
+		border-color: transparent;
+	}
+	.card .thumb {
+		overflow: hidden;
+		background: rgb(var(--gray-light));
+	}
+	.card .thumb :global(img) {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 0;
+		margin: 0;
+	}
+	.card .body {
+		padding: 1.1rem 1.25rem 1.35rem;
+	}
+	.meta {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 0.55rem;
+		font-size: 0.82rem;
+		color: rgb(var(--gray));
+	}
+	.badge {
+		font-weight: 700;
+		color: var(--accent-dark);
+		background: rgba(35, 55, 255, 0.1);
+		padding: 2px 10px;
+		border-radius: 999px;
+	}
+	.card .title {
+		color: rgb(var(--black));
+		line-height: 1.35;
+		margin: 0 0 0.5rem;
+	}
+	.card .excerpt {
+		color: rgb(var(--gray-dark));
+		font-size: 0.95rem;
+		line-height: 1.6;
+		margin: 0;
+	}
+
+	/* 注目記事（横並び） */
+	.featured {
+		margin-bottom: 3rem;
+	}
+	.featured .thumb {
+		aspect-ratio: 16 / 9;
+	}
+	.featured .title {
+		font-size: 1.9rem;
+	}
+	.featured .more {
+		display: inline-block;
+		margin-top: 0.9rem;
+		font-weight: 700;
+		color: var(--accent);
+	}
+	@media (min-width: 800px) {
+		.featured {
+			display: grid;
+			grid-template-columns: 1.3fr 1fr;
+		}
+		.featured .thumb {
+			height: 100%;
+			aspect-ratio: auto;
+		}
+		.featured .body {
+			padding: 1.75rem 2rem;
+			align-self: center;
+		}
+	}
+
+	/* 一覧グリッド */
+	.section-heading {
+		font-size: 1.3rem;
+		padding-bottom: 0.6rem;
+		margin-bottom: 1.5rem;
+		border-bottom: 2px solid rgb(var(--gray-light));
+	}
+	.grid {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+		gap: 1.75rem;
+	}
+	.grid .thumb {
+		aspect-ratio: 16 / 9;
+	}
+	.grid .title {
+		font-size: 1.15rem;
+	}
+</style>
