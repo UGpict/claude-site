@@ -1,22 +1,9 @@
 ---
 import { Image } from 'astro:assets';
 import { getCollection } from 'astro:content';
-import BaseHead from '../components/BaseHead.astro';
-import Footer from '../components/Footer.astro';
 import FormattedDate from '../components/FormattedDate.astro';
-import Header from '../components/Header.astro';
-import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
-
-// 記事のカテゴリ表示（スラッグ→ラベル）。未定義は「記事」にフォールバック。
-const CATEGORY: Record<string, string> = {
-	'claude-toha-nanika': '入門',
-	'claude-code-tsukaikata': '使い方',
-	'prompt-no-kotsu': '使い方',
-	'kangal-kaihatsu-jirei': '開発事例',
-	'shoshinsha-hitokara-tsukutta': '制作記録',
-	'ai-anzen-chuiten': '注意点',
-};
-const categoryOf = (id: string) => CATEGORY[id] ?? '記事';
+import Base from '../layouts/Base.astro';
+import { SITE_DESCRIPTION, SITE_TITLE, categoryOf } from '../consts';
 
 const posts = (await getCollection('blog')).sort(
 	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
@@ -24,85 +11,60 @@ const posts = (await getCollection('blog')).sort(
 const [featured, ...rest] = posts;
 ---
 
-<!doctype html>
-<html lang="ja">
-	<head>
-		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
-	</head>
-	<body>
-		<Header />
-		<main class="home">
-			<section class="intro">
-				<h1>{SITE_TITLE}</h1>
-				<p>{SITE_DESCRIPTION}</p>
-			</section>
+<Base title={SITE_TITLE} description={SITE_DESCRIPTION}>
+	<section class="intro">
+		<h1>{SITE_TITLE}</h1>
+		<p>{SITE_DESCRIPTION}</p>
+	</section>
 
-			{
-				featured && (
-					<a class="card featured" href={`/blog/${featured.id}/`}>
-						{featured.data.heroImage && (
+	{
+		featured && (
+			<a class="card featured" href={`/blog/${featured.id}/`}>
+				{featured.data.heroImage && (
+					<div class="thumb">
+						<Image src={featured.data.heroImage} width={800} height={450} alt="" />
+					</div>
+				)}
+				<div class="body">
+					<div class="meta">
+						<span class="badge">{categoryOf(featured.id)}</span>
+						<FormattedDate date={featured.data.pubDate} />
+					</div>
+					<h2 class="title">{featured.data.title}</h2>
+					<p class="excerpt">{featured.data.description}</p>
+					<span class="more">続きを読む →</span>
+				</div>
+			</a>
+		)
+	}
+
+	<h2 class="section-heading">記事一覧</h2>
+	<ul class="grid">
+		{
+			rest.map((post) => (
+				<li>
+					<a class="card" href={`/blog/${post.id}/`}>
+						{post.data.heroImage && (
 							<div class="thumb">
-								<Image
-									src={featured.data.heroImage}
-									width={800}
-									height={450}
-									alt=""
-								/>
+								<Image src={post.data.heroImage} width={480} height={270} alt="" />
 							</div>
 						)}
 						<div class="body">
 							<div class="meta">
-								<span class="badge">{categoryOf(featured.id)}</span>
-								<FormattedDate date={featured.data.pubDate} />
+								<span class="badge">{categoryOf(post.id)}</span>
+								<FormattedDate date={post.data.pubDate} />
 							</div>
-							<h2 class="title">{featured.data.title}</h2>
-							<p class="excerpt">{featured.data.description}</p>
-							<span class="more">続きを読む →</span>
+							<h3 class="title">{post.data.title}</h3>
+							<p class="excerpt">{post.data.description}</p>
 						</div>
 					</a>
-				)
-			}
-
-			<h2 class="section-heading">記事一覧</h2>
-			<ul class="grid">
-				{
-					rest.map((post) => (
-						<li>
-							<a class="card" href={`/blog/${post.id}/`}>
-								{post.data.heroImage && (
-									<div class="thumb">
-										<Image
-											src={post.data.heroImage}
-											width={480}
-											height={270}
-											alt=""
-										/>
-									</div>
-								)}
-								<div class="body">
-									<div class="meta">
-										<span class="badge">{categoryOf(post.id)}</span>
-										<FormattedDate date={post.data.pubDate} />
-									</div>
-									<h3 class="title">{post.data.title}</h3>
-									<p class="excerpt">{post.data.description}</p>
-								</div>
-							</a>
-						</li>
-					))
-				}
-			</ul>
-		</main>
-		<Footer />
-	</body>
-</html>
+				</li>
+			))
+		}
+	</ul>
+</Base>
 
 <style>
-	main.home {
-		width: min(1120px, 100% - 2em);
-		padding: 2.5em 1em 4em;
-	}
-
 	.intro {
 		margin-bottom: 2.5rem;
 	}
@@ -117,7 +79,6 @@ const [featured, ...rest] = posts;
 		max-width: 46rem;
 	}
 
-	/* カード共通 */
 	.card {
 		display: block;
 		background: #fff;
@@ -178,7 +139,6 @@ const [featured, ...rest] = posts;
 		margin: 0;
 	}
 
-	/* 注目記事（横並び） */
 	.featured {
 		margin-bottom: 3rem;
 	}
@@ -186,7 +146,7 @@ const [featured, ...rest] = posts;
 		aspect-ratio: 16 / 9;
 	}
 	.featured .title {
-		font-size: 1.9rem;
+		font-size: 1.7rem;
 	}
 	.featured .more {
 		display: inline-block;
@@ -194,10 +154,10 @@ const [featured, ...rest] = posts;
 		font-weight: 700;
 		color: var(--accent);
 	}
-	@media (min-width: 800px) {
+	@media (min-width: 900px) {
 		.featured {
 			display: grid;
-			grid-template-columns: 1.3fr 1fr;
+			grid-template-columns: 1.2fr 1fr;
 		}
 		.featured .thumb {
 			height: 100%;
@@ -209,7 +169,6 @@ const [featured, ...rest] = posts;
 		}
 	}
 
-	/* 一覧グリッド */
 	.section-heading {
 		font-size: 1.3rem;
 		padding-bottom: 0.6rem;
@@ -221,13 +180,13 @@ const [featured, ...rest] = posts;
 		padding: 0;
 		margin: 0;
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-		gap: 1.75rem;
+		grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+		gap: 1.5rem;
 	}
 	.grid .thumb {
 		aspect-ratio: 16 / 9;
 	}
 	.grid .title {
-		font-size: 1.15rem;
+		font-size: 1.1rem;
 	}
 </style>

@@ -1,0 +1,156 @@
+---
+import { getCollection } from 'astro:content';
+import { categoryOf } from '../consts';
+import FormattedDate from './FormattedDate.astro';
+
+const posts = (await getCollection('blog')).sort(
+	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+
+// 「人気記事」は暫定で新着順の上位5件（アクセス解析と連動させたら差し替え可能）
+const popular = posts.slice(0, 5);
+
+// カテゴリごとの記事数を集計
+const counts = new Map<string, number>();
+for (const p of posts) {
+	const c = categoryOf(p.id);
+	counts.set(c, (counts.get(c) ?? 0) + 1);
+}
+const categories = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+---
+
+<div class="sidebar">
+	<section class="widget">
+		<h2 class="widget-title">人気記事</h2>
+		<ol class="popular">
+			{
+				popular.map((post, i) => (
+					<li>
+						<span class="rank">{i + 1}</span>
+						<a href={`/blog/${post.id}/`}>
+							<span class="p-title">{post.data.title}</span>
+							<span class="p-date">
+								<FormattedDate date={post.data.pubDate} />
+							</span>
+						</a>
+					</li>
+				))
+			}
+		</ol>
+	</section>
+
+	<section class="widget">
+		<h2 class="widget-title">カテゴリ</h2>
+		<ul class="categories">
+			{
+				categories.map(([name, count]) => (
+					<li>
+						<a href={`/category/${encodeURIComponent(name)}/`}>
+							<span>{name}</span>
+							<span class="count">{count}</span>
+						</a>
+					</li>
+				))
+			}
+		</ul>
+	</section>
+</div>
+
+<style>
+	.sidebar {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
+	.widget {
+		background: #fff;
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 12px;
+		padding: 1.1rem 1.25rem;
+	}
+	.widget-title {
+		font-size: 1.05rem;
+		margin: 0 0 0.9rem;
+		padding-bottom: 0.5rem;
+		border-bottom: 2px solid var(--accent);
+		display: inline-block;
+	}
+	.popular {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.popular li {
+		display: flex;
+		gap: 0.6rem;
+		align-items: flex-start;
+		padding: 0.55rem 0;
+		border-top: 1px solid rgb(var(--gray-light));
+	}
+	.popular li:first-child {
+		border-top: none;
+	}
+	.rank {
+		flex: none;
+		width: 22px;
+		height: 22px;
+		border-radius: 999px;
+		background: var(--accent);
+		color: #fff;
+		font-size: 0.75rem;
+		font-weight: 700;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-top: 0.15rem;
+	}
+	.popular a {
+		text-decoration: none;
+		color: inherit;
+		display: block;
+	}
+	.p-title {
+		display: block;
+		font-size: 0.9rem;
+		font-weight: 600;
+		line-height: 1.45;
+		color: rgb(var(--black));
+	}
+	.popular a:hover .p-title {
+		color: var(--accent);
+	}
+	.p-date {
+		display: block;
+		font-size: 0.75rem;
+		color: rgb(var(--gray));
+		margin-top: 0.15rem;
+	}
+	.categories {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.categories a {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.5rem 0;
+		border-top: 1px solid rgb(var(--gray-light));
+		text-decoration: none;
+		color: rgb(var(--gray-dark));
+		font-size: 0.92rem;
+	}
+	.categories li:first-child a {
+		border-top: none;
+	}
+	.categories a:hover {
+		color: var(--accent);
+	}
+	.count {
+		font-size: 0.78rem;
+		color: rgb(var(--gray));
+		background: rgb(var(--gray-light));
+		border-radius: 999px;
+		padding: 1px 9px;
+	}
+</style>

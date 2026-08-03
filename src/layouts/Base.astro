@@ -1,0 +1,82 @@
+---
+import type { ImageMetadata } from 'astro';
+import BaseHead from '../components/BaseHead.astro';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import ShareRail from '../components/ShareRail.astro';
+import Sidebar from '../components/Sidebar.astro';
+
+interface Props {
+	title: string;
+	description: string;
+	image?: ImageMetadata;
+	shareTitle?: string;
+}
+const { title, description, image, shareTitle } = Astro.props;
+---
+
+<!doctype html>
+<html lang="ja">
+	<head>
+		<BaseHead title={title} description={description} image={image} />
+	</head>
+	<body>
+		<Header />
+		<div class="layout">
+			<aside class="rail rail-left">
+				<ShareRail title={shareTitle ?? title} />
+			</aside>
+			<main class="content">
+				<slot />
+			</main>
+			<aside class="rail rail-right">
+				<Sidebar />
+			</aside>
+		</div>
+		<Footer />
+	</body>
+</html>
+
+<style>
+	.layout {
+		display: grid;
+		grid-template-columns: 64px minmax(0, 1fr) 300px;
+		gap: 2.5rem;
+		width: min(1200px, 100% - 2em);
+		margin: 0 auto;
+		padding: 2rem 1em 4rem;
+		align-items: start;
+	}
+	/* 共通シェルの main は列いっぱいに使う（global.css の main 幅指定を上書き） */
+	main.content {
+		width: auto;
+		max-width: 100%;
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+	}
+	.rail {
+		position: sticky;
+		top: 80px;
+	}
+
+	@media (max-width: 1100px) {
+		.layout {
+			grid-template-columns: 64px minmax(0, 1fr);
+		}
+		.rail-right {
+			display: none;
+		}
+	}
+	@media (max-width: 700px) {
+		.layout {
+			grid-template-columns: 1fr;
+			gap: 1.5rem;
+			padding: 1.25rem 1em 3rem;
+		}
+		.rail-left {
+			position: static;
+			flex-direction: row;
+		}
+	}
+</style>

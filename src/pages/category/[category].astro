@@ -5,17 +5,32 @@ import FormattedDate from '../../components/FormattedDate.astro';
 import Base from '../../layouts/Base.astro';
 import { SITE_TITLE, categoryOf } from '../../consts';
 
-const posts = (await getCollection('blog')).sort(
-	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
-);
+export async function getStaticPaths() {
+	const posts = await getCollection('blog');
+	const categories = [...new Set(posts.map((p) => categoryOf(p.id)))];
+	return categories.map((category) => ({
+		params: { category },
+		props: {
+			posts: posts
+				.filter((p) => categoryOf(p.id) === category)
+				.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()),
+		},
+	}));
+}
+
+const { category } = Astro.params;
+const { posts } = Astro.props;
 ---
 
 <Base
-	title={`記事一覧 | ${SITE_TITLE}`}
-	description="Claude と AI をやさしく解説する記事の一覧です。"
+	title={`${category}の記事 | ${SITE_TITLE}`}
+	description={`「${category}」カテゴリの記事一覧。`}
 	shareTitle={SITE_TITLE}
 >
-	<h1 class="page-title">記事一覧</h1>
+	<p class="crumb"><a href="/blog/">記事一覧</a> ／ カテゴリ</p>
+	<h1 class="page-title">カテゴリ：{category}</h1>
+	<p class="lead">「{category}」の記事が {posts.length} 件あります。</p>
+
 	<ul class="list">
 		{
 			posts.map((post) => (
@@ -42,8 +57,17 @@ const posts = (await getCollection('blog')).sort(
 </Base>
 
 <style>
+	.crumb {
+		font-size: 0.85rem;
+		color: rgb(var(--gray));
+		margin: 0 0 0.5rem;
+	}
 	.page-title {
 		font-size: 1.8rem;
+		margin-bottom: 0.3rem;
+	}
+	.lead {
+		color: rgb(var(--gray));
 		margin-bottom: 1.5rem;
 	}
 	.list {
