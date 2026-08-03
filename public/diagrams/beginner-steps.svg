@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 240" font-family="sans-serif" role="img" aria-label="初心者がサイトを作った 4 ステップ">
+  <rect width="720" height="240" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">初心者が完成までたどった 4 ステップ</text>
+  <defs>
+    <marker id="arrow4" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#2337ff"/>
+    </marker>
+  </defs>
+
+  <g>
+    <rect x="24" y="96" width="150" height="86" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="99" y="132" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">日常の言葉で</text>
+    <text x="99" y="154" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">伝える</text>
+  </g>
+  <line x1="178" y1="139" x2="204" y2="139" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow4)"/>
+  <g>
+    <rect x="208" y="96" width="150" height="86" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="283" y="132" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">意味を確認</text>
+    <text x="283" y="154" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">しながら進む</text>
+  </g>
+  <line x1="362" y1="139" x2="388" y2="139" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow4)"/>
+  <g>
+    <rect x="392" y="96" width="150" height="86" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="467" y="132" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">エラーは</text>
+    <text x="467" y="154" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">そのまま相談</text>
+  </g>
+  <line x1="546" y1="139" x2="572" y2="139" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow4)"/>
+  <g>
+    <rect x="576" y="96" width="150" height="86" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="651" y="132" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">小さく作って</text>
+    <text x="651" y="154" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">少しずつ足す</text>
+  </g>
+</svg>

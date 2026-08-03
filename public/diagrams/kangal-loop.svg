@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif" role="img" aria-label="攻撃AIと防御AIが競い合う仕組み">
+  <rect width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">攻撃 AI と防御 AI が競い合う</text>
+  <defs>
+    <marker id="arrow3" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto">
+      <path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/>
+    </marker>
+  </defs>
+
+  <g>
+    <rect x="70" y="110" width="220" height="110" rx="16" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="180" y="152" text-anchor="middle" font-size="20" font-weight="700" fill="#000d8a">攻撃役（狼）</text>
+    <text x="180" y="182" text-anchor="middle" font-size="14" fill="#334155">新しい詐欺の「型」を出す</text>
+  </g>
+  <g>
+    <rect x="430" y="110" width="220" height="110" rx="16" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="540" y="152" text-anchor="middle" font-size="20" font-weight="700" fill="#000d8a">防御役（番犬）</text>
+    <text x="540" y="182" text-anchor="middle" font-size="14" fill="#334155">見破る精度を高める</text>
+  </g>
+
+  <path d="M295,138 C360,110 380,110 425,138" fill="none" stroke="#2337ff" stroke-width="2.5" marker-end="url(#arrow3)"/>
+  <text x="360" y="112" text-anchor="middle" font-size="13" fill="#64748b">手口を出す</text>
+  <path d="M425,192 C380,220 360,220 295,192" fill="none" stroke="#2337ff" stroke-width="2.5" marker-end="url(#arrow3)"/>
+  <text x="360" y="238" text-anchor="middle" font-size="13" fill="#64748b">対応して賢くなる</text>
+
+  <text x="360" y="278" text-anchor="middle" font-size="14" fill="#334155">この往復を AI 同士でまわし、仕組みごと強くしていく</text>
+</svg>

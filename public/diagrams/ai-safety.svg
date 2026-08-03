@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 260" font-family="sans-serif" role="img" aria-label="AI と安全につきあう 3 つの注意点">
+  <rect width="720" height="260" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">AI と安全につきあう 3 つの注意点</text>
+
+  <g>
+    <rect x="30" y="72" width="205" height="150" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <circle cx="132" cy="112" r="20" fill="#2337ff"/>
+    <text x="132" y="119" text-anchor="middle" font-size="20" font-weight="700" fill="#ffffff">1</text>
+    <text x="132" y="158" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">鵜呑みにしない</text>
+    <text x="132" y="184" text-anchor="middle" font-size="13" fill="#64748b">大事な情報は</text>
+    <text x="132" y="202" text-anchor="middle" font-size="13" fill="#64748b">元の情報で確認</text>
+  </g>
+  <g>
+    <rect x="257" y="72" width="205" height="150" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <circle cx="359" cy="112" r="20" fill="#2337ff"/>
+    <text x="359" y="119" text-anchor="middle" font-size="20" font-weight="700" fill="#ffffff">2</text>
+    <text x="359" y="158" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">秘密は入れない</text>
+    <text x="359" y="184" text-anchor="middle" font-size="13" fill="#64748b">個人情報・機密は</text>
+    <text x="359" y="202" text-anchor="middle" font-size="13" fill="#64748b">はじめから渡さない</text>
+  </g>
+  <g>
+    <rect x="484" y="72" width="205" height="150" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <circle cx="586" cy="112" r="20" fill="#2337ff"/>
+    <text x="586" y="119" text-anchor="middle" font-size="20" font-weight="700" fill="#ffffff">3</text>
+    <text x="586" y="158" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">最後は自分で</text>
+    <text x="586" y="184" text-anchor="middle" font-size="13" fill="#64748b">決めるのは</text>
+    <text x="586" y="202" text-anchor="middle" font-size="13" fill="#64748b">いつも自分</text>
+  </g>
+</svg>

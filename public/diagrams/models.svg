@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif" role="img" aria-label="Claude のモデル 3 グレードの図">
+  <rect width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="42" text-anchor="middle" font-size="24" font-weight="700" fill="#0f1219">Claude のモデル 3 グレード</text>
+
+  <g>
+    <rect x="30" y="72" width="200" height="150" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="130" y="116" text-anchor="middle" font-size="26" font-weight="700" fill="#000d8a">Opus</text>
+    <text x="130" y="150" text-anchor="middle" font-size="16" fill="#334155">最も賢い</text>
+    <text x="130" y="178" text-anchor="middle" font-size="14" fill="#64748b">難しい調査・長い作業</text>
+  </g>
+  <g>
+    <rect x="260" y="72" width="200" height="150" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="360" y="116" text-anchor="middle" font-size="26" font-weight="700" fill="#000d8a">Sonnet</text>
+    <text x="360" y="150" text-anchor="middle" font-size="16" fill="#334155">バランス型</text>
+    <text x="360" y="178" text-anchor="middle" font-size="14" fill="#64748b">日常のほとんどの作業</text>
+  </g>
+  <g>
+    <rect x="490" y="72" width="200" height="150" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="590" y="116" text-anchor="middle" font-size="26" font-weight="700" fill="#000d8a">Haiku</text>
+    <text x="590" y="150" text-anchor="middle" font-size="16" fill="#334155">最速・低コスト</text>
+    <text x="590" y="178" text-anchor="middle" font-size="14" fill="#64748b">軽い分類・短い返答</text>
+  </g>
+
+  <text x="60" y="270" font-size="15" fill="#334155">← じっくり賢く</text>
+  <line x1="180" y1="264" x2="540" y2="264" stroke="#c7d0e6" stroke-width="2"/>
+  <text x="660" y="270" text-anchor="end" font-size="15" fill="#334155">速く手軽に →</text>
+</svg>

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 220" font-family="sans-serif" role="img" aria-label="Claude Code の作業の流れ">
+  <rect width="720" height="220" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">Claude Code の作業の流れ</text>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#2337ff"/>
+    </marker>
+  </defs>
+  <g>
+    <rect x="24" y="90" width="140" height="70" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="94" y="122" text-anchor="middle" font-size="17" font-weight="700" fill="#000d8a">指示する</text>
+    <text x="94" y="144" text-anchor="middle" font-size="12" fill="#64748b">日本語でOK</text>
+  </g>
+  <line x1="168" y1="125" x2="196" y2="125" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="200" y="90" width="140" height="70" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="270" y="122" text-anchor="middle" font-size="17" font-weight="700" fill="#000d8a">読む</text>
+    <text x="270" y="144" text-anchor="middle" font-size="12" fill="#64748b">ファイルを理解</text>
+  </g>
+  <line x1="344" y1="125" x2="372" y2="125" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="376" y="90" width="140" height="70" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="446" y="122" text-anchor="middle" font-size="17" font-weight="700" fill="#000d8a">書く・直す</text>
+    <text x="446" y="144" text-anchor="middle" font-size="12" fill="#64748b">コードを変更</text>
+  </g>
+  <line x1="520" y1="125" x2="548" y2="125" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="552" y="90" width="144" height="70" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="624" y="122" text-anchor="middle" font-size="17" font-weight="700" fill="#000d8a">確かめる</text>
+    <text x="624" y="144" text-anchor="middle" font-size="12" fill="#64748b">実行して検証</text>
+  </g>
+  <text x="360" y="196" text-anchor="middle" font-size="13" fill="#64748b">この 4 つを、あなたの確認をはさみながら繰り返します</text>
+</svg>
