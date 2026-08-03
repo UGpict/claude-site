@@ -8,10 +8,10 @@ import Header from '../components/Header.astro';
 
 type Props = CollectionEntry<'blog'>['data'];
 
-const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
+const { title, description, pubDate, updatedDate, heroImage, sponsored } = Astro.props;
 ---
 
-<html lang="en">
+<html lang="ja">
 	<head>
 		<BaseHead title={title} description={description} />
 		<style>
@@ -52,12 +52,29 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
 			.last-updated-on {
 				font-style: italic;
 			}
+			.ad-disclosure {
+				max-width: calc(100% - 2em);
+				width: 720px;
+				margin: 0 auto 1.5em;
+				padding: 0.6em 1em;
+				font-size: 0.85rem;
+				color: rgb(var(--gray-dark));
+				background: rgb(var(--gray-light));
+				border-radius: 8px;
+			}
 		</style>
 	</head>
 
 	<body>
 		<Header />
 		<main>
+			{
+				sponsored && (
+					<p class="ad-disclosure">
+						この記事はアフィリエイト広告（PR）を含みます。
+					</p>
+				)
+			}
 			<article>
 				<div class="hero-image">
 					{heroImage && <Image width={1020} height={510} src={heroImage} alt="" />}

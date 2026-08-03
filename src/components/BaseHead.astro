@@ -4,7 +4,11 @@
 import '../styles/global.css';
 import type { ImageMetadata } from 'astro';
 import FallbackImage from '../assets/blog-placeholder-1.jpg';
-import { SITE_TITLE } from '../consts';
+import {
+	GOOGLE_ANALYTICS_ID,
+	GOOGLE_SITE_VERIFICATION,
+	SITE_TITLE,
+} from '../consts';
 import { Font } from 'astro:assets';
 
 interface Props {
@@ -50,3 +54,31 @@ const { title, description, image = FallbackImage } = Astro.props;
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
+
+<!-- Google Search Console 所有権確認（HTMLタグ方式） -->
+{
+	GOOGLE_SITE_VERIFICATION && (
+		<meta name="google-site-verification" content={GOOGLE_SITE_VERIFICATION} />
+	)
+}
+
+<!-- Google Analytics (GA4) -->
+{
+	GOOGLE_ANALYTICS_ID && (
+		<>
+			<script
+				is:inline
+				async
+				src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`}
+			/>
+			<script is:inline define:vars={{ gaId: GOOGLE_ANALYTICS_ID }}>
+				window.dataLayer = window.dataLayer || [];
+				function gtag() {
+					dataLayer.push(arguments);
+				}
+				gtag('js', new Date());
+				gtag('config', gaId);
+			</script>
+		</>
+	)
+}

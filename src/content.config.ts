@@ -14,6 +14,8 @@ const blog = defineCollection({
 			pubDate: z.coerce.date(),
 			updatedDate: z.coerce.date().optional(),
 			heroImage: z.optional(image()),
+			// アフィリエイト広告・PR を含む記事は true にすると開示バナーを表示
+			sponsored: z.boolean().default(false),
 		}),
 });
 
