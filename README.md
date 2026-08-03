@@ -1,4 +1,4 @@
-# Claude をはじめる
+# 0から始める優しいAI生活
 
 Anthropic の AI「Claude」を、これから使ってみたい人・使いはじめたばかりの人に向けて
 やさしく解説するブログです。[Astro](https://astro.build) で構築しています。
