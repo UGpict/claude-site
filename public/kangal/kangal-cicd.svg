@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" font-family="sans-serif" role="img" aria-label="攻防を検知器のCI/CDに対応づけた図">
+  <rect width="720" height="340" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">攻防 ＝ 検知器の CI/CD</text>
+
+  <g font-size="14">
+    <rect x="40" y="60" width="300" height="40" rx="8" fill="#eef1ff"/>
+    <rect x="380" y="60" width="300" height="40" rx="8" fill="#f2f4f9"/>
+    <text x="190" y="86" text-anchor="middle" font-weight="700" fill="#000d8a">攻防の動き</text>
+    <text x="530" y="86" text-anchor="middle" font-weight="700" fill="#334155">DevOps の工程</text>
+  </g>
+
+  <g font-size="13.5" fill="#334155">
+    <text x="56" y="132">攻撃が検知器の死角を発見</text>
+    <text x="396" y="132" fill="#2337ff" font-weight="700">脆弱性スキャン</text>
+    <line x1="40" y1="146" x2="680" y2="146" stroke="#e5e9f0"/>
+
+    <text x="56" y="172">すり抜けた型を事例DBへ書き戻し</text>
+    <text x="396" y="172" fill="#2337ff" font-weight="700">パッチ</text>
+    <line x1="40" y1="186" x2="680" y2="186" stroke="#e5e9f0"/>
+
+    <text x="56" y="212">次ラウンドで再判定</text>
+    <text x="396" y="212" fill="#2337ff" font-weight="700">継続的デリバリー</text>
+    <line x1="40" y1="226" x2="680" y2="226" stroke="#e5e9f0"/>
+
+    <text x="56" y="252">攻撃が型を組み替えて再テスト</text>
+    <text x="396" y="252" fill="#2337ff" font-weight="700">回帰テスト</text>
+    <line x1="40" y1="266" x2="680" y2="266" stroke="#e5e9f0"/>
+
+    <text x="56" y="292">検知率の推移を可視化</text>
+    <text x="396" y="292" fill="#2337ff" font-weight="700">監視</text>
+  </g>
+
+  <text x="360" y="326" text-anchor="middle" font-size="13" fill="#64748b">この CI/CD を、AI エージェントが人間の介入なしに回す</text>
+</svg>

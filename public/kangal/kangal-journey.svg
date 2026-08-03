@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 230" font-family="sans-serif" role="img" aria-label="KangaL 開発のマイルストーン">
+  <rect width="720" height="230" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">開発の道のり</text>
+
+  <line x1="70" y1="120" x2="650" y2="120" stroke="#c7d0e6" stroke-width="3"/>
+  <defs>
+    <marker id="jar" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c7d0e6"/></marker>
+  </defs>
+  <line x1="650" y1="120" x2="662" y2="120" stroke="#c7d0e6" stroke-width="3" marker-end="url(#jar)"/>
+
+  <g font-size="12.5" fill="#334155" text-anchor="middle">
+    <circle cx="98" cy="120" r="9" fill="#2337ff"/>
+    <text x="98" y="98" font-weight="700" fill="#000d8a">骨格デプロイ</text>
+    <text x="98" y="150">Cloud Run で稼働</text>
+
+    <circle cx="236" cy="120" r="9" fill="#2337ff"/>
+    <text x="236" y="98" font-weight="700" fill="#000d8a">暗記の成立</text>
+    <text x="236" y="150">書き戻し→再捕捉</text>
+
+    <circle cx="374" cy="120" r="9" fill="#2337ff"/>
+    <text x="374" y="98" font-weight="700" fill="#000d8a">汎化の確認</text>
+    <text x="374" y="150">未見の型も捕捉</text>
+
+    <circle cx="512" cy="120" r="9" fill="#2337ff"/>
+    <text x="512" y="98" font-weight="700" fill="#000d8a">本物で測定</text>
+    <text x="512" y="150">外部holdout n=6</text>
+
+    <circle cx="640" cy="120" r="9" fill="#2337ff"/>
+    <text x="640" y="98" font-weight="700" fill="#000d8a">本番hardening</text>
+    <text x="640" y="150">多層防御</text>
+  </g>
+  <text x="360" y="206" text-anchor="middle" font-size="13" fill="#64748b">一つ結果が出るたびに、次の問いが見えてくる繰り返しだった</text>
+</svg>

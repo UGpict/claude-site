@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="sans-serif" role="img" aria-label="外部holdout n=6の床別recallとWilson信頼区間">
+  <rect width="720" height="320" fill="#ffffff"/>
+  <text x="360" y="36" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">実物サンプル n=6 — 判定床ごとの recall</text>
+  <text x="360" y="58" text-anchor="middle" font-size="13" fill="#64748b">縦棒＝点推定、横帯＝Wilson 95% 信頼区間</text>
+
+  <!-- axis -->
+  <line x1="90" y1="250" x2="660" y2="250" stroke="#94a3b8" stroke-width="1.5"/>
+  <g font-size="12" fill="#64748b" text-anchor="middle">
+    <text x="90" y="272">0%</text><line x1="90" y1="246" x2="90" y2="254" stroke="#94a3b8"/>
+    <text x="204" y="272">20%</text><line x1="204" y1="246" x2="204" y2="254" stroke="#94a3b8"/>
+    <text x="318" y="272">40%</text><line x1="318" y1="246" x2="318" y2="254" stroke="#94a3b8"/>
+    <text x="432" y="272">60%</text><line x1="432" y1="246" x2="432" y2="254" stroke="#94a3b8"/>
+    <text x="546" y="272">80%</text><line x1="546" y1="246" x2="546" y2="254" stroke="#94a3b8"/>
+    <text x="660" y="272">100%</text><line x1="660" y1="246" x2="660" y2="254" stroke="#94a3b8"/>
+  </g>
+
+  <!-- 床70: 1/6 ≈ 17%, CI ~ [3%, 56%] -->
+  <text x="80" y="120" text-anchor="end" font-size="14" font-weight="700" fill="#334155">床 70</text>
+  <rect x="107" y="104" width="292" height="20" rx="10" fill="#dbe2f5"/>
+  <line x1="187" y1="96" x2="187" y2="132" stroke="#2337ff" stroke-width="4"/>
+  <text x="187" y="88" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">1/6</text>
+
+  <!-- 床60: 4/6 ≈ 67%, CI ~ [30%, 90%] -->
+  <text x="80" y="196" text-anchor="end" font-size="14" font-weight="700" fill="#334155">床 60</text>
+  <rect x="261" y="180" width="342" height="20" rx="10" fill="#dbe2f5"/>
+  <line x1="432" y1="172" x2="432" y2="208" stroke="#2337ff" stroke-width="4"/>
+  <text x="432" y="164" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">4/6</text>
+
+  <!-- overlap hint -->
+  <rect x="261" y="100" width="138" height="104" fill="#2337ff" opacity="0.06"/>
+  <text x="360" y="300" text-anchor="middle" font-size="13" fill="#64748b">隣接する床の信頼区間が重なる ＝ 小標本では「最適な床」を点で確定できない</text>
+</svg>

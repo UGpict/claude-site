@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif" role="img" aria-label="道B：完成詐欺文を作らず、6レバーの型だけを扱う">
+  <rect width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">安全設計「道B」— 実弾を作らせない</text>
+  <defs>
+    <marker id="ar" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/></marker>
+  </defs>
+
+  <g>
+    <rect x="30" y="80" width="280" height="150" rx="14" fill="#fff5f5" stroke="#e0554e" stroke-width="2"/>
+    <text x="170" y="116" text-anchor="middle" font-size="16" font-weight="700" fill="#b23b34">そのまま送れる完成詐欺文</text>
+    <text x="170" y="150" text-anchor="middle" font-size="14" fill="#8a4b47">「至急ご確認を…口座は…」</text>
+    <line x1="60" y1="175" x2="280" y2="205" stroke="#e0554e" stroke-width="3"/>
+    <line x1="280" y1="175" x2="60" y2="205" stroke="#e0554e" stroke-width="3"/>
+    <text x="170" y="222" text-anchor="middle" font-size="13" fill="#b23b34">生成も保存もしない</text>
+  </g>
+
+  <line x1="316" y1="155" x2="376" y2="155" stroke="#2337ff" stroke-width="3" marker-end="url(#ar)"/>
+
+  <g>
+    <rect x="392" y="80" width="298" height="150" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="541" y="112" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">6レバーの「設定値」だけ</text>
+    <g font-size="12.5" fill="#334155">
+      <rect x="410" y="128" width="128" height="26" rx="13" fill="#fff" stroke="#c7d0e6"/><text x="474" y="145" text-anchor="middle">緊急性 = 高</text>
+      <rect x="546" y="128" width="128" height="26" rx="13" fill="#fff" stroke="#c7d0e6"/><text x="610" y="145" text-anchor="middle">権威 = なりすまし</text>
+      <rect x="410" y="160" width="128" height="26" rx="13" fill="#fff" stroke="#c7d0e6"/><text x="474" y="177" text-anchor="middle">個人化 = 実名</text>
+      <rect x="546" y="160" width="128" height="26" rx="13" fill="#fff" stroke="#c7d0e6"/><text x="610" y="177" text-anchor="middle">孤立化 = 内密に</text>
+    </g>
+    <text x="541" y="212" text-anchor="middle" font-size="13" fill="#000d8a">危険物は残らない。型だけを進化させる</text>
+  </g>
+</svg>

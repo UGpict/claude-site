@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="sans-serif" role="img" aria-label="詐欺を構成する6つの心理レバー">
+  <rect width="720" height="320" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">詐欺を構成する 6 つの心理レバー</text>
+
+  <g font-family="sans-serif">
+    <g>
+      <rect x="30" y="70" width="210" height="72" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+      <text x="135" y="102" text-anchor="middle" font-size="17" font-weight="700" fill="#000d8a">緊急性</text>
+      <text x="135" y="124" text-anchor="middle" font-size="12.5" fill="#64748b">今すぐ・期限切れ</text>
+    </g>
+    <g>
+      <rect x="255" y="70" width="210" height="72" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+      <text x="360" y="102" text-anchor="middle" font-size="17" font-weight="700" fill="#000d8a">権威（なりすまし）</text>
+      <text x="360" y="124" text-anchor="middle" font-size="12.5" fill="#64748b">上司・取引先を装う</text>
+    </g>
+    <g>
+      <rect x="480" y="70" width="210" height="72" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+      <text x="585" y="102" text-anchor="middle" font-size="17" font-weight="700" fill="#000d8a">報酬・恐怖</text>
+      <text x="585" y="124" text-anchor="middle" font-size="12.5" fill="#64748b">得・損で揺さぶる</text>
+    </g>
+
+    <g>
+      <rect x="30" y="158" width="210" height="72" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+      <text x="135" y="190" text-anchor="middle" font-size="17" font-weight="700" fill="#000d8a">誘導（行動喚起）</text>
+      <text x="135" y="212" text-anchor="middle" font-size="12.5" fill="#64748b">リンク・振込を促す</text>
+    </g>
+    <g>
+      <rect x="255" y="158" width="210" height="72" rx="12" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2.5"/>
+      <text x="360" y="190" text-anchor="middle" font-size="17" font-weight="700" fill="#2f7d46">個人化</text>
+      <text x="360" y="212" text-anchor="middle" font-size="12.5" fill="#4b7a5b">実名・文脈を織り込む</text>
+    </g>
+    <g>
+      <rect x="480" y="158" width="210" height="72" rx="12" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2.5"/>
+      <text x="585" y="190" text-anchor="middle" font-size="17" font-weight="700" fill="#2f7d46">孤立化</text>
+      <text x="585" y="212" text-anchor="middle" font-size="12.5" fill="#4b7a5b">内密に・相談させない</text>
+    </g>
+  </g>
+
+  <text x="360" y="268" text-anchor="middle" font-size="14" fill="#334155">緑の「個人化」と「孤立化」が、ビジネスメール詐欺（BEC）を捉える差別化レバー</text>
+  <text x="360" y="294" text-anchor="middle" font-size="13" fill="#64748b">攻撃側はこの 6 値の組み合わせ（型）を進化させ、防御側は同じ 6 値を逆算する</text>
+</svg>
