@@ -7,5 +7,5 @@ export const SITE_DESCRIPTION =
 
 // アクセス解析・サーチコンソール。
 // 値を入れると自動でタグが有効化され、空文字なら出力されません。
-export const GOOGLE_ANALYTICS_ID = ''; // 例: 'G-XXXXXXXXXX'（GA4 の測定 ID）
+export const GOOGLE_ANALYTICS_ID = 'G-3HFJVRXQ2C'; // GA4 の測定 ID
 export const GOOGLE_SITE_VERIFICATION = ''; // Search Console「HTMLタグ」方式の content 値
