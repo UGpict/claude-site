@@ -1,12 +1,19 @@
 ---
+import type { MarkdownHeading } from 'astro';
 import { Image } from 'astro:assets';
 import type { CollectionEntry } from 'astro:content';
 import FormattedDate from '../components/FormattedDate.astro';
 import Base from './Base.astro';
 
-type Props = CollectionEntry<'blog'>['data'];
+type Props = CollectionEntry<'blog'>['data'] & {
+	headings?: MarkdownHeading[];
+};
 
-const { title, description, pubDate, updatedDate, heroImage, sponsored } = Astro.props;
+const { title, description, pubDate, updatedDate, heroImage, sponsored, headings } =
+	Astro.props;
+
+// 目次には大見出し（H2）だけを載せ、番号は本文の節番号と一致させる
+const tocItems = (headings ?? []).filter((h) => h.depth === 2);
 ---
 
 <Base title={title} description={description} image={heroImage} shareTitle={title}>
@@ -32,9 +39,26 @@ const { title, description, pubDate, updatedDate, heroImage, sponsored } = Astro
 					}
 				</div>
 				<h1>{title}</h1>
-				<hr />
 			</div>
-			<slot />
+
+			{
+				tocItems.length > 1 && (
+					<nav class="toc" aria-label="目次">
+						<p class="toc-title">目次</p>
+						<ol>
+							{tocItems.map((h) => (
+								<li>
+									<a href={`#${h.slug}`}>{h.text}</a>
+								</li>
+							))}
+						</ol>
+					</nav>
+				)
+			}
+
+			<div class="body">
+				<slot />
+			</div>
 		</div>
 	</article>
 </Base>
@@ -45,7 +69,7 @@ const { title, description, pubDate, updatedDate, heroImage, sponsored } = Astro
 		max-width: 720px;
 		padding: 0.6em 1em;
 		font-size: 0.85rem;
-		color: rgb(var(--gray-dark));
+		color: #333333;
 		background: rgb(var(--gray-light));
 		border-radius: 8px;
 	}
@@ -63,16 +87,16 @@ const { title, description, pubDate, updatedDate, heroImage, sponsored } = Astro
 		max-width: 100%;
 		margin: auto;
 		padding: 1em 0;
-		color: rgb(var(--gray-dark));
 	}
 	.title {
-		margin-bottom: 1em;
-		padding: 1em 0;
+		margin-bottom: 1.5em;
+		padding: 1em 0 0.5em;
 		text-align: center;
-		line-height: 1;
+		line-height: 1.25;
 	}
 	.title h1 {
-		margin: 0 0 0.5em 0;
+		font-size: 1.95rem;
+		margin: 0 0 0.4em 0;
 	}
 	.date {
 		margin-bottom: 0.5em;
@@ -80,5 +104,109 @@ const { title, description, pubDate, updatedDate, heroImage, sponsored } = Astro
 	}
 	.last-updated-on {
 		font-style: italic;
+	}
+
+	/* 目次（概要）— クリックで各節へジャンプ */
+	.toc {
+		background: #fbfbfa;
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 12px;
+		padding: 1.1rem 1.4rem 1.2rem;
+		margin: 0 0 2.5rem;
+	}
+	.toc-title {
+		font-size: 0.95rem;
+		font-weight: 700;
+		color: #333333;
+		margin: 0 0 0.6rem;
+	}
+	.toc ol {
+		margin: 0;
+		padding-left: 1.4rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+	.toc li {
+		font-size: 0.95rem;
+		line-height: 1.5;
+	}
+	.toc a {
+		color: #333333;
+		text-decoration: none;
+	}
+	.toc a:hover {
+		color: var(--accent);
+		text-decoration: underline;
+	}
+
+	/* 本文タイポグラフィ（note 風） */
+	.body {
+		font-size: 18px;
+		line-height: 1.9;
+		color: #333333;
+	}
+	/* 節番号（H2 を 1,2,3… と自動採番。目次の番号と一致） */
+	.body {
+		counter-reset: section;
+	}
+	.body :global(h2) {
+		counter-increment: section;
+		font-size: 1.45em;
+		line-height: 1.4;
+		margin: 2.2em 0 0.8em;
+		padding-bottom: 0.3em;
+		border-bottom: 2px solid rgb(var(--gray-light));
+		scroll-margin-top: 84px;
+	}
+	.body :global(h2)::before {
+		content: counter(section) '. ';
+		color: var(--accent);
+		font-weight: 700;
+	}
+	.body :global(h3) {
+		font-size: 1.2em;
+		line-height: 1.45;
+		margin: 1.8em 0 0.6em;
+		scroll-margin-top: 84px;
+	}
+	.body :global(p) {
+		margin: 0 0 1.4em;
+	}
+	.body :global(ul),
+	.body :global(ol) {
+		margin: 0 0 1.4em;
+		padding-left: 1.4em;
+	}
+	.body :global(li) {
+		margin-bottom: 0.4em;
+	}
+	.body :global(img) {
+		margin: 1.5em auto;
+		border: 1px solid rgb(var(--gray-light));
+	}
+	.body :global(blockquote) {
+		font-size: 1em;
+		color: #555555;
+	}
+	.body :global(table) {
+		font-size: 0.95em;
+	}
+
+	/* 薄い黄色のマーカー（そこだけ読めば要点が分かる） */
+	.body :global(mark) {
+		background: linear-gradient(transparent 60%, #fff3a3 60%);
+		padding: 0 0.06em;
+		color: inherit;
+	}
+
+	@media (max-width: 720px) {
+		.body {
+			font-size: 17px;
+			line-height: 1.85;
+		}
+		.title h1 {
+			font-size: 1.6rem;
+		}
 	}
 </style>
