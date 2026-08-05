@@ -1,0 +1,34 @@
+---
+// アフィリエイト広告（もしもアフィリエイト / 楽天）。
+// もしも提供のタグは改変せずそのまま出力する（set:html）。
+// 景品表示法（ステマ規制）対応として「スポンサーリンク」表記を必ず添える。
+const bannerHtml = `<a href="//af.moshimo.com/af/c/click?a_id=5726711&p_id=54&pc_id=54&pl_id=1220" rel="nofollow" referrerpolicy="no-referrer-when-downgrade" attributionsrc><img src="//image.moshimo.com/af-img/0032/000000001220.gif" width="468" height="60" style="border:none;"></a><img src="//i.moshimo.com/af/i/impression?a_id=5726711&p_id=54&pc_id=54&pl_id=1220" width="1" height="1" style="border:none;" loading="lazy">`;
+---
+
+<aside class="affiliate" aria-label="スポンサーリンク">
+	<span class="affiliate-label">スポンサーリンク</span>
+	<div class="affiliate-banner" set:html={bannerHtml} />
+</aside>
+
+<style>
+	.affiliate {
+		margin: 2.5em auto 0;
+		max-width: 720px;
+		padding-top: 1.5em;
+		border-top: 1px solid rgb(var(--gray-light));
+		text-align: center;
+	}
+	.affiliate-label {
+		display: block;
+		font-size: 0.72rem;
+		letter-spacing: 0.08em;
+		color: rgb(var(--gray));
+		margin-bottom: 0.6em;
+	}
+	.affiliate-banner :global(img) {
+		max-width: 100%;
+		height: auto;
+		margin: 0;
+		border-radius: 0;
+	}
+</style>
