@@ -1,69 +1,169 @@
-// heroImage を指定していない記事に、スラッグから色を決めた抽象サムネを自動生成する。
-// 日本語テキストは画像に焼かない（ビルド環境のフォント有無に依存しないため）。
+// heroImage 未指定の記事に、記事タイトル＋カテゴリ＋ロゴを焼き込んだサムネを自動生成する。
+// satori でフォントをパス化するため、ビルド環境のフォント有無に依存しない（文字化けしない）。
 // 出力: public/thumb/<slug>.webp（1200x630, OG 兼用）
 import { readdirSync, readFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import satori from 'satori';
 import sharp from 'sharp';
 
 const dir = import.meta.dirname;
 const BLOG = join(dir, '..', 'src', 'content', 'blog');
 const OUT = join(dir, '..', 'public', 'thumb');
+const FONTS = join(dir, '..', 'src', 'assets', 'fonts');
 const LOGO = join(dir, '..', 'src', 'assets', 'logo.png');
 
 const W = 1200;
 const H = 630;
 
-function hash(s) {
-	let h = 2166136261;
-	for (let i = 0; i < s.length; i++) {
-		h ^= s.charCodeAt(i);
-		h = Math.imul(h, 16777619);
-	}
-	return h >>> 0;
-}
+// カテゴリ（src/consts.ts と対応。表示色を決めるのに使う）
+const CATEGORY = {
+	'claude-toha-nanika': '入門',
+	'claude-code-tsukaikata': '使い方',
+	'prompt-no-kotsu': '使い方',
+	'kangal-kaihatsu-jirei': '開発事例',
+	'shoshinsha-hitokara-tsukutta': '制作記録',
+	'ai-anzen-chuiten': '注意点',
+	'trailing-slash-canonical': '技術メモ',
+	'astro-nextjs-cms': '技術メモ',
+};
+const CAT_COLOR = {
+	入門: ['#e9f6ec', '#d3ecdb'],
+	使い方: ['#e7eeff', '#d3dfff'],
+	開発事例: ['#efe9ff', '#ded4ff'],
+	制作記録: ['#e6f5f2', '#d0ece6'],
+	注意点: ['#fdf1e3', '#f9e1c6'],
+	技術メモ: ['#eaeef5', '#dae1ef'],
+	記事: ['#eef1f6', '#dde3ee'],
+};
 
-function card(hue) {
-	const h2 = (hue + 32) % 360;
-	return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="hsl(${hue},66%,90%)"/>
-      <stop offset="1" stop-color="hsl(${h2},58%,82%)"/>
-    </linearGradient>
-  </defs>
-  <rect width="${W}" height="${H}" fill="url(#g)"/>
-  <circle cx="1010" cy="120" r="220" fill="hsl(${h2},72%,95%)" opacity="0.55"/>
-  <circle cx="180" cy="560" r="180" fill="hsl(${hue},64%,86%)" opacity="0.5"/>
-  <circle cx="980" cy="540" r="90" fill="hsl(${h2},70%,92%)" opacity="0.5"/>
-  <rect x="410" y="125" width="380" height="380" rx="44" fill="#ffffff" opacity="0.9"/>
-</svg>`;
+function frontmatter(src) {
+	const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+	return m ? m[1] : '';
+}
+function getTitle(fm) {
+	const m = fm.match(/^title:\s*(.+)$/m);
+	if (!m) return '';
+	let t = m[1].trim();
+	if ((t.startsWith("'") && t.endsWith("'")) || (t.startsWith('"') && t.endsWith('"'))) {
+		t = t.slice(1, -1);
+	}
+	return t;
+}
+function titleFontSize(len) {
+	if (len <= 14) return 66;
+	if (len <= 22) return 54;
+	if (len <= 32) return 44;
+	return 38;
 }
 
 async function main() {
 	mkdirSync(OUT, { recursive: true });
 
-	const logo = await sharp(LOGO)
-		.resize(300, 300, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-		.png()
-		.toBuffer();
+	const fonts = [
+		{ name: 'Noto Sans JP', weight: 700, style: 'normal', data: readFileSync(join(FONTS, 'NotoSansJP-700.woff')) },
+		{ name: 'Noto Sans JP', weight: 700, style: 'normal', data: readFileSync(join(FONTS, 'NotoSansJP-latin-700.woff')) },
+		{ name: 'Noto Sans JP', weight: 400, style: 'normal', data: readFileSync(join(FONTS, 'NotoSansJP-400.woff')) },
+		{ name: 'Noto Sans JP', weight: 400, style: 'normal', data: readFileSync(join(FONTS, 'NotoSansJP-latin-400.woff')) },
+	];
+	const logoDataUri = `data:image/png;base64,${readFileSync(LOGO).toString('base64')}`;
 
 	const files = readdirSync(BLOG).filter((n) => n.endsWith('.md') || n.endsWith('.mdx'));
 	let made = 0;
 	for (const f of files) {
 		const slug = f.replace(/\.(md|mdx)$/, '');
 		const src = readFileSync(join(BLOG, f), 'utf-8');
-		// heroImage を明示している記事はスキップ（手動優先）。改行コードに依存しない判定。
-		if (/^heroImage:\s*\S/m.test(src)) continue;
+		const fm = frontmatter(src);
+		if (/^heroImage:\s*\S/m.test(fm)) continue; // 手動指定はスキップ
 
-		const hue = hash(slug) % 360;
-		const base = await sharp(Buffer.from(card(hue))).png().toBuffer();
-		await sharp(base)
-			.composite([{ input: logo, gravity: 'center' }])
-			.webp({ quality: 82 })
-			.toFile(join(OUT, `${slug}.webp`));
+		const title = getTitle(fm) || slug;
+		const category = CATEGORY[slug] ?? '記事';
+		const [c1, c2] = CAT_COLOR[category] ?? CAT_COLOR['記事'];
+
+		const svg = await satori(
+			{
+				type: 'div',
+				props: {
+					style: {
+						width: '100%',
+						height: '100%',
+						display: 'flex',
+						flexDirection: 'column',
+						justifyContent: 'space-between',
+						padding: '70px',
+						background: `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`,
+						fontFamily: 'Noto Sans JP',
+					},
+					children: [
+						{
+							type: 'div',
+							props: {
+								style: { display: 'flex' },
+								children: [
+									{
+										type: 'div',
+										props: {
+											style: {
+												fontSize: 30,
+												fontWeight: 700,
+												color: '#000d8a',
+												background: 'rgba(255,255,255,0.8)',
+												padding: '10px 28px',
+												borderRadius: '999px',
+											},
+											children: category,
+										},
+									},
+								],
+							},
+						},
+						{
+							type: 'div',
+							props: {
+								style: {
+									display: 'flex',
+									fontSize: titleFontSize([...title].length),
+									fontWeight: 700,
+									color: '#14181f',
+									lineHeight: 1.35,
+									letterSpacing: '0.01em',
+								},
+								children: title,
+							},
+						},
+						{
+							type: 'div',
+							props: {
+								style: { display: 'flex', alignItems: 'center' },
+								children: [
+									{
+										type: 'img',
+										props: {
+											src: logoDataUri,
+											width: 60,
+											height: 60,
+											style: { borderRadius: 14, marginRight: 20 },
+										},
+									},
+									{
+										type: 'div',
+										props: {
+											style: { fontSize: 30, fontWeight: 700, color: '#3a4658' },
+											children: '0から始める優しいAI生活',
+										},
+									},
+								],
+							},
+						},
+					],
+				},
+			},
+			{ width: W, height: H, fonts },
+		);
+
+		await sharp(Buffer.from(svg)).webp({ quality: 84 }).toFile(join(OUT, `${slug}.webp`));
 		made++;
 	}
-	console.log(`[thumb] ${made} 件の自動サムネを生成`);
+	console.log(`[thumb] ${made} 件のサムネを生成（タイトル入り）`);
 }
 
 main().catch((e) => {
