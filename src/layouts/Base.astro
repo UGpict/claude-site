@@ -37,6 +37,35 @@ const { title, description, image, shareTitle } = Astro.props;
 	</body>
 </html>
 
+<script>
+	// スマホのシェアトーストを「下スクロール時だけ」表示する
+	const rail = document.querySelector('.rail-left');
+	if (rail) {
+		let last = window.scrollY;
+		let ticking = false;
+		const update = () => {
+			const y = window.scrollY;
+			if (y > last + 4 && y > 220) {
+				rail.classList.add('show'); // 下スクロール
+			} else if (y < last - 4 || y < 140) {
+				rail.classList.remove('show'); // 上スクロール、または最上部付近
+			}
+			last = y;
+			ticking = false;
+		};
+		window.addEventListener(
+			'scroll',
+			() => {
+				if (!ticking) {
+					window.requestAnimationFrame(update);
+					ticking = true;
+				}
+			},
+			{ passive: true },
+		);
+	}
+</script>
+
 <style>
 	.layout {
 		display: grid;
@@ -75,7 +104,8 @@ const { title, description, image, shareTitle } = Astro.props;
 			/* 下部の固定シェアバーに隠れないよう余白を確保 */
 			padding: 1.25rem 1em calc(3rem + 64px);
 		}
-		/* 左シェアバーは画面下部に浮くトースト（ピル）として固定 */
+		/* 左シェアバーは画面下部に浮くトースト（ピル）として固定。
+		   既定は隠し、下スクロール時だけ表示する（.show を付与） */
 		.rail-left {
 			position: fixed;
 			top: auto;
@@ -83,6 +113,17 @@ const { title, description, image, shareTitle } = Astro.props;
 			bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
 			left: 0.75rem;
 			z-index: 60;
+			transform: translateY(180%);
+			opacity: 0;
+			pointer-events: none;
+			transition:
+				transform 0.25s ease,
+				opacity 0.25s ease;
+		}
+		.rail-left.show {
+			transform: translateY(0);
+			opacity: 1;
+			pointer-events: auto;
 		}
 	}
 </style>

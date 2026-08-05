@@ -258,5 +258,10 @@ const faqSchema =
 			overflow-x: auto;
 			-webkit-overflow-scrolling: touch;
 		}
+		/* スマホは縦積みヘッダーが高いぶん、アンカー到達位置の余白を広げる */
+		.body :global(h2),
+		.body :global(h3) {
+			scroll-margin-top: 104px;
+		}
 	}
 </style>

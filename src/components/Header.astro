@@ -56,9 +56,9 @@ import HeaderLink from './HeaderLink.astro';
 			display: none;
 		}
 	}
-	@media (max-width: 560px) {
+	@media (max-width: 700px) {
 		header {
-			padding: 0 0.75em;
+			padding: 0 0.9em;
 		}
 		nav {
 			flex-direction: column;
@@ -66,15 +66,22 @@ import HeaderLink from './HeaderLink.astro';
 			gap: 0;
 		}
 		h2 {
-			padding: 0.5em 0 0.1em;
+			padding: 0.5em 0 0.15em;
+			font-size: 1.05em;
+			max-width: 100%;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
 		}
 		.internal-links {
 			display: flex;
 			flex-wrap: wrap;
+			gap: 0 0.4rem;
 		}
 		nav a {
-			padding: 0.5em 0.9em 0.6em 0;
-			font-size: 0.92rem;
+			padding: 0.45em 0.5em 0.6em 0;
+			font-size: 0.9rem;
+			border-bottom-width: 3px;
 		}
 	}
 </style>
