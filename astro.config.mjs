@@ -9,6 +9,13 @@ export default defineConfig({
 	site: 'https://yasashiibai.com',
 	// URL は末尾スラッシュ付きに統一（canonical / sitemap / 内部リンクと一致させる）
 	trailingSlash: 'always',
+	// コードブロックは黒背景のダークテーマで表示
+	markdown: {
+		shikiConfig: {
+			theme: 'github-dark',
+			wrap: true,
+		},
+	},
 	integrations: [mdx(), sitemap()],
 	fonts: [
 		{

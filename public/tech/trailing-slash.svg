@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 280" font-family="sans-serif" role="img" aria-label="末尾スラッシュ有無で同じページが2つのURLに見える問題と、canonicalでの解決">
+  <rect width="720" height="280" fill="#ffffff"/>
+  <text x="360" y="36" text-anchor="middle" font-size="20" font-weight="700" fill="#0f1219">同じ内容なのに URL が 2 つ？</text>
+  <defs><marker id="ts" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/></marker></defs>
+
+  <g font-size="13" font-family="monospace">
+    <rect x="30" y="70" width="250" height="40" rx="8" fill="#fff5f5" stroke="#e0554e" stroke-width="1.5"/>
+    <text x="45" y="95" fill="#b23b34">/blog/hello</text>
+    <rect x="30" y="122" width="250" height="40" rx="8" fill="#fff5f5" stroke="#e0554e" stroke-width="1.5"/>
+    <text x="45" y="147" fill="#b23b34">/blog/hello/</text>
+  </g>
+
+  <text x="155" y="192" text-anchor="middle" font-size="13" fill="#64748b">人には同じページ。でも検索エンジンには</text>
+  <text x="155" y="212" text-anchor="middle" font-size="15" font-weight="700" fill="#b23b34">「別の URL では？」と割れて見える</text>
+
+  <line x1="290" y1="130" x2="360" y2="130" stroke="#2337ff" stroke-width="2.5" marker-end="url(#ts)"/>
+  <text x="325" y="120" text-anchor="middle" font-size="12" fill="#64748b">揃える</text>
+
+  <g>
+    <rect x="378" y="88" width="312" height="104" rx="14" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+    <text x="534" y="118" text-anchor="middle" font-size="15" font-weight="700" fill="#2f7d46">1 つの形に統一する</text>
+    <text x="534" y="144" text-anchor="middle" font-size="12.5" fill="#33553f">canonical・サイトマップ・内部リンク</text>
+    <text x="534" y="162" text-anchor="middle" font-size="12.5" fill="#33553f">を全部そろえ、片方へリダイレクト</text>
+    <text x="534" y="182" text-anchor="middle" font-size="12.5" font-family="monospace" fill="#2f7d46">→ /blog/hello/ に集約</text>
+  </g>
+  <text x="360" y="252" text-anchor="middle" font-size="13" fill="#64748b">評価が 1 つの URL に集まり、インデックスも安定する</text>
+</svg>
