@@ -1,0 +1,23 @@
+name: Scheduled rebuild (refresh popular articles)
+
+# 人気記事は GA4 のデータをビルド時に取り込む方式のため、
+# 定期的に再ビルドして最新の人気順に更新する。
+on:
+  schedule:
+    - cron: '0 21 * * *' # 毎日 06:00 JST（21:00 UTC）
+  workflow_dispatch: {}
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Cloudflare Pages deploy hook
+        env:
+          HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "CLOUDFLARE_DEPLOY_HOOK が未設定のためスキップします。"
+            exit 0
+          fi
+          curl -fsSL -X POST "$HOOK"
+          echo "デプロイフックを実行しました。"

@@ -1,14 +1,21 @@
 ---
 import { getCollection } from 'astro:content';
 import { categoryOf } from '../consts';
+import popularSlugs from '../data/popular.json';
 import FormattedDate from './FormattedDate.astro';
 
 const posts = (await getCollection('blog')).sort(
 	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
 );
 
-// 「人気記事」は暫定で新着順の上位5件（アクセス解析と連動させたら差し替え可能）
-const popular = posts.slice(0, 5);
+// 「人気記事」= GA4 のビュー上位（scripts/fetchPopular.mjs がビルド時に生成）。
+// データが無ければ新着順にフォールバックし、上位が5件に満たない分も新着で補う。
+const bySlug = new Map(posts.map((p) => [p.id, p]));
+const ranked = (popularSlugs as string[])
+	.map((slug) => bySlug.get(slug))
+	.filter((p): p is (typeof posts)[number] => Boolean(p));
+const rankedIds = new Set(ranked.map((p) => p.id));
+const popular = [...ranked, ...posts.filter((p) => !rankedIds.has(p.id))].slice(0, 5);
 
 // カテゴリごとの記事数を集計
 const counts = new Map<string, number>();
