@@ -71,12 +71,18 @@ const { title, description, image, shareTitle } = Astro.props;
 	@media (max-width: 700px) {
 		.layout {
 			grid-template-columns: 1fr;
-			gap: 1.5rem;
-			padding: 1.25rem 1em 3rem;
+			gap: 1.25rem;
+			/* 下部の固定シェアバーに隠れないよう余白を確保 */
+			padding: 1.25rem 1em calc(3rem + 64px);
 		}
+		/* 左シェアバーは画面下部に浮くトースト（ピル）として固定 */
 		.rail-left {
-			position: static;
-			flex-direction: row;
+			position: fixed;
+			top: auto;
+			right: 0.75rem;
+			bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+			left: 0.75rem;
+			z-index: 60;
 		}
 	}
 </style>

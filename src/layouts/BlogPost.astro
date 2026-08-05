@@ -252,5 +252,11 @@ const faqSchema =
 		.title h1 {
 			font-size: 1.6rem;
 		}
+		/* 広い表は横スクロールで溢れさせない */
+		.body :global(table) {
+			display: block;
+			overflow-x: auto;
+			-webkit-overflow-scrolling: touch;
+		}
 	}
 </style>

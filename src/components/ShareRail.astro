@@ -117,4 +117,25 @@ const threadsHref = `https://www.threads.net/intent/post?text=${text}%20${url}`;
 		background: var(--accent);
 		border-color: var(--accent);
 	}
+
+	/* スマホ：下部トースト（横並びの浮くピル） */
+	@media (max-width: 700px) {
+		.share-rail {
+			flex-direction: row;
+			justify-content: center;
+			gap: 0.75rem;
+			background: #fff;
+			border: 1px solid rgb(var(--gray-light));
+			border-radius: 999px;
+			padding: 0.5rem 0.9rem;
+			box-shadow: 0 6px 20px rgba(15, 18, 25, 0.16);
+		}
+		.label {
+			display: none;
+		}
+		.btn {
+			width: 44px;
+			height: 44px;
+		}
+	}
 </style>
