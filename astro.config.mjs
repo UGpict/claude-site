@@ -7,6 +7,8 @@ import { defineConfig, fontProviders } from 'astro/config';
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://yasashiibai.com',
+	// URL は末尾スラッシュ付きに統一（canonical / sitemap / 内部リンクと一致させる）
+	trailingSlash: 'always',
 	integrations: [mdx(), sitemap()],
 	fonts: [
 		{
