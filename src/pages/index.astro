@@ -3,7 +3,7 @@ import { Image } from 'astro:assets';
 import { getCollection } from 'astro:content';
 import FormattedDate from '../components/FormattedDate.astro';
 import Base from '../layouts/Base.astro';
-import { SITE_DESCRIPTION, SITE_TITLE, categoryOf } from '../consts';
+import { SITE_DESCRIPTION, SITE_TITLE, categoryOf, thumbUrl } from '../consts';
 
 const posts = (await getCollection('blog')).sort(
 	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
@@ -20,11 +20,13 @@ const [featured, ...rest] = posts;
 	{
 		featured && (
 			<a class="card featured" href={`/blog/${featured.id}/`}>
-				{featured.data.heroImage && (
-					<div class="thumb">
+				<div class="thumb">
+					{featured.data.heroImage ? (
 						<Image src={featured.data.heroImage} width={800} height={450} alt="" />
-					</div>
-				)}
+					) : (
+						<img src={thumbUrl(featured.id)} width="800" height="450" alt="" />
+					)}
+				</div>
 				<div class="body">
 					<div class="meta">
 						<span class="badge">{categoryOf(featured.id)}</span>
@@ -44,11 +46,13 @@ const [featured, ...rest] = posts;
 			rest.map((post) => (
 				<li>
 					<a class="card" href={`/blog/${post.id}/`}>
-						{post.data.heroImage && (
-							<div class="thumb">
+						<div class="thumb">
+							{post.data.heroImage ? (
 								<Image src={post.data.heroImage} width={480} height={270} alt="" />
-							</div>
-						)}
+							) : (
+								<img src={thumbUrl(post.id)} width="480" height="270" alt="" loading="lazy" />
+							)}
+						</div>
 						<div class="body">
 							<div class="meta">
 								<span class="badge">{categoryOf(post.id)}</span>

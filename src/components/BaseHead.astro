@@ -15,11 +15,16 @@ interface Props {
 	title: string;
 	description: string;
 	image?: ImageMetadata;
+	ogImage?: string;
 }
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
-const { title, description, image = FallbackImage } = Astro.props;
+const { title, description, image = FallbackImage, ogImage } = Astro.props;
+// OG 画像：ogImage（自動サムネなどの URL）が優先、無ければ heroImage
+const ogImageUrl = ogImage
+	? new URL(ogImage, Astro.site).toString()
+	: new URL(image.src, Astro.url).toString();
 
 const siteUrl = Astro.site?.toString() ?? '';
 const websiteSchema = {
@@ -66,10 +71,11 @@ const organizationSchema = {
 <meta property="og:url" content={Astro.url} />
 <meta property="og:title" content={title} />
 <meta property="og:description" content={description} />
-<meta property="og:image" content={new URL(image.src, Astro.url)} />
+<meta property="og:image" content={ogImageUrl} />
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content={ogImageUrl} />
 
 <!-- 構造化データ（サイト全体） -->
 <script type="application/ld+json" set:html={JSON.stringify(websiteSchema)} />

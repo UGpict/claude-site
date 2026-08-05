@@ -4,14 +4,18 @@ import { Image } from 'astro:assets';
 import type { CollectionEntry } from 'astro:content';
 import FormattedDate from '../components/FormattedDate.astro';
 import Base from './Base.astro';
-import { AUTHOR_NAME, SITE_TITLE } from '../consts';
+import { AUTHOR_NAME, SITE_TITLE, thumbUrl } from '../consts';
 
 type Props = CollectionEntry<'blog'>['data'] & {
 	headings?: MarkdownHeading[];
+	slug?: string;
 };
 
-const { title, description, pubDate, updatedDate, heroImage, sponsored, headings, faq } =
+const { title, description, pubDate, updatedDate, heroImage, sponsored, headings, faq, slug } =
 	Astro.props;
+
+// heroImage 未指定なら、自動生成サムネ（/thumb/<slug>.webp）を使う
+const autoThumb = heroImage ? null : thumbUrl(slug ?? '');
 
 // 目次には大見出し（H2）だけを載せ、番号は本文の節番号と一致させる
 const tocItems = (headings ?? []).filter((h) => h.depth === 2);
@@ -20,7 +24,7 @@ const tocItems = (headings ?? []).filter((h) => h.depth === 2);
 const canonical = new URL(Astro.url.pathname, Astro.site).toString();
 const imageUrl = heroImage
 	? new URL(heroImage.src, Astro.site).toString()
-	: undefined;
+	: new URL(autoThumb ?? '/', Astro.site).toString();
 const articleSchema = {
 	'@context': 'https://schema.org',
 	'@type': 'BlogPosting',
@@ -57,7 +61,13 @@ const faqSchema =
 		: null;
 ---
 
-<Base title={title} description={description} image={heroImage} shareTitle={title}>
+<Base
+	title={title}
+	description={description}
+	image={heroImage}
+	ogImage={autoThumb ?? undefined}
+	shareTitle={title}
+>
 	<script type="application/ld+json" set:html={JSON.stringify(articleSchema)} />
 	<script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
 	{faqSchema && <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />}
@@ -68,7 +78,13 @@ const faqSchema =
 	}
 	<article>
 		<div class="hero-image">
-			{heroImage && <Image width={1020} height={510} src={heroImage} alt="" />}
+			{
+				heroImage ? (
+					<Image width={1020} height={510} src={heroImage} alt="" />
+				) : (
+					<img src={autoThumb} width="1020" height="510" alt="" />
+				)
+			}
 		</div>
 		<div class="prose">
 			<div class="title">

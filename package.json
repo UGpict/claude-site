@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "node scripts/fetchPopular.mjs && astro build",
+    "build": "node scripts/fetchPopular.mjs && node scripts/genThumbnails.mjs && astro build",
     "preview": "astro preview",
     "astro": "astro"
   },

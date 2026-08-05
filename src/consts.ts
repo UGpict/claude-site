@@ -22,6 +22,9 @@ export const CATEGORY: Record<string, string> = {
 };
 export const categoryOf = (id: string): string => CATEGORY[id] ?? '記事';
 
+// heroImage 未指定の記事は、ビルド時に自動生成したサムネ（public/thumb/<slug>.webp）を使う
+export const thumbUrl = (slug: string): string => `/thumb/${slug}.webp`;
+
 // SNS プロフィール（左シェアバーの Instagram など。未設定なら該当アイコンは非表示）
 export const SOCIAL = {
 	instagram: '', // 例: 'https://www.instagram.com/your_account/'

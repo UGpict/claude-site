@@ -22,3 +22,6 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# 自動生成サムネ（ビルド時に生成）
+/public/thumb/

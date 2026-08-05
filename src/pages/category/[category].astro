@@ -3,7 +3,7 @@ import { Image } from 'astro:assets';
 import { getCollection } from 'astro:content';
 import FormattedDate from '../../components/FormattedDate.astro';
 import Base from '../../layouts/Base.astro';
-import { SITE_TITLE, categoryOf } from '../../consts';
+import { SITE_TITLE, categoryOf, thumbUrl } from '../../consts';
 
 export async function getStaticPaths() {
 	const posts = await getCollection('blog');
@@ -36,11 +36,13 @@ const { posts } = Astro.props;
 			posts.map((post) => (
 				<li>
 					<a class="row" href={`/blog/${post.id}/`}>
-						{post.data.heroImage && (
-							<div class="thumb">
+						<div class="thumb">
+							{post.data.heroImage ? (
 								<Image src={post.data.heroImage} width={320} height={180} alt="" />
-							</div>
-						)}
+							) : (
+								<img src={thumbUrl(post.id)} width="320" height="180" alt="" loading="lazy" />
+							)}
+						</div>
 						<div class="body">
 							<div class="meta">
 								<span class="badge">{categoryOf(post.id)}</span>
