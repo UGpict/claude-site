@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 250" font-family="sans-serif" role="img" aria-label="検索エンジンと生成AIの両方に読ませる">
+  <rect width="720" height="250" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="20" font-weight="700" fill="#0f1219">検索エンジンと生成AIの両方に読ませる</text>
+
+  <g>
+    <rect x="30" y="66" width="310" height="152" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="185" y="96" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">SEO（検索で見つかる）</text>
+    <g font-size="14" fill="#334155">
+      <text x="55" y="128">・タイトルとメタを一つずつ書き直し</text>
+      <text x="55" y="156">・クラスターを継続的に深掘り</text>
+      <text x="55" y="184">・画像を WebP 化・alt を丁寧に</text>
+    </g>
+  </g>
+  <g>
+    <rect x="380" y="66" width="310" height="152" rx="14" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+    <text x="535" y="96" text-anchor="middle" font-size="16" font-weight="700" fill="#2f7d46">GEO（生成AIに拾われる）</text>
+    <g font-size="14" fill="#33553f">
+      <text x="405" y="128">・FAQ スキーマを文脈ごとに分散</text>
+      <text x="405" y="156">・記事に Article の JSON-LD</text>
+      <text x="405" y="184">・パンくずで構造を明示</text>
+    </g>
+  </g>
+</svg>

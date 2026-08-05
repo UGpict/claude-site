@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif" role="img" aria-label="制作の5フェーズ">
+  <rect width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="20" font-weight="700" fill="#0f1219">制作の 5 フェーズ</text>
+  <g font-size="14">
+    <g><rect x="40" y="62" width="640" height="40" rx="8" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><circle cx="66" cy="82" r="12" fill="#2337ff"/><text x="66" y="87" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">1</text><text x="90" y="87" fill="#334155"><tspan font-weight="700" fill="#000d8a">基盤</tspan>　速くて壊れない静的サイトの箱を先に固める</text></g>
+    <g><rect x="40" y="110" width="640" height="40" rx="8" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><circle cx="66" cy="130" r="12" fill="#2337ff"/><text x="66" y="135" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">2</text><text x="90" y="135" fill="#334155"><tspan font-weight="700" fill="#000d8a">設計</tspan>　症状ごとのコンテンツクラスターを組む</text></g>
+    <g><rect x="40" y="158" width="640" height="40" rx="8" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><circle cx="66" cy="178" r="12" fill="#2337ff"/><text x="66" y="183" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">3</text><text x="90" y="183" fill="#334155"><tspan font-weight="700" fill="#000d8a">実装</tspan>　SEO と GEO の構造を仕込む</text></g>
+    <g><rect x="40" y="206" width="640" height="40" rx="8" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><circle cx="66" cy="226" r="12" fill="#2337ff"/><text x="66" y="231" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">4</text><text x="90" y="231" fill="#334155"><tspan font-weight="700" fill="#000d8a">計測</tspan>　GA4 で流入と成約を追い、改善を回す</text></g>
+    <g><rect x="40" y="254" width="640" height="40" rx="8" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><circle cx="66" cy="274" r="12" fill="#2337ff"/><text x="66" y="279" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">5</text><text x="90" y="279" fill="#334155"><tspan font-weight="700" fill="#000d8a">堅牢性</tspan>　外部監査・速度・セキュリティを外の目で固める</text></g>
+  </g>
+</svg>

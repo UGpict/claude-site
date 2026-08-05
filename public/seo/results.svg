@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 240" font-family="sans-serif" role="img" aria-label="公開後の成果の数字">
+  <rect width="720" height="240" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="20" font-weight="700" fill="#0f1219">公開後の成果（母数は小さいが手応え）</text>
+
+  <g>
+    <rect x="30" y="70" width="200" height="130" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="130" y="120" text-anchor="middle" font-size="40" font-weight="700" fill="#000d8a">約60%</text>
+    <text x="130" y="150" text-anchor="middle" font-size="14" fill="#334155">問い合わせ5件</text>
+    <text x="130" y="172" text-anchor="middle" font-size="14" fill="#334155">→ 受注3件</text>
+  </g>
+  <g>
+    <rect x="260" y="70" width="200" height="130" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="360" y="120" text-anchor="middle" font-size="40" font-weight="700" fill="#000d8a">6.5倍</text>
+    <text x="360" y="150" text-anchor="middle" font-size="14" fill="#334155">検索インプレッション</text>
+    <text x="360" y="172" text-anchor="middle" font-size="14" fill="#334155">下限が一段上昇</text>
+  </g>
+  <g>
+    <rect x="490" y="70" width="200" height="130" rx="14" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+    <text x="590" y="120" text-anchor="middle" font-size="40" font-weight="700" fill="#2f7d46">1件+</text>
+    <text x="590" y="150" text-anchor="middle" font-size="14" fill="#33553f">ChatGPT 経由の</text>
+    <text x="590" y="172" text-anchor="middle" font-size="14" fill="#33553f">問い合わせを確認</text>
+  </g>
+  <text x="360" y="226" text-anchor="middle" font-size="12.5" fill="#64748b">主要な入り口は狙い通り「割れ」と「樹脂」のクラスターだった</text>
+</svg>

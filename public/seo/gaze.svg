@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200" font-family="sans-serif" role="img" aria-label="視線の流れ 一見・比較・行動">
+  <rect width="720" height="200" fill="#ffffff"/>
+  <text x="360" y="36" text-anchor="middle" font-size="20" font-weight="700" fill="#0f1219">情報の優先順位から、視線の流れを設計する</text>
+  <defs><marker id="gz" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/></marker></defs>
+  <g>
+    <rect x="40" y="80" width="180" height="70" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="130" y="112" text-anchor="middle" font-size="18" font-weight="700" fill="#000d8a">一見</text>
+    <text x="130" y="134" text-anchor="middle" font-size="12.5" fill="#64748b">まず何が目に入るか</text>
+  </g>
+  <line x1="224" y1="115" x2="256" y2="115" stroke="#2337ff" stroke-width="2.5" marker-end="url(#gz)"/>
+  <g>
+    <rect x="270" y="80" width="180" height="70" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="360" y="112" text-anchor="middle" font-size="18" font-weight="700" fill="#000d8a">比較</text>
+    <text x="360" y="134" text-anchor="middle" font-size="12.5" fill="#64748b">次に何と見くらべるか</text>
+  </g>
+  <line x1="454" y1="115" x2="486" y2="115" stroke="#2337ff" stroke-width="2.5" marker-end="url(#gz)"/>
+  <g>
+    <rect x="500" y="80" width="180" height="70" rx="12" fill="#2337ff"/>
+    <text x="590" y="112" text-anchor="middle" font-size="18" font-weight="700" fill="#ffffff">行動</text>
+    <text x="590" y="134" text-anchor="middle" font-size="12.5" fill="#dfe4ff">最後にどう動くか</text>
+  </g>
+  <text x="360" y="182" text-anchor="middle" font-size="13" fill="#64748b">色は役割ごとに割り当て、一つの色に複数の意味を兼任させない</text>
+</svg>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif" role="img" aria-label="AIとの実際の進め方 5つの習慣">
+  <rect width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="20" font-weight="700" fill="#0f1219">AI と二人三脚で進める 5 つの習慣</text>
+  <g font-size="14">
+    <g><rect x="40" y="60" width="640" height="42" rx="8" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><text x="60" y="87" fill="#334155"><tspan font-weight="700" fill="#000d8a">部品単位で頼む</tspan>　ページ全体でなく、小さな塊で作って確かめる</text></g>
+    <g><rect x="40" y="110" width="640" height="42" rx="8" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><text x="60" y="137" fill="#334155"><tspan font-weight="700" fill="#000d8a">計画を先に出させる</tspan>　いきなり書かせず、方針を確認してから実行</text></g>
+    <g><rect x="40" y="160" width="640" height="42" rx="8" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><text x="60" y="187" fill="#334155"><tspan font-weight="700" fill="#000d8a">エラーはそのまま貼る</tspan>　原因と直し方をその場で教えてもらう</text></g>
+    <g><rect x="40" y="210" width="640" height="42" rx="8" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><text x="60" y="237" fill="#334155"><tspan font-weight="700" fill="#000d8a">型で早期に気づく</tspan>　TypeScript が生成コードの間違いを表面化</text></g>
+    <g><rect x="40" y="260" width="640" height="42" rx="8" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><text x="60" y="287" fill="#334155"><tspan font-weight="700" fill="#000d8a">ルールを一箇所に集約</tspan>　決めごとをまとめ、自分がいなくても回す</text></g>
+  </g>
+</svg>

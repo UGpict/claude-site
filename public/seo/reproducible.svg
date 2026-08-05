@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="sans-serif" role="img" aria-label="再現できる型 6項目">
+  <rect width="720" height="320" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="20" font-weight="700" fill="#0f1219">再現できる型（6 か条）</text>
+  <g font-size="14">
+    <g><rect x="30" y="60" width="320" height="76" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><text x="48" y="88" font-weight="700" fill="#000d8a">1. まず、誰に何を届けるか</text><text x="48" y="112" fill="#334155">コードより先に設計を決める</text></g>
+    <g><rect x="370" y="60" width="320" height="76" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><text x="388" y="88" font-weight="700" fill="#000d8a">2. 箱を固めてから中身</text><text x="388" y="112" fill="#334155">速く壊れない土台とURL正規化</text></g>
+    <g><rect x="30" y="146" width="320" height="76" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><text x="48" y="174" font-weight="700" fill="#000d8a">3. 浅く広くより、深く</text><text x="48" y="198" fill="#334155">症状ごとに一番詳しく</text></g>
+    <g><rect x="370" y="146" width="320" height="76" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><text x="388" y="174" font-weight="700" fill="#000d8a">4. 検索と生成AIの両方に</text><text x="388" y="198" fill="#334155">SEO＋GEO を仕込む</text></g>
+    <g><rect x="30" y="232" width="320" height="76" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><text x="48" y="260" font-weight="700" fill="#000d8a">5. 作って終わりにしない</text><text x="48" y="284" fill="#334155">数字で計測 → 仮説 → 修正</text></g>
+    <g><rect x="370" y="232" width="320" height="76" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/><text x="388" y="260" font-weight="700" fill="#000d8a">6. 引き継げる形で作る</text><text x="388" y="284" fill="#334155">ルールを一箇所に集約</text></g>
+  </g>
+</svg>
