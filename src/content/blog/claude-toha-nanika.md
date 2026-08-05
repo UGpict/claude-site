@@ -2,7 +2,6 @@
 title: 'Claude とは何か — はじめての人のための入門'
 description: 'Claude の正体、モデルの種類（Opus / Sonnet / Haiku）、どこで使えるのかを、初心者向けにやさしく整理します。'
 pubDate: 'Jul 20 2026'
-heroImage: '../../assets/blog-placeholder-1.jpg'
 ---
 
 「Claude（クロード）って最近よく聞くけれど、結局なに？」

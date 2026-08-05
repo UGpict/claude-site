@@ -2,7 +2,6 @@
 title: 'Claude Code の使い方 — ターミナルで動く AI エージェント'
 description: 'コマンドラインから Claude に開発作業を任せる Claude Code。インストールから基本の使い方、上手に付き合うコツまでを紹介します。'
 pubDate: 'Jul 27 2026'
-heroImage: '../../assets/blog-placeholder-2.jpg'
 faq:
   - q: コードが読めなくても Claude Code は使える？
     a: 最初は読めなくても大丈夫です。分からない部分は「これは何をしている？」と聞けば、そのつど説明してくれます。使ううちに少しずつ読めるようになっていきます。

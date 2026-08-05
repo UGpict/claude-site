@@ -2,7 +2,6 @@
 title: 'AI と安全につきあう — 初心者が知っておきたい 3 つの注意点'
 description: 'AI は便利ですが、任せきりにすると思わぬ落とし穴があります。安心して使い続けるために、最初に知っておきたい注意点を 3 つにまとめました。'
 pubDate: 'Aug 02 2026'
-heroImage: '../../assets/blog-placeholder-about.jpg'
 ---
 
 AI は便利な道具です。
