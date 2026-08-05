@@ -16,6 +16,10 @@ const blog = defineCollection({
 			heroImage: z.optional(image()),
 			// アフィリエイト広告・PR を含む記事は true にすると開示バナーを表示
 			sponsored: z.boolean().default(false),
+			// FAQ 構造化データ（生成AI/検索向け）。設定した記事だけ FAQPage を出力
+			faq: z
+				.array(z.object({ q: z.string(), a: z.string() }))
+				.optional(),
 		}),
 });
 

@@ -25,3 +25,6 @@ export const categoryOf = (id: string): string => CATEGORY[id] ?? '記事';
 export const SOCIAL = {
 	instagram: '', // 例: 'https://www.instagram.com/your_account/'
 };
+
+// 記事の著者名（構造化データ Article の author に使用。変更可）
+export const AUTHOR_NAME = 'のこたけ';
