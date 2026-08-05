@@ -10,9 +10,10 @@ import { AUTHOR_NAME, SITE_TITLE, thumbUrl } from '../consts';
 type Props = CollectionEntry<'blog'>['data'] & {
 	headings?: MarkdownHeading[];
 	slug?: string;
+	ogImage?: string;
 };
 
-const { title, description, pubDate, updatedDate, heroImage, sponsored, headings, faq, slug } =
+const { title, description, pubDate, updatedDate, heroImage, sponsored, headings, faq, slug, ogImage: ogImageProp } =
 	Astro.props;
 
 // heroImage 未指定なら、自動生成サムネ（/thumb/<slug>.webp）を使う
@@ -66,7 +67,7 @@ const faqSchema =
 	title={title}
 	description={description}
 	image={heroImage}
-	ogImage={autoThumb ?? undefined}
+	ogImage={ogImageProp ?? autoThumb ?? undefined}
 	shareTitle={title}
 >
 	<script type="application/ld+json" set:html={JSON.stringify(articleSchema)} />

@@ -11,7 +11,7 @@ const posts = (await getCollection('blog')).sort(
 const [featured, ...rest] = posts;
 ---
 
-<Base title={SITE_TITLE} description={SITE_DESCRIPTION}>
+<Base title={SITE_TITLE} description={SITE_DESCRIPTION} ogImage="/thumb/_home.webp">
 	<section class="intro">
 		<h1>{SITE_TITLE}</h1>
 		<p>{SITE_DESCRIPTION}</p>

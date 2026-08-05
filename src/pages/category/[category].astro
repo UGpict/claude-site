@@ -26,6 +26,7 @@ const { posts } = Astro.props;
 	title={`${category}の記事 | ${SITE_TITLE}`}
 	description={`「${category}」カテゴリの記事一覧。`}
 	shareTitle={SITE_TITLE}
+	ogImage={`/thumb/_cat-${category}.webp`}
 >
 	<p class="crumb"><a href="/blog/">記事一覧</a> ／ カテゴリ</p>
 	<h1 class="page-title">カテゴリ：{category}</h1>
