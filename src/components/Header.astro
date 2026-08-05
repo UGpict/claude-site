@@ -1,11 +1,18 @@
 ---
+import { Image } from 'astro:assets';
+import logo from '../assets/logo.png';
 import { SITE_TITLE } from '../consts';
 import HeaderLink from './HeaderLink.astro';
 ---
 
 <header>
 	<nav>
-		<h2><a href="/">{SITE_TITLE}</a></h2>
+		<h2>
+			<a href="/">
+				<Image src={logo} alt="" class="brand-logo" width={64} height={64} />
+				<span>{SITE_TITLE}</span>
+			</a>
+		</h2>
 		<div class="internal-links">
 			<HeaderLink href="/">ホーム</HeaderLink>
 			<HeaderLink href="/blog">記事一覧</HeaderLink>
@@ -31,6 +38,17 @@ import HeaderLink from './HeaderLink.astro';
 	h2 a,
 	h2 a.active {
 		text-decoration: none;
+	}
+	h2 a {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.45em;
+	}
+	.brand-logo {
+		height: 30px;
+		width: 30px;
+		border-radius: 7px;
+		flex: none;
 	}
 	nav {
 		display: flex;
@@ -69,9 +87,15 @@ import HeaderLink from './HeaderLink.astro';
 			padding: 0.5em 0 0.15em;
 			font-size: 1.05em;
 			max-width: 100%;
+		}
+		h2 a {
+			max-width: 100%;
+		}
+		h2 a span {
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
+			min-width: 0;
 		}
 		.internal-links {
 			display: flex;
