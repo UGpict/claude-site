@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" font-family="sans-serif" role="img" aria-label="どれを選ぶかの判断フロー">
+  <rect width="720" height="340" fill="#ffffff"/>
+  <text x="360" y="36" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">迷ったときの選び方</text>
+  <defs><marker id="cf" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#94a3b8"/></marker></defs>
+
+  <g font-size="13.5">
+    <rect x="220" y="56" width="280" height="46" rx="10" fill="#f2f4f9" stroke="#94a3b8"/>
+    <text x="360" y="84" text-anchor="middle" fill="#334155">ログイン・EC・管理画面など<tspan font-weight="700"> 動的機能</tspan>が要る？</text>
+
+    <line x1="500" y1="79" x2="600" y2="79" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#cf)"/>
+    <text x="548" y="72" text-anchor="middle" font-size="12" fill="#64748b">はい</text>
+    <rect x="600" y="58" width="100" height="42" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="650" y="84" text-anchor="middle" font-weight="700" fill="#000d8a">Next.js</text>
+
+    <line x1="360" y1="102" x2="360" y2="134" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#cf)"/>
+    <text x="378" y="122" font-size="12" fill="#64748b">いいえ</text>
+
+    <rect x="200" y="136" width="320" height="46" rx="10" fill="#f2f4f9" stroke="#94a3b8"/>
+    <text x="360" y="164" text-anchor="middle" fill="#334155"><tspan font-weight="700">非技術者</tspan>が、管理画面で頻繁に更新する？</text>
+
+    <line x1="520" y1="159" x2="600" y2="159" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#cf)"/>
+    <text x="560" y="152" text-anchor="middle" font-size="12" fill="#64748b">はい</text>
+    <rect x="600" y="138" width="100" height="42" rx="10" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+    <text x="650" y="164" text-anchor="middle" font-weight="700" fill="#2f7d46">CMS</text>
+
+    <line x1="360" y1="182" x2="360" y2="214" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#cf)"/>
+    <text x="378" y="202" font-size="12" fill="#64748b">いいえ</text>
+
+    <rect x="210" y="216" width="300" height="46" rx="10" fill="#f2f4f9" stroke="#94a3b8"/>
+    <text x="360" y="244" text-anchor="middle" fill="#334155">速さ・SEO 重視の<tspan font-weight="700"> コンテンツ</tspan>サイト</text>
+    <line x1="360" y1="262" x2="360" y2="286" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#cf)"/>
+    <rect x="300" y="288" width="120" height="42" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="360" y="314" text-anchor="middle" font-weight="700" fill="#000d8a">Astro</text>
+  </g>
+</svg>

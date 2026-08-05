@@ -19,6 +19,7 @@ export const CATEGORY: Record<string, string> = {
 	'shoshinsha-hitokara-tsukutta': '制作記録',
 	'ai-anzen-chuiten': '注意点',
 	'trailing-slash-canonical': '技術メモ',
+	'astro-nextjs-cms': '技術メモ',
 };
 export const categoryOf = (id: string): string => CATEGORY[id] ?? '記事';
 

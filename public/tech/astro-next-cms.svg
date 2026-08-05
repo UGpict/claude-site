@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif" role="img" aria-label="Astro / Next.js / CMS の得意領域">
+  <rect width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">3 つの得意領域は違う</text>
+
+  <g>
+    <rect x="30" y="70" width="205" height="180" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="132" y="106" text-anchor="middle" font-size="20" font-weight="700" fill="#000d8a">Astro</text>
+    <text x="132" y="134" text-anchor="middle" font-size="13" fill="#334155">コンテンツ中心</text>
+    <text x="132" y="160" text-anchor="middle" font-size="12.5" fill="#64748b">ブログ・記事・LP</text>
+    <text x="132" y="182" text-anchor="middle" font-size="12.5" fill="#64748b">速い・軽い・SEO 強</text>
+    <text x="132" y="212" text-anchor="middle" font-size="12.5" fill="#64748b">JS を最小限だけ出す</text>
+  </g>
+  <g>
+    <rect x="257" y="70" width="205" height="180" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="360" y="106" text-anchor="middle" font-size="20" font-weight="700" fill="#000d8a">Next.js</text>
+    <text x="360" y="134" text-anchor="middle" font-size="13" fill="#334155">アプリ中心</text>
+    <text x="360" y="160" text-anchor="middle" font-size="12.5" fill="#64748b">ログイン・EC・管理画面</text>
+    <text x="360" y="182" text-anchor="middle" font-size="12.5" fill="#64748b">動的機能・サーバー処理</text>
+    <text x="360" y="212" text-anchor="middle" font-size="12.5" fill="#64748b">高機能・そのぶん複雑</text>
+  </g>
+  <g>
+    <rect x="484" y="70" width="206" height="180" rx="14" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+    <text x="587" y="106" text-anchor="middle" font-size="20" font-weight="700" fill="#2f7d46">CMS</text>
+    <text x="587" y="134" text-anchor="middle" font-size="13" fill="#33553f">運用中心</text>
+    <text x="587" y="160" text-anchor="middle" font-size="12.5" fill="#4b7a5b">管理画面で更新</text>
+    <text x="587" y="182" text-anchor="middle" font-size="12.5" fill="#4b7a5b">非技術者でも書ける</text>
+    <text x="587" y="212" text-anchor="middle" font-size="12.5" fill="#4b7a5b">WordPress / ヘッドレス</text>
+  </g>
+  <text x="360" y="282" text-anchor="middle" font-size="13" fill="#64748b">「何を作るか」より前に、「誰が、どう更新し続けるか」で決まることが多い</text>
+</svg>
