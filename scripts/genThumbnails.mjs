@@ -10,7 +10,7 @@ const dir = import.meta.dirname;
 const BLOG = join(dir, '..', 'src', 'content', 'blog');
 const OUT = join(dir, '..', 'public', 'thumb');
 const FONTS = join(dir, '..', 'src', 'assets', 'fonts');
-const LOGO = join(dir, '..', 'src', 'assets', 'logo.png');
+const LOGO = join(dir, '..', 'src', 'assets', 'logo-lg.png');
 
 const W = 1200;
 const H = 630;
@@ -48,11 +48,22 @@ function getTitle(fm) {
 	if ((t.startsWith("'") && t.endsWith("'")) || (t.startsWith('"') && t.endsWith('"'))) t = t.slice(1, -1);
 	return t;
 }
+function hashStr(s) {
+	let x = 2166136261;
+	for (const ch of s) {
+		x ^= ch.charCodeAt(0);
+		x = Math.imul(x, 16777619);
+	}
+	return x >>> 0;
+}
 function titleFontSize(len) {
-	if (len <= 14) return 66;
-	if (len <= 22) return 54;
-	if (len <= 32) return 44;
-	return 38;
+	if (len <= 12) return 60;
+	if (len <= 20) return 50;
+	if (len <= 30) return 40;
+	return 34;
+}
+function circle(size, style) {
+	return { type: 'div', props: { style: { position: 'absolute', width: size, height: size, borderRadius: 9999, ...style } } };
 }
 
 let FONTS_DATA;
@@ -60,32 +71,38 @@ let LOGO_URI;
 
 async function renderCard({ title, label, colors }) {
 	const [c1, c2] = colors;
-	const children = [];
-	children.push({
-		type: 'div',
-		props: {
-			style: { display: 'flex' },
-			children: label
-				? [
-						{
-							type: 'div',
-							props: {
-								style: {
-									fontSize: 30,
-									fontWeight: 700,
-									color: '#000d8a',
-									background: 'rgba(255,255,255,0.8)',
-									padding: '10px 28px',
-									borderRadius: '999px',
-								},
-								children: label,
+	const seed = hashStr(title);
+	const off = (seed % 60) - 30; // -30..29 の揺らぎ
+
+	// 左：テキスト列（ピル / タイトル / フッター）
+	const leftChildren = [];
+	if (label) {
+		leftChildren.push({
+			type: 'div',
+			props: {
+				style: { display: 'flex' },
+				children: [
+					{
+						type: 'div',
+						props: {
+							style: {
+								fontSize: 28,
+								fontWeight: 700,
+								color: '#000d8a',
+								background: 'rgba(255,255,255,0.85)',
+								padding: '8px 26px',
+								borderRadius: 9999,
 							},
+							children: label,
 						},
-					]
-				: [],
-		},
-	});
-	children.push({
+					},
+				],
+			},
+		});
+	} else {
+		leftChildren.push({ type: 'div', props: { style: { display: 'flex', height: 20 }, children: [] } });
+	}
+	leftChildren.push({
 		type: 'div',
 		props: {
 			style: {
@@ -99,13 +116,13 @@ async function renderCard({ title, label, colors }) {
 			children: title,
 		},
 	});
-	children.push({
+	leftChildren.push({
 		type: 'div',
 		props: {
 			style: { display: 'flex', alignItems: 'center' },
 			children: [
-				{ type: 'img', props: { src: LOGO_URI, width: 60, height: 60, style: { borderRadius: 14, marginRight: 20 } } },
-				{ type: 'div', props: { style: { fontSize: 30, fontWeight: 700, color: '#3a4658' }, children: SITE_TITLE } },
+				{ type: 'img', props: { src: LOGO_URI, width: 48, height: 48, style: { borderRadius: 12, marginRight: 16 } } },
+				{ type: 'div', props: { style: { fontSize: 26, fontWeight: 700, color: '#3a4658' }, children: SITE_TITLE } },
 			],
 		},
 	});
@@ -118,13 +135,59 @@ async function renderCard({ title, label, colors }) {
 					width: '100%',
 					height: '100%',
 					display: 'flex',
-					flexDirection: 'column',
-					justifyContent: 'space-between',
-					padding: '70px',
+					position: 'relative',
+					overflow: 'hidden',
 					background: `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`,
 					fontFamily: 'Noto Sans JP',
 				},
-				children,
+				children: [
+					// 装飾（背景のふわっとした円）
+					circle(520, { top: -140 + off, right: -120, background: 'rgba(255,255,255,0.45)' }),
+					circle(300, { bottom: -90, left: -70 + off, background: 'rgba(255,255,255,0.35)' }),
+					circle(120, { top: 150 - off, left: 470, background: 'rgba(255,255,255,0.4)' }),
+					// コンテンツ本体
+					{
+						type: 'div',
+						props: {
+							style: { display: 'flex', position: 'relative', width: '100%', height: '100%', padding: '64px', alignItems: 'center' },
+							children: [
+								// 左：テキスト
+								{
+									type: 'div',
+									props: {
+										style: { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 660, height: '100%', paddingRight: 24 },
+										children: leftChildren,
+									},
+								},
+								// 右：マスコット（白い丸バッジ）
+								{
+									type: 'div',
+									props: {
+										style: { display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center' },
+										children: [
+											{
+												type: 'div',
+												props: {
+													style: {
+														display: 'flex',
+														width: 340,
+														height: 340,
+														borderRadius: 9999,
+														background: '#ffffff',
+														alignItems: 'center',
+														justifyContent: 'center',
+														boxShadow: '0 24px 60px rgba(20,30,60,0.18)',
+													},
+													children: [{ type: 'img', props: { src: LOGO_URI, width: 300, height: 300 } }],
+												},
+											},
+										],
+									},
+								},
+							],
+						},
+					},
+				],
 			},
 		},
 		{ width: W, height: H, fonts: FONTS_DATA },
