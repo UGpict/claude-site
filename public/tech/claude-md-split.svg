@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" font-family="sans-serif" role="img" aria-label="CLAUDE.mdの3つの分け方">
+  <rect width="720" height="340" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">CLAUDE.md の分け方 3 つ</text>
+
+  <!-- root -->
+  <rect x="270" y="58" width="180" height="46" rx="12" fill="#2337ff"/>
+  <text x="360" y="80" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">CLAUDE.md</text>
+  <text x="360" y="97" text-anchor="middle" font-size="11" fill="#cdd5ff">まずは一枚から</text>
+
+  <!-- connectors -->
+  <path d="M360,104 L360,124 L130,124 L130,150" fill="none" stroke="#9fb0ff" stroke-width="2"/>
+  <path d="M360,104 L360,150" fill="none" stroke="#9fb0ff" stroke-width="2"/>
+  <path d="M360,104 L360,124 L590,124 L590,150" fill="none" stroke="#9fb0ff" stroke-width="2"/>
+
+  <!-- card 1: import -->
+  <g>
+    <rect x="30" y="150" width="200" height="160" rx="14" fill="#f7f8ff" stroke="#2337ff" stroke-width="1.5"/>
+    <text x="130" y="182" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">@ で読み込む</text>
+    <text x="130" y="208" text-anchor="middle" font-size="12" fill="#334155">別ファイルに</text>
+    <text x="130" y="226" text-anchor="middle" font-size="12" fill="#334155">切り出して整理</text>
+    <rect x="55" y="256" width="150" height="34" rx="8" fill="#eef2f7"/>
+    <text x="130" y="278" text-anchor="middle" font-size="11.5" fill="#64748b">起動時に全部読む</text>
+  </g>
+
+  <!-- card 2: folder -->
+  <g>
+    <rect x="260" y="150" width="200" height="160" rx="14" fill="#f7f8ff" stroke="#2337ff" stroke-width="1.5"/>
+    <text x="360" y="182" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">フォルダごとに置く</text>
+    <text x="360" y="208" text-anchor="middle" font-size="12" fill="#334155">その場所だけの</text>
+    <text x="360" y="226" text-anchor="middle" font-size="12" fill="#334155">ルールにできる</text>
+    <rect x="285" y="256" width="150" height="34" rx="8" fill="#e9f6ec"/>
+    <text x="360" y="278" text-anchor="middle" font-size="11.5" fill="#2f7d46">必要なときだけ読む</text>
+  </g>
+
+  <!-- card 3: rules -->
+  <g>
+    <rect x="490" y="150" width="200" height="160" rx="14" fill="#f7f8ff" stroke="#2337ff" stroke-width="1.5"/>
+    <text x="590" y="182" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">rules で対象を絞る</text>
+    <text x="590" y="208" text-anchor="middle" font-size="12" fill="#334155">触るファイルに</text>
+    <text x="590" y="226" text-anchor="middle" font-size="12" fill="#334155">合わせて効かせる</text>
+    <rect x="515" y="256" width="150" height="34" rx="8" fill="#e9f6ec"/>
+    <text x="590" y="278" text-anchor="middle" font-size="11.5" fill="#2f7d46">文脈を節約できる</text>
+  </g>
+</svg>

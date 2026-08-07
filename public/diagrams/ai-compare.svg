@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif" role="img" aria-label="ClaudeとGeminiとCodexの得意分野くらべ">
+  <rect width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">Claude・Gemini・Codex — 得意分野くらべ</text>
+
+  <!-- Claude -->
+  <g>
+    <rect x="30" y="72" width="200" height="46" rx="12" fill="#2337ff"/>
+    <text x="130" y="97" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">Claude</text>
+    <text x="130" y="112" text-anchor="middle" font-size="11" fill="#cdd5ff">Anthropic</text>
+    <rect x="30" y="124" width="200" height="146" rx="12" fill="#f7f8ff" stroke="#2337ff" stroke-width="1.5"/>
+    <circle cx="52" cy="156" r="4" fill="#3f9e5a"/><text x="66" y="161" font-size="12.5" fill="#334155">文章とコードの質</text>
+    <circle cx="52" cy="192" r="4" fill="#3f9e5a"/><text x="66" y="197" font-size="12.5" fill="#334155">丁寧な受け答え</text>
+    <circle cx="52" cy="228" r="4" fill="#3f9e5a"/><text x="66" y="233" font-size="12.5" fill="#334155">長い資料に強い</text>
+  </g>
+
+  <!-- Gemini -->
+  <g>
+    <rect x="260" y="72" width="200" height="46" rx="12" fill="#2337ff"/>
+    <text x="360" y="97" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">Gemini</text>
+    <text x="360" y="112" text-anchor="middle" font-size="11" fill="#cdd5ff">Google</text>
+    <rect x="260" y="124" width="200" height="146" rx="12" fill="#f7f8ff" stroke="#2337ff" stroke-width="1.5"/>
+    <circle cx="282" cy="156" r="4" fill="#3f9e5a"/><text x="296" y="161" font-size="12.5" fill="#334155">画像・音声・動画も</text>
+    <circle cx="282" cy="192" r="4" fill="#3f9e5a"/><text x="296" y="197" font-size="12.5" fill="#334155">Google 連携</text>
+    <circle cx="282" cy="228" r="4" fill="#3f9e5a"/><text x="296" y="233" font-size="12.5" fill="#334155">とても長い文脈</text>
+  </g>
+
+  <!-- Codex -->
+  <g>
+    <rect x="490" y="72" width="200" height="46" rx="12" fill="#2337ff"/>
+    <text x="590" y="97" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">Codex</text>
+    <text x="590" y="112" text-anchor="middle" font-size="11" fill="#cdd5ff">OpenAI</text>
+    <rect x="490" y="124" width="200" height="146" rx="12" fill="#f7f8ff" stroke="#2337ff" stroke-width="1.5"/>
+    <circle cx="512" cy="156" r="4" fill="#3f9e5a"/><text x="526" y="161" font-size="12.5" fill="#334155">コード作業を自動化</text>
+    <circle cx="512" cy="192" r="4" fill="#3f9e5a"/><text x="526" y="197" font-size="12.5" fill="#334155">速く任せられる</text>
+    <circle cx="512" cy="228" r="4" fill="#3f9e5a"/><text x="526" y="233" font-size="12.5" fill="#334155">開発に特化</text>
+  </g>
+</svg>

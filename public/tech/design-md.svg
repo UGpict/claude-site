@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 260" font-family="sans-serif" role="img" aria-label="design.md は作る前に書く設計メモ">
+  <rect width="720" height="260" fill="#ffffff"/>
+  <text x="360" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#0f1219">design.md ＝ 作る前に書く「設計メモ」</text>
+  <defs><marker id="dm" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/></marker></defs>
+
+  <g>
+    <rect x="20" y="70" width="150" height="76" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="95" y="104" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">アイデア</text>
+    <text x="95" y="126" text-anchor="middle" font-size="11" fill="#64748b">やりたいこと</text>
+  </g>
+  <line x1="172" y1="108" x2="193" y2="108" stroke="#2337ff" stroke-width="2.5" marker-end="url(#dm)"/>
+
+  <g>
+    <rect x="195" y="70" width="150" height="76" rx="12" fill="#2337ff"/>
+    <text x="270" y="104" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">design.md</text>
+    <text x="270" y="126" text-anchor="middle" font-size="11" fill="#cdd5ff">何を・どう作るか</text>
+  </g>
+  <line x1="347" y1="108" x2="373" y2="108" stroke="#2337ff" stroke-width="2.5" marker-end="url(#dm)"/>
+
+  <g>
+    <rect x="375" y="70" width="150" height="76" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="450" y="104" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">AI が実装</text>
+    <text x="450" y="126" text-anchor="middle" font-size="11" fill="#64748b">図面を見ながら</text>
+  </g>
+  <line x1="527" y1="108" x2="553" y2="108" stroke="#2337ff" stroke-width="2.5" marker-end="url(#dm)"/>
+
+  <g>
+    <rect x="555" y="70" width="150" height="76" rx="12" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+    <text x="630" y="104" text-anchor="middle" font-size="14" font-weight="700" fill="#2f7d46">自分で確認</text>
+    <text x="630" y="126" text-anchor="middle" font-size="11" fill="#33553f">合っているか</text>
+  </g>
+
+  <!-- feedback loop: 確認 -> design.md を直す -->
+  <path d="M630,146 L630,196 L270,196 L270,148" fill="none" stroke="#2337ff" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#dm)"/>
+  <rect x="300" y="182" width="300" height="28" rx="8" fill="#ffffff"/>
+  <text x="450" y="201" text-anchor="middle" font-size="12.5" fill="#334155">ずれていたら、design.md を直してから作り直す</text>
+
+  <text x="360" y="240" text-anchor="middle" font-size="12" fill="#64748b">CLAUDE.md＝ずっと効く「家のルール」／design.md＝その機能だけの「間取り図」</text>
+</svg>
