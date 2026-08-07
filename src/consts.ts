@@ -9,6 +9,7 @@ export const SITE_DESCRIPTION =
 // 値を入れると自動でタグが有効化され、空文字なら出力されません。
 export const GOOGLE_ANALYTICS_ID = 'G-3HFJVRXQ2C'; // GA4 の測定 ID
 export const GOOGLE_SITE_VERIFICATION = ''; // Search Console「HTMLタグ」方式の content 値
+export const GOOGLE_ADSENSE_CLIENT = 'ca-pub-1022486023310685'; // Google AdSense パブリッシャー ID（空文字で無効化）
 
 // 記事カテゴリ（スラッグ→ラベル）。新記事を足したらここに追記する。
 export const CATEGORY: Record<string, string> = {

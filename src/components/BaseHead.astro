@@ -5,6 +5,7 @@ import '../styles/global.css';
 import type { ImageMetadata } from 'astro';
 import FallbackImage from '../assets/blog-placeholder-1.jpg';
 import {
+	GOOGLE_ADSENSE_CLIENT,
 	GOOGLE_ANALYTICS_ID,
 	GOOGLE_SITE_VERIFICATION,
 	SITE_TITLE,
@@ -85,6 +86,18 @@ const organizationSchema = {
 {
 	GOOGLE_SITE_VERIFICATION && (
 		<meta name="google-site-verification" content={GOOGLE_SITE_VERIFICATION} />
+	)
+}
+
+<!-- Google AdSense -->
+{
+	GOOGLE_ADSENSE_CLIENT && (
+		<script
+			is:inline
+			async
+			src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${GOOGLE_ADSENSE_CLIENT}`}
+			crossorigin="anonymous"
+		/>
 	)
 }
 
