@@ -24,6 +24,9 @@ export const CATEGORY: Record<string, string> = {
 	'search-console-nyumon': '技術メモ',
 	'claude-md-toha': '使い方',
 	'design-md-toha': '使い方',
+	'mcp-server-toha': '使い方',
+	'claude-skills-toha': '使い方',
+	'claude-memory-toha': '使い方',
 };
 export const categoryOf = (id: string): string => CATEGORY[id] ?? '記事';
 

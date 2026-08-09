@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif" role="img" aria-label="CLAUDE.md・Skills・MCP の役割の違い">
+  <rect width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">役割の違い — 3 つの道具</text>
+
+  <!-- card 1: CLAUDE.md -->
+  <g>
+    <rect x="30" y="70" width="200" height="180" rx="14" fill="#f7f8ff" stroke="#2337ff" stroke-width="1.5"/>
+    <text x="130" y="104" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">CLAUDE.md</text>
+    <text x="130" y="130" text-anchor="middle" font-size="12.5" fill="#334155">うちの常識</text>
+    <text x="130" y="150" text-anchor="middle" font-size="12.5" fill="#334155">ハウスルール</text>
+    <rect x="55" y="196" width="150" height="34" rx="8" fill="#eef2f7"/>
+    <text x="130" y="218" text-anchor="middle" font-size="11.5" fill="#64748b">毎回いつも読む</text>
+  </g>
+
+  <!-- card 2: Skills -->
+  <g>
+    <rect x="260" y="70" width="200" height="180" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/>
+    <text x="360" y="104" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">Skills</text>
+    <text x="360" y="130" text-anchor="middle" font-size="12.5" fill="#334155">得意技</text>
+    <text x="360" y="150" text-anchor="middle" font-size="12.5" fill="#334155">レシピカード</text>
+    <rect x="285" y="196" width="150" height="34" rx="8" fill="#e9f6ec"/>
+    <text x="360" y="218" text-anchor="middle" font-size="11.5" fill="#2f7d46">必要なときだけ開く</text>
+  </g>
+
+  <!-- card 3: MCP -->
+  <g>
+    <rect x="490" y="70" width="200" height="180" rx="14" fill="#f7f8ff" stroke="#2337ff" stroke-width="1.5"/>
+    <text x="590" y="104" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">MCP</text>
+    <text x="590" y="130" text-anchor="middle" font-size="12.5" fill="#334155">外の道具の</text>
+    <text x="590" y="150" text-anchor="middle" font-size="12.5" fill="#334155">差込口</text>
+    <rect x="515" y="196" width="150" height="34" rx="8" fill="#eef2f7"/>
+    <text x="590" y="218" text-anchor="middle" font-size="11.5" fill="#64748b">外部とつなぐとき</text>
+  </g>
+
+  <text x="360" y="278" text-anchor="middle" font-size="12.5" fill="#334155">競合しない。組み合わせて使う道具です</text>
+</svg>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 280" font-family="sans-serif" role="img" aria-label="メモリーと Skills の違い">
+  <rect width="720" height="280" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">メモリー と Skills の違い</text>
+
+  <!-- memory -->
+  <g>
+    <rect x="50" y="70" width="270" height="160" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/>
+    <text x="185" y="106" text-anchor="middle" font-size="17" font-weight="700" fill="#000d8a">メモリー</text>
+    <text x="185" y="134" text-anchor="middle" font-size="13.5" fill="#334155">＝ 知っていること</text>
+    <text x="185" y="162" text-anchor="middle" font-size="12.5" fill="#64748b">あなたが誰か・好み・決めごと</text>
+    <rect x="80" y="182" width="210" height="34" rx="8" fill="#e9f6ec"/>
+    <text x="185" y="204" text-anchor="middle" font-size="11.5" fill="#2f7d46">自動でたまる「事実」</text>
+  </g>
+
+  <!-- skills -->
+  <g>
+    <rect x="400" y="70" width="270" height="160" rx="14" fill="#f7f8ff" stroke="#2337ff" stroke-width="1.5"/>
+    <text x="535" y="106" text-anchor="middle" font-size="17" font-weight="700" fill="#000d8a">Skills</text>
+    <text x="535" y="134" text-anchor="middle" font-size="13.5" fill="#334155">＝ やり方</text>
+    <text x="535" y="162" text-anchor="middle" font-size="12.5" fill="#64748b">議事録の作り方・記事の書き方</text>
+    <rect x="430" y="182" width="210" height="34" rx="8" fill="#eef2f7"/>
+    <text x="535" y="204" text-anchor="middle" font-size="11.5" fill="#64748b">自分で書く「手順」</text>
+  </g>
+
+  <text x="360" y="260" text-anchor="middle" font-size="12.5" fill="#334155">辛いのが苦手＝メモリー / カレーのレシピ＝Skills</text>
+</svg>

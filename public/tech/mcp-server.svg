@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="sans-serif" role="img" aria-label="MCPサーバーが AI と外部の道具をつなぐしくみ">
+  <rect width="720" height="320" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">MCP サーバーのしくみ</text>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 9 8" refX="8" refY="4" markerWidth="9" markerHeight="8" orient="auto">
+      <path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/>
+    </marker>
+  </defs>
+
+  <!-- AI (Claude) -->
+  <rect x="40" y="120" width="150" height="80" rx="14" fill="#2337ff"/>
+  <text x="115" y="155" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">AI（Claude）</text>
+  <text x="115" y="178" text-anchor="middle" font-size="12" fill="#cdd5ff">お願いする側</text>
+
+  <!-- MCP server -->
+  <rect x="285" y="110" width="150" height="100" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/>
+  <text x="360" y="145" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">MCP サーバー</text>
+  <text x="360" y="168" text-anchor="middle" font-size="12" fill="#334155">共通の差込口</text>
+  <text x="360" y="186" text-anchor="middle" font-size="12" fill="#334155">＝橋渡し役</text>
+
+  <!-- arrows AI <-> MCP -->
+  <path d="M190,148 L283,148" fill="none" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M283,172 L192,172" fill="none" stroke="#9fb0ff" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="237" y="140" text-anchor="middle" font-size="10.5" fill="#64748b">お願い</text>
+  <text x="237" y="188" text-anchor="middle" font-size="10.5" fill="#64748b">結果</text>
+
+  <!-- external tools -->
+  <g>
+    <rect x="520" y="70" width="160" height="40" rx="10" fill="#f7f8ff" stroke="#2337ff" stroke-width="1.2"/>
+    <text x="600" y="95" text-anchor="middle" font-size="13" fill="#000d8a">ファイル</text>
+    <rect x="520" y="120" width="160" height="40" rx="10" fill="#f7f8ff" stroke="#2337ff" stroke-width="1.2"/>
+    <text x="600" y="145" text-anchor="middle" font-size="13" fill="#000d8a">GitHub / DB</text>
+    <rect x="520" y="170" width="160" height="40" rx="10" fill="#f7f8ff" stroke="#2337ff" stroke-width="1.2"/>
+    <text x="600" y="195" text-anchor="middle" font-size="13" fill="#000d8a">カレンダー / Web</text>
+  </g>
+
+  <!-- arrows MCP -> tools -->
+  <path d="M435,140 L518,90" fill="none" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M435,155 L518,140" fill="none" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M435,170 L518,190" fill="none" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <text x="600" y="245" text-anchor="middle" font-size="12" fill="#64748b">外の道具（外部サービス）</text>
+  <text x="360" y="278" text-anchor="middle" font-size="12.5" fill="#334155">AI は道具の中身を知らなくても、MCP サーバー越しにお願いするだけ</text>
+</svg>
