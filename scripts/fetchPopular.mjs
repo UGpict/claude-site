@@ -19,6 +19,10 @@ function write(arr) {
 }
 
 async function main() {
+	// 一時デバッグ: 変数がビルドに届いているかの確認（値は出さない）。切り分け後に削除する。
+	console.log(
+		`[popular][debug] key present: ${!!keyJson} len: ${keyJson?.length ?? 0} propertyId: ${propertyId}`,
+	);
 	if (!keyJson) {
 		console.log('[popular] GA_SERVICE_ACCOUNT_KEY 未設定 — 新着順にフォールバック');
 		write([]);
