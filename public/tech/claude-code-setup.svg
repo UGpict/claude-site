@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200" font-family="sans-serif" role="img" aria-label="Claude Codeを始める4ステップ。Node.jsを入れる・インストール・ログイン・実行。">
+  <rect width="720" height="200" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">Claude Code を始める 4 ステップ</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+      <path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/>
+    </marker>
+  </defs>
+
+  <!-- step 1 -->
+  <rect x="20" y="78" width="150" height="80" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="95" y="108" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">1. 土台を入れる</text>
+  <text x="95" y="132" text-anchor="middle" font-size="11" fill="#334155">Node.js を用意</text>
+
+  <line x1="172" y1="118" x2="196" y2="118" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- step 2 -->
+  <rect x="200" y="78" width="150" height="80" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="275" y="108" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">2. 入れる</text>
+  <text x="275" y="130" text-anchor="middle" font-size="10" fill="#334155" font-family="monospace">npm i -g</text>
+  <text x="275" y="145" text-anchor="middle" font-size="10" fill="#334155" font-family="monospace">@anthropic-ai/claude-code</text>
+
+  <line x1="352" y1="118" x2="376" y2="118" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- step 3 -->
+  <rect x="380" y="78" width="150" height="80" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="455" y="108" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">3. ログイン</text>
+  <text x="455" y="132" text-anchor="middle" font-size="11" fill="#334155">アカウントと結ぶ</text>
+
+  <line x1="532" y1="118" x2="556" y2="118" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- step 4 -->
+  <rect x="560" y="78" width="150" height="80" rx="10" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+  <text x="635" y="108" text-anchor="middle" font-size="14" font-weight="700" fill="#2f7d46">4. 頼む</text>
+  <text x="635" y="130" text-anchor="middle" font-size="10" fill="#334155" font-family="monospace">claude</text>
+  <text x="635" y="145" text-anchor="middle" font-size="11" fill="#334155">と打つだけ</text>
+</svg>

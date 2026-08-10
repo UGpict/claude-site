@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif" role="img" aria-label="ClaudeとChatGPTとGeminiの得意分野くらべ">
+  <rect width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="42" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">Claude・ChatGPT・Gemini の持ち味</text>
+
+  <!-- card 1 -->
+  <g>
+    <rect x="30" y="80" width="200" height="180" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="130" y="116" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">Claude</text>
+    <text x="130" y="146" text-anchor="middle" font-size="12" fill="#334155">長い文章とコードの</text>
+    <text x="130" y="164" text-anchor="middle" font-size="12" fill="#334155">「ていねいさ」</text>
+    <text x="130" y="196" text-anchor="middle" font-size="11" fill="#64748b">落ち着いた受け答え</text>
+    <text x="130" y="220" text-anchor="middle" font-size="11" fill="#64748b">作る Anthropic</text>
+  </g>
+
+  <!-- card 2 -->
+  <g>
+    <rect x="260" y="80" width="200" height="180" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="360" y="116" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">ChatGPT</text>
+    <text x="360" y="146" text-anchor="middle" font-size="12" fill="#334155">なんでも来い型の</text>
+    <text x="360" y="164" text-anchor="middle" font-size="12" fill="#334155">オールラウンダー</text>
+    <text x="360" y="196" text-anchor="middle" font-size="11" fill="#64748b">利用者がとても多い</text>
+    <text x="360" y="220" text-anchor="middle" font-size="11" fill="#64748b">作る OpenAI</text>
+  </g>
+
+  <!-- card 3 -->
+  <g>
+    <rect x="490" y="80" width="200" height="180" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="590" y="116" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">Gemini</text>
+    <text x="590" y="146" text-anchor="middle" font-size="12" fill="#334155">画像・音声も扱える</text>
+    <text x="590" y="164" text-anchor="middle" font-size="12" fill="#334155">Google との連携</text>
+    <text x="590" y="196" text-anchor="middle" font-size="11" fill="#64748b">検索やGmailと相性◎</text>
+    <text x="590" y="220" text-anchor="middle" font-size="11" fill="#64748b">作る Google</text>
+  </g>
+</svg>

@@ -15,6 +15,9 @@ export const GOOGLE_ADSENSE_CLIENT = 'ca-pub-1022486023310685'; // Google AdSens
 export const CATEGORY: Record<string, string> = {
 	'claude-toha-nanika': '入門',
 	'claude-code-tsukaikata': '使い方',
+	'claude-code-hajimekata': '使い方',
+	'claude-ryokin-plan': '入門',
+	'claude-chatgpt-hikaku': '入門',
 	'prompt-no-kotsu': '使い方',
 	'kangal-kaihatsu-jirei': '開発事例',
 	'shoshinsha-hitokara-tsukutta': '制作記録',

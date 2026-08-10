@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif" role="img" aria-label="Claudeの4つの入り口。無料・Pro・Max・API。">
+  <rect width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="42" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">Claude の 4 つの入り口</text>
+
+  <!-- card 1: 無料 -->
+  <g>
+    <rect x="16" y="78" width="160" height="188" rx="12" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+    <text x="96" y="112" text-anchor="middle" font-size="16" font-weight="700" fill="#2f7d46">無料</text>
+    <text x="96" y="146" text-anchor="middle" font-size="12" fill="#334155">まず試したい人</text>
+    <text x="96" y="176" text-anchor="middle" font-size="11" fill="#64748b">1 日に使える量に</text>
+    <text x="96" y="192" text-anchor="middle" font-size="11" fill="#64748b">上限あり</text>
+    <text x="96" y="228" text-anchor="middle" font-size="11" fill="#64748b">0 円で始められる</text>
+  </g>
+
+  <!-- card 2: Pro -->
+  <g>
+    <rect x="192" y="78" width="160" height="188" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="272" y="112" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">Pro</text>
+    <text x="272" y="146" text-anchor="middle" font-size="12" fill="#334155">毎日ふつうに使う人</text>
+    <text x="272" y="176" text-anchor="middle" font-size="11" fill="#64748b">使える量が増える</text>
+    <text x="272" y="192" text-anchor="middle" font-size="11" fill="#64748b">賢いモデルも使える</text>
+    <text x="272" y="228" text-anchor="middle" font-size="11" fill="#64748b">月ぎめの定額</text>
+  </g>
+
+  <!-- card 3: Max -->
+  <g>
+    <rect x="368" y="78" width="160" height="188" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="448" y="112" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">Max</text>
+    <text x="448" y="146" text-anchor="middle" font-size="12" fill="#334155">とことん使う人</text>
+    <text x="448" y="176" text-anchor="middle" font-size="11" fill="#64748b">上限がさらに広い</text>
+    <text x="448" y="192" text-anchor="middle" font-size="11" fill="#64748b">重い作業向け</text>
+    <text x="448" y="228" text-anchor="middle" font-size="11" fill="#64748b">Pro より高めの定額</text>
+  </g>
+
+  <!-- card 4: API -->
+  <g>
+    <rect x="544" y="78" width="160" height="188" rx="12" fill="#f5f5f5" stroke="#64748b" stroke-width="2"/>
+    <text x="624" y="112" text-anchor="middle" font-size="16" font-weight="700" fill="#334155">API</text>
+    <text x="624" y="146" text-anchor="middle" font-size="12" fill="#334155">自分の道具に</text>
+    <text x="624" y="162" text-anchor="middle" font-size="12" fill="#334155">組み込む人</text>
+    <text x="624" y="192" text-anchor="middle" font-size="11" fill="#64748b">使った分だけ支払い</text>
+    <text x="624" y="228" text-anchor="middle" font-size="11" fill="#64748b">開発者向け</text>
+  </g>
+</svg>
