@@ -25,6 +25,7 @@ export const CATEGORY: Record<string, string> = {
 	'ai-anzen-chuiten': '注意点',
 	'prompt-injection-toha': '注意点',
 	'owasp-toha': '注意点',
+	'claude-code-anzen-settei': '注意点',
 	'trailing-slash-canonical': '技術メモ',
 	'astro-nextjs-cms': '技術メモ',
 	'search-console-nyumon': '技術メモ',

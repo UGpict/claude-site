@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif" role="img" aria-label="Claude Codeの4つのガードレール。サンドボックス・危険コマンドを止める・機密ファイルを塞ぐ・ネットワークを絞る。">
+  <rect width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="42" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">Claude Code の 4 つのガードレール</text>
+
+  <!-- card 1 -->
+  <g>
+    <rect x="16" y="78" width="160" height="188" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <circle cx="96" cy="116" r="17" fill="#2337ff"/>
+    <text x="96" y="122" text-anchor="middle" font-size="17" font-weight="700" fill="#ffffff">1</text>
+    <text x="96" y="158" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">サンドボックス</text>
+    <text x="96" y="188" text-anchor="middle" font-size="11" fill="#64748b">隔離された場所で</text>
+    <text x="96" y="204" text-anchor="middle" font-size="11" fill="#64748b">動かす</text>
+  </g>
+
+  <!-- card 2 -->
+  <g>
+    <rect x="192" y="78" width="160" height="188" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <circle cx="272" cy="116" r="17" fill="#2337ff"/>
+    <text x="272" y="122" text-anchor="middle" font-size="17" font-weight="700" fill="#ffffff">2</text>
+    <text x="272" y="158" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">危険コマンドを</text>
+    <text x="272" y="176" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">止める</text>
+    <text x="272" y="206" text-anchor="middle" font-size="11" fill="#64748b">全消し・強制 push</text>
+  </g>
+
+  <!-- card 3 -->
+  <g>
+    <rect x="368" y="78" width="160" height="188" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <circle cx="448" cy="116" r="17" fill="#2337ff"/>
+    <text x="448" y="122" text-anchor="middle" font-size="17" font-weight="700" fill="#ffffff">3</text>
+    <text x="448" y="158" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">機密ファイルを</text>
+    <text x="448" y="176" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">塞ぐ</text>
+    <text x="448" y="206" text-anchor="middle" font-size="11" fill="#64748b">.env ・ 鍵ファイル</text>
+  </g>
+
+  <!-- card 4 -->
+  <g>
+    <rect x="544" y="78" width="160" height="188" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <circle cx="624" cy="116" r="17" fill="#2337ff"/>
+    <text x="624" y="122" text-anchor="middle" font-size="17" font-weight="700" fill="#ffffff">4</text>
+    <text x="624" y="158" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">ネットワークを</text>
+    <text x="624" y="176" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">絞る</text>
+    <text x="624" y="206" text-anchor="middle" font-size="11" fill="#64748b">許可した先だけ</text>
+  </g>
+</svg>
