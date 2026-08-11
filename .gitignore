@@ -25,3 +25,6 @@ pnpm-debug.log*
 
 # 自動生成サムネ（ビルド時に生成）
 /public/thumb/
+
+# Claude Code の個人用ローカル設定（コミットしない。settings.json は共有する）
+.claude/settings.local.json
