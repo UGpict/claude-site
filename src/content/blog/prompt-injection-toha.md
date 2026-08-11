@@ -152,7 +152,7 @@ AI にできることが増えていく時代だからこそ、「誰の言葉�
 
 一次情報にあたりたい人向けに、出どころを挙げておきます。
 
-- **OWASP「Top 10 for Large Language Model Applications」** … アプリのセキュリティに詳しい国際的な団体がまとめた、AI アプリの危険トップ 10。プロンプトインジェクションが 1 位に挙げられています。→ [owasp.org](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
+- **OWASP「Top 10 for Large Language Model Applications」** … アプリのセキュリティに詳しい国際的な団体がまとめた、AI アプリの危険トップ 10。プロンプトインジェクションが 1 位に挙げられています。OWASP そのものについては [OWASP とは何か](/blog/owasp-toha/) でやさしく解説しています。→ 公式：[owasp.org](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 - さらに掘り下げたいときは、**「間接プロンプトインジェクション」** や **「prompt injection」** で検索すると、研究者による解説や実例にたどり着けます。
 
 むずかしい用語も出てきますが、この記事で押さえた「指示と資料を見分けられない」という一点さえ握っていれば、迷いません。
