@@ -82,6 +82,10 @@
 
 ## このリポジトリの現状メモ
 
-- 現状 `.claude/` にあるのは `settings.local.json`（`allow` リストのみ）。
-- 上記の sandbox / deny / denyRead ポリシーを **このプロジェクトにも効かせたい場合**は、
-  `.claude/settings.json` を作って上のブロックを配置する（ユーザー全体に効かせるなら `~/.claude/settings.json`）。
+- `.claude/settings.json`（コミット対象・共有）に上記の sandbox / deny ポリシーを配置済み。
+- `.claude/settings.local.json`（個人用・`allow` リスト）は `.gitignore` で除外済み。
+- **Windows の注意**：サンドボックス本体（bwrap）は Linux / WSL 前提。ネイティブ Windows で
+  実行すると `sandbox.enabled: true` は警告のうえ非サンドボックスで動く（`failIfUnavailable` 既定 false のため起動は止まらない）。
+  `permissions.deny` は環境に関係なく効く。完全なサンドボックスを効かせたいなら WSL 上で使う。
+- 反映確認：`/status` で読み込まれた設定ファイル、`/permissions` で deny/allow を確認する。
+  反映されないときは `/hooks` を一度開くか再起動で設定を再読み込みする。
