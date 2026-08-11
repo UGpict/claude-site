@@ -1,7 +1,7 @@
 {
   "sandbox": {
     "enabled": true,
-    "allowUnsandboxedCommands": false,
+    "allowUnsandboxedCommands": true,
     "filesystem": {
       "denyRead": ["~/.aws/credentials", "~/.ssh"]
     }

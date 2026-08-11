@@ -34,6 +34,8 @@
 }
 ```
 
+> ⚠️ Windows の注意：`allowUnsandboxedCommands` は本来 `false`（脱出口なし）が最も安全だが、サンドボックス本体は Linux/WSL 専用。ネイティブ Windows で `false` にすると「サンドボックス必須なのに使えない」状態になり **全シェルコマンドが停止する**。そのため本リポジトリは Windows 運用に合わせ `true`（警告のうえ非サンドボックスで実行）。完全な分離が要るなら WSL 上で使い `false` に戻す。`permissions.deny` はどちらでも効く。
+>
 > 補足：`.claude/settings.local.json` は個人用のローカル上書き（セッション中の「Always allow」が溜まる場所）。
 > 上の `deny` は `allow` より優先されるため、ローカルに `Bash(git push *)` があっても
 > `Bash(git push --force *)` の deny は効く（評価順は deny → ask → allow）。
@@ -41,8 +43,9 @@
 ## セキュリティ原則
 
 1. **サンドボックスは「有効化」と「脱出口を塞ぐ」を両方やる**
-   - `allowUnsandboxedCommands: false` を必ずセットで設定する。
+   - サンドボックスが使える環境（Linux / WSL）では `allowUnsandboxedCommands: false` をセットで設定する。
    - これがないと `dangerouslyDisableSandbox` で回避されてしまう。「有効化」と「完全に塞ぐ」は別物。
+   - ただしネイティブ Windows は `false` にすると全シェルが停止する（下記 Windows 注意）。Windows では `true` にし、`permissions.deny` で守る。
 
 2. **deny ルールで危険なコマンドを止める**
    - 評価順は deny → ask → allow。deny は最優先で、後から allow で上書きされない。
@@ -85,7 +88,7 @@
 - `.claude/settings.json`（コミット対象・共有）に上記の sandbox / deny ポリシーを配置済み。
 - `.claude/settings.local.json`（個人用・`allow` リスト）は `.gitignore` で除外済み。
 - **Windows の注意**：サンドボックス本体（bwrap）は Linux / WSL 前提。ネイティブ Windows で
-  実行すると `sandbox.enabled: true` は警告のうえ非サンドボックスで動く（`failIfUnavailable` 既定 false のため起動は止まらない）。
-  `permissions.deny` は環境に関係なく効く。完全なサンドボックスを効かせたいなら WSL 上で使う。
+  `allowUnsandboxedCommands: false` にすると **全シェルコマンドが停止する**ため、本リポジトリでは `true` にしている
+  （警告のうえ非サンドボックスで実行）。`permissions.deny` は環境に関係なく効く。完全な分離が要るなら WSL 上で使い `false` に戻す。
 - 反映確認：`/status` で読み込まれた設定ファイル、`/permissions` で deny/allow を確認する。
   反映されないときは `/hooks` を一度開くか再起動で設定を再読み込みする。

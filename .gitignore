@@ -28,3 +28,6 @@ pnpm-debug.log*
 
 # Claude Code の個人用ローカル設定（コミットしない。settings.json は共有する）
 .claude/settings.local.json
+
+# 個人用スキル（コミットしない）
+.claude/skills/
