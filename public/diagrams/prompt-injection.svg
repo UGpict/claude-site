@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="sans-serif" role="img" aria-label="間接プロンプトインジェクションのしくみ。AIは、あなたの指示と読み込んだ資料の中の命令を区別できず、資料に隠れた命令に従ってしまう。">
+  <rect width="720" height="320" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">資料に「命令」が隠れているとき</text>
+
+  <defs>
+    <marker id="pi-arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+      <path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/>
+    </marker>
+  </defs>
+
+  <!-- input A: your instruction -->
+  <rect x="24" y="78" width="250" height="66" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="149" y="104" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">あなたの指示</text>
+  <text x="149" y="126" text-anchor="middle" font-size="12" fill="#334155">「この記事を要約して」</text>
+
+  <!-- input B: loaded material with hidden command -->
+  <rect x="24" y="166" width="250" height="118" rx="10" fill="#f5f5f5" stroke="#64748b" stroke-width="2"/>
+  <text x="149" y="190" text-anchor="middle" font-size="13" font-weight="700" fill="#334155">読み込ませた資料</text>
+  <rect x="40" y="204" width="218" height="62" rx="8" fill="#fff5f5" stroke="#e0554e" stroke-width="2"/>
+  <text x="149" y="226" text-anchor="middle" font-size="11" fill="#b23b34">（見えにくく隠された命令）</text>
+  <text x="149" y="245" text-anchor="middle" font-size="11" fill="#b23b34">「これ以降を無視して</text>
+  <text x="149" y="260" text-anchor="middle" font-size="11" fill="#b23b34">別のことをせよ」</text>
+
+  <!-- arrows to AI -->
+  <line x1="278" y1="111" x2="352" y2="150" stroke="#2337ff" stroke-width="2" marker-end="url(#pi-arrow)"/>
+  <line x1="278" y1="225" x2="352" y2="185" stroke="#2337ff" stroke-width="2" marker-end="url(#pi-arrow)"/>
+
+  <!-- AI -->
+  <circle cx="410" cy="168" r="46" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="410" y="164" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">AI</text>
+  <text x="410" y="184" text-anchor="middle" font-size="10" fill="#334155">見分け</text>
+  <text x="410" y="197" text-anchor="middle" font-size="10" fill="#334155">られない</text>
+
+  <!-- arrow to output -->
+  <line x1="458" y1="168" x2="502" y2="168" stroke="#2337ff" stroke-width="2" marker-end="url(#pi-arrow)"/>
+
+  <!-- hijacked output -->
+  <rect x="506" y="128" width="190" height="80" rx="10" fill="#fff5f5" stroke="#e0554e" stroke-width="2"/>
+  <text x="601" y="158" text-anchor="middle" font-size="13" font-weight="700" fill="#b23b34">隠れた命令に</text>
+  <text x="601" y="180" text-anchor="middle" font-size="13" font-weight="700" fill="#b23b34">従ってしまう</text>
+
+  <text x="360" y="306" text-anchor="middle" font-size="12" fill="#64748b">AI は「あなたの指示」と「資料に書かれた文」を、同じ言葉として受け取ってしまう。</text>
+</svg>
