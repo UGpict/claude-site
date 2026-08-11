@@ -33,6 +33,7 @@ export const CATEGORY: Record<string, string> = {
 	'design-md-toha': '使い方',
 	'mcp-server-toha': '使い方',
 	'claude-skills-toha': '使い方',
+	'claude-skill-tsukuru': '使い方',
 	'claude-memory-toha': '使い方',
 };
 export const categoryOf = (id: string): string => CATEGORY[id] ?? '記事';
