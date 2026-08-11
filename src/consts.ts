@@ -16,6 +16,7 @@ export const CATEGORY: Record<string, string> = {
 	'claude-toha-nanika': '入門',
 	'claude-code-tsukaikata': '使い方',
 	'claude-code-hajimekata': '使い方',
+	'claude-code-auto-mode': '使い方',
 	'claude-ryokin-plan': '入門',
 	'claude-chatgpt-hikaku': '入門',
 	'prompt-no-kotsu': '使い方',
