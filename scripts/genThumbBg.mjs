@@ -106,16 +106,36 @@ async function getClient() {
 	return _ai;
 }
 
-async function generateImage(prompt) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function generateOnce(prompt) {
 	const ai = await getClient();
 	const resp = await ai.models.generateContent({ model: MODEL, contents: prompt });
-
 	const parts = resp?.candidates?.[0]?.content?.parts ?? [];
 	for (const p of parts) {
 		const data = p?.inlineData?.data;
 		if (data) return Buffer.from(data, 'base64');
 	}
 	throw new Error('画像データが返りませんでした（モデル名や API 仕様を確認してください）');
+}
+
+// 429（レート制限）は指数バックオフでリトライ。それ以外は即失敗。
+async function generateImage(prompt) {
+	const backoffs = [15000, 30000, 60000, 90000];
+	for (let attempt = 0; ; attempt++) {
+		try {
+			return await generateOnce(prompt);
+		} catch (e) {
+			const is429 = /429|RESOURCE_EXHAUSTED|exhausted/i.test(e.message || '');
+			if (is429 && attempt < backoffs.length) {
+				const wait = backoffs[attempt];
+				console.log(`[thumb-bg]   レート制限。${wait / 1000}秒待って再試行（${attempt + 1}/${backoffs.length}）`);
+				await sleep(wait);
+				continue;
+			}
+			throw e;
+		}
+	}
 }
 
 async function main() {
@@ -140,7 +160,7 @@ async function main() {
 		const slug = f.replace(/\.(md|mdx)$/, '');
 		const fm = frontmatter(readFileSync(join(BLOG, f), 'utf-8'));
 		if (/^heroImage:\s*\S/m.test(fm)) continue; // 手動ヒーロー画像がある記事は対象外
-		const out = join(BG_DIR, `${slug}.png`);
+		const out = join(BG_DIR, `${slug}.webp`);
 		if (existsSync(out) && !force) {
 			skipped++;
 			continue;
@@ -151,10 +171,11 @@ async function main() {
 		try {
 			console.log(`[thumb-bg] 生成中: ${slug}（${category}）`);
 			const raw = await generateImage(prompt);
-			// 1200x630 に整えて保存（合成側と同じ比率にそろえる）
-			const png = await sharp(raw).resize(W, H, { fit: 'cover' }).png().toBuffer();
-			writeFileSync(out, png);
+			// 1200x630 に整えて webp で保存（合成側と同じ比率・リポジトリを軽く）
+			const img = await sharp(raw).resize(W, H, { fit: 'cover' }).webp({ quality: 90 }).toBuffer();
+			writeFileSync(out, img);
 			made++;
+			await sleep(Number(process.env.THUMB_DELAY_MS || 4000)); // 分あたり上限に当たりにくくする
 		} catch (e) {
 			console.warn(`[thumb-bg] 失敗: ${slug} — ${e.message}`);
 		}

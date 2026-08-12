@@ -254,7 +254,7 @@ async function main() {
 		const fm = frontmatter(readFileSync(join(BLOG, f), 'utf-8'));
 		if (/^heroImage:\s*\S/m.test(fm)) continue;
 		const category = CATEGORY[slug] ?? '記事';
-		const bgPath = join(BG_DIR, `${slug}.png`);
+		const bgPath = join(BG_DIR, `${slug}.webp`);
 		const bg = existsSync(bgPath) ? readFileSync(bgPath) : null; // AI 背景があれば使う
 		if (bg) console.log(`[thumb] AI 背景を使用: ${slug}`);
 		await write(`${slug}.webp`, await renderCard({ title: getTitle(fm) || slug, label: category, colors: CAT_COLOR[category] ?? CAT_COLOR['記事'], bg }));
