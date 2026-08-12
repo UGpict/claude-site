@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "node scripts/fetchPopular.mjs && node scripts/genThumbnails.mjs && astro build",
+    "thumb:bg": "node scripts/genThumbBg.mjs",
     "preview": "astro preview",
     "astro": "astro"
   },

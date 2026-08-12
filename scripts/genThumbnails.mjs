@@ -1,7 +1,7 @@
 // heroImage 未指定の記事＋主要ページに、タイトル/ラベル入りのサムネ（OG兼用）を自動生成する。
 // satori でフォントをパス化するため、ビルド環境のフォント有無に依存しない（文字化けしない）。
 // 出力: public/thumb/<slug>.webp（記事） / _home,_blog,_about,_cat-<カテゴリ>.webp（ページ）
-import { readdirSync, readFileSync, mkdirSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import satori from 'satori';
 import sharp from 'sharp';
@@ -9,6 +9,8 @@ import sharp from 'sharp';
 const dir = import.meta.dirname;
 const BLOG = join(dir, '..', 'src', 'content', 'blog');
 const OUT = join(dir, '..', 'public', 'thumb');
+const BG_DIR = join(dir, '..', 'public', 'thumb-bg'); // 画像生成AIで作った背景（あれば使う）
+const CONSTS = join(dir, '..', 'src', 'consts.ts');
 const FONTS = join(dir, '..', 'src', 'assets', 'fonts');
 const LOGO = join(dir, '..', 'src', 'assets', 'logo-lg.png');
 
@@ -16,16 +18,19 @@ const W = 1200;
 const H = 630;
 const SITE_TITLE = '0から始める優しいAI生活';
 
-const CATEGORY = {
-	'claude-toha-nanika': '入門',
-	'claude-code-tsukaikata': '使い方',
-	'prompt-no-kotsu': '使い方',
-	'kangal-kaihatsu-jirei': '開発事例',
-	'shoshinsha-hitokara-tsukutta': '制作記録',
-	'ai-anzen-chuiten': '注意点',
-	'trailing-slash-canonical': '技術メモ',
-	'astro-nextjs-cms': '技術メモ',
-};
+// カテゴリは consts.ts を単一の真実として読む（ここで二重管理するとラベルがずれるため）
+function loadCategories() {
+	try {
+		const src = readFileSync(CONSTS, 'utf-8');
+		const block = src.match(/CATEGORY[^{]*\{([\s\S]*?)\}/);
+		const map = {};
+		if (block) for (const m of block[1].matchAll(/'([^']+)'\s*:\s*'([^']+)'/g)) map[m[1]] = m[2];
+		return map;
+	} catch {
+		return {};
+	}
+}
+const CATEGORY = loadCategories();
 const CAT_COLOR = {
 	入門: ['#e9f6ec', '#d3ecdb'],
 	使い方: ['#e7eeff', '#d3dfff'],
@@ -69,10 +74,17 @@ function circle(size, style) {
 let FONTS_DATA;
 let LOGO_URI;
 
-async function renderCard({ title, label, colors }) {
+async function renderCard({ title, label, colors, bg = null }) {
 	const [c1, c2] = colors;
 	const seed = hashStr(title);
 	const off = (seed % 60) - 30; // -30..29 の揺らぎ
+	const overlay = !!bg; // AI 背景の上に文字を重ねるモード
+
+	// 文字色：AI 背景あり＝白（暗いスクリム前提）／なし＝従来の濃色
+	const titleColor = overlay ? '#ffffff' : '#14181f';
+	const footerColor = overlay ? '#eaf0fb' : '#3a4658';
+	const pillTextColor = '#000d8a';
+	const pillBg = overlay ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.85)';
 
 	// 左：テキスト列（ピル / タイトル / フッター）
 	const leftChildren = [];
@@ -85,14 +97,7 @@ async function renderCard({ title, label, colors }) {
 					{
 						type: 'div',
 						props: {
-							style: {
-								fontSize: 28,
-								fontWeight: 700,
-								color: '#000d8a',
-								background: 'rgba(255,255,255,0.85)',
-								padding: '8px 26px',
-								borderRadius: 9999,
-							},
+							style: { fontSize: 28, fontWeight: 700, color: pillTextColor, background: pillBg, padding: '8px 26px', borderRadius: 9999 },
 							children: label,
 						},
 					},
@@ -109,9 +114,10 @@ async function renderCard({ title, label, colors }) {
 				display: 'flex',
 				fontSize: titleFontSize([...title].length),
 				fontWeight: 700,
-				color: '#14181f',
+				color: titleColor,
 				lineHeight: 1.35,
 				letterSpacing: '0.01em',
+				textShadow: overlay ? '0 2px 12px rgba(10,15,30,0.55)' : 'none',
 			},
 			children: title,
 		},
@@ -122,10 +128,71 @@ async function renderCard({ title, label, colors }) {
 			style: { display: 'flex', alignItems: 'center' },
 			children: [
 				{ type: 'img', props: { src: LOGO_URI, width: 48, height: 48, style: { borderRadius: 12, marginRight: 16 } } },
-				{ type: 'div', props: { style: { fontSize: 26, fontWeight: 700, color: '#3a4658' }, children: SITE_TITLE } },
+				{ type: 'div', props: { style: { fontSize: 26, fontWeight: 700, color: footerColor }, children: SITE_TITLE } },
 			],
 		},
 	});
+
+	// 背景レイヤー：AI 背景ありなら透明ルート＋左を暗くするスクリム、なしなら従来のグラデ＋装飾円
+	const bgChildren = overlay
+		? [
+				{
+					type: 'div',
+					props: {
+						style: {
+							position: 'absolute',
+							top: 0,
+							left: 0,
+							width: '100%',
+							height: '100%',
+							backgroundImage:
+								'linear-gradient(90deg, rgba(12,16,26,0.74) 0%, rgba(12,16,26,0.48) 46%, rgba(12,16,26,0.10) 100%)',
+						},
+					},
+				},
+			]
+		: [
+				circle(520, { top: -140 + off, right: -120, background: 'rgba(255,255,255,0.45)' }),
+				circle(300, { bottom: -90, left: -70 + off, background: 'rgba(255,255,255,0.35)' }),
+				circle(120, { top: 150 - off, left: 470, background: 'rgba(255,255,255,0.4)' }),
+			];
+
+	// AI 背景ありのときはマスコットバッジを出さない（AI の絵が主役なので）
+	const contentChildren = [
+		{
+			type: 'div',
+			props: {
+				style: { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: overlay ? 820 : 660, height: '100%', paddingRight: 24 },
+				children: leftChildren,
+			},
+		},
+	];
+	if (!overlay) {
+		contentChildren.push({
+			type: 'div',
+			props: {
+				style: { display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center' },
+				children: [
+					{
+						type: 'div',
+						props: {
+							style: {
+								display: 'flex',
+								width: 340,
+								height: 340,
+								borderRadius: 9999,
+								background: '#ffffff',
+								alignItems: 'center',
+								justifyContent: 'center',
+								boxShadow: '0 24px 60px rgba(20,30,60,0.18)',
+							},
+							children: [{ type: 'img', props: { src: LOGO_URI, width: 300, height: 300 } }],
+						},
+					},
+				],
+			},
+		});
+	}
 
 	const svg = await satori(
 		{
@@ -137,54 +204,16 @@ async function renderCard({ title, label, colors }) {
 					display: 'flex',
 					position: 'relative',
 					overflow: 'hidden',
-					background: `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`,
+					background: overlay ? 'transparent' : `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`,
 					fontFamily: 'Noto Sans JP',
 				},
 				children: [
-					// 装飾（背景のふわっとした円）
-					circle(520, { top: -140 + off, right: -120, background: 'rgba(255,255,255,0.45)' }),
-					circle(300, { bottom: -90, left: -70 + off, background: 'rgba(255,255,255,0.35)' }),
-					circle(120, { top: 150 - off, left: 470, background: 'rgba(255,255,255,0.4)' }),
-					// コンテンツ本体
+					...bgChildren,
 					{
 						type: 'div',
 						props: {
 							style: { display: 'flex', position: 'relative', width: '100%', height: '100%', padding: '64px', alignItems: 'center' },
-							children: [
-								// 左：テキスト
-								{
-									type: 'div',
-									props: {
-										style: { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 660, height: '100%', paddingRight: 24 },
-										children: leftChildren,
-									},
-								},
-								// 右：マスコット（白い丸バッジ）
-								{
-									type: 'div',
-									props: {
-										style: { display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center' },
-										children: [
-											{
-												type: 'div',
-												props: {
-													style: {
-														display: 'flex',
-														width: 340,
-														height: 340,
-														borderRadius: 9999,
-														background: '#ffffff',
-														alignItems: 'center',
-														justifyContent: 'center',
-														boxShadow: '0 24px 60px rgba(20,30,60,0.18)',
-													},
-													children: [{ type: 'img', props: { src: LOGO_URI, width: 300, height: 300 } }],
-												},
-											},
-										],
-									},
-								},
-							],
+							children: contentChildren,
 						},
 					},
 				],
@@ -192,6 +221,12 @@ async function renderCard({ title, label, colors }) {
 		},
 		{ width: W, height: H, fonts: FONTS_DATA },
 	);
+
+	// AI 背景ありなら、背景 PNG の上に透明の文字レイヤーを合成
+	if (overlay) {
+		const base = sharp(bg).resize(W, H, { fit: 'cover' });
+		return base.composite([{ input: Buffer.from(svg) }]).webp({ quality: 84 }).toBuffer();
+	}
 	return sharp(Buffer.from(svg)).webp({ quality: 84 }).toBuffer();
 }
 
@@ -219,7 +254,10 @@ async function main() {
 		const fm = frontmatter(readFileSync(join(BLOG, f), 'utf-8'));
 		if (/^heroImage:\s*\S/m.test(fm)) continue;
 		const category = CATEGORY[slug] ?? '記事';
-		await write(`${slug}.webp`, await renderCard({ title: getTitle(fm) || slug, label: category, colors: CAT_COLOR[category] ?? CAT_COLOR['記事'] }));
+		const bgPath = join(BG_DIR, `${slug}.png`);
+		const bg = existsSync(bgPath) ? readFileSync(bgPath) : null; // AI 背景があれば使う
+		if (bg) console.log(`[thumb] AI 背景を使用: ${slug}`);
+		await write(`${slug}.webp`, await renderCard({ title: getTitle(fm) || slug, label: category, colors: CAT_COLOR[category] ?? CAT_COLOR['記事'], bg }));
 	}
 
 	// 主要ページ
