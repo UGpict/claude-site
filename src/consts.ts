@@ -19,6 +19,7 @@ export const CATEGORY: Record<string, string> = {
 	'claude-code-auto-mode': '使い方',
 	'claude-ryokin-plan': '入門',
 	'claude-chatgpt-hikaku': '入門',
+	'anthropic-datacenter': '入門',
 	'prompt-no-kotsu': '使い方',
 	'kangal-kaihatsu-jirei': '開発事例',
 	'kangal-anzen-sekkei': '開発事例',

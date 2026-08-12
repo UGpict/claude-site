@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 270" font-family="sans-serif" role="img" aria-label="AIには計算する場所が要る。利用が増えるとデータセンターが要り、そこには膨大な電力が要る。だから各社と組んで計算資源を確保している。">
+  <rect width="720" height="270" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">AI を支える「計算する場所」</text>
+
+  <defs>
+    <marker id="dc-arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+      <path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/>
+    </marker>
+  </defs>
+
+  <!-- step 1 -->
+  <rect x="24" y="92" width="188" height="96" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="118" y="128" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">利用が増える</text>
+  <text x="118" y="154" text-anchor="middle" font-size="11" fill="#64748b">みんなが AI を使う</text>
+
+  <line x1="214" y1="140" x2="256" y2="140" stroke="#2337ff" stroke-width="2" marker-end="url(#dc-arrow)"/>
+
+  <!-- step 2 -->
+  <rect x="260" y="92" width="200" height="96" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="360" y="122" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">計算する場所が要る</text>
+  <text x="360" y="146" text-anchor="middle" font-size="11" fill="#334155">データセンター＋専用チップ</text>
+  <text x="360" y="164" text-anchor="middle" font-size="11" fill="#64748b">TPU ・ Trainium ・ GPU</text>
+
+  <line x1="462" y1="140" x2="504" y2="140" stroke="#2337ff" stroke-width="2" marker-end="url(#dc-arrow)"/>
+
+  <!-- step 3 -->
+  <rect x="508" y="92" width="188" height="96" rx="12" fill="#fff5f5" stroke="#e0554e" stroke-width="2"/>
+  <text x="602" y="122" text-anchor="middle" font-size="14" font-weight="700" fill="#b23b34">膨大な電力が要る</text>
+  <text x="602" y="146" text-anchor="middle" font-size="11" fill="#64748b">単位は「ギガワット」</text>
+  <text x="602" y="164" text-anchor="middle" font-size="11" fill="#64748b">＝発電所いくつ分</text>
+
+  <text x="360" y="228" text-anchor="middle" font-size="12" fill="#64748b">だから Anthropic は各社（Google・Amazon など）と組んで</text>
+  <text x="360" y="248" text-anchor="middle" font-size="12" fill="#64748b">計算資源をまとめて確保しています。</text>
+</svg>
