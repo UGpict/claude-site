@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 280" font-family="sans-serif" role="img" aria-label="Claudeの得意と苦手。得意は長い文章の要約・下書き・翻訳・コードの説明。苦手は最新のできごと・事実をもっともらしく間違えること。">
+  <rect width="720" height="280" fill="#ffffff"/>
+  <text x="360" y="42" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">Claude の得意と苦手</text>
+
+  <!-- 得意 -->
+  <g>
+    <rect x="40" y="76" width="290" height="170" rx="14" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+    <text x="185" y="110" text-anchor="middle" font-size="16" font-weight="700" fill="#2f7d46">得意なこと</text>
+    <text x="185" y="146" text-anchor="middle" font-size="13" fill="#334155">長い文章を要約する</text>
+    <text x="185" y="172" text-anchor="middle" font-size="13" fill="#334155">下書きを書く</text>
+    <text x="185" y="198" text-anchor="middle" font-size="13" fill="#334155">翻訳する</text>
+    <text x="185" y="224" text-anchor="middle" font-size="13" fill="#334155">コードを説明する</text>
+  </g>
+
+  <!-- 苦手 -->
+  <g>
+    <rect x="390" y="76" width="290" height="170" rx="14" fill="#fff5f5" stroke="#e0554e" stroke-width="2"/>
+    <text x="535" y="110" text-anchor="middle" font-size="16" font-weight="700" fill="#b23b34">苦手なこと</text>
+    <text x="535" y="146" text-anchor="middle" font-size="13" fill="#334155">最新のできごと</text>
+    <text x="535" y="172" text-anchor="middle" font-size="13" fill="#334155">（学習した時点までしか知らない）</text>
+    <text x="535" y="204" text-anchor="middle" font-size="13" fill="#334155">事実をもっともらしく間違える</text>
+    <text x="535" y="226" text-anchor="middle" font-size="12" fill="#64748b">＝ ハルシネーション</text>
+  </g>
+</svg>

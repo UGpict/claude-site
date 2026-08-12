@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 250" font-family="sans-serif" role="img" aria-label="AI計算に使う専用チップ3種。TPUはGoogle製、TrainiumはAmazon製、GPUは画像処理由来で広く使われる。一社に頼らず組み合わせて使う。">
+  <rect width="720" height="250" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">AI 計算を担う専用チップ</text>
+
+  <!-- TPU -->
+  <g>
+    <rect x="30" y="76" width="200" height="120" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="130" y="112" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">TPU</text>
+    <text x="130" y="142" text-anchor="middle" font-size="12" fill="#334155">Google 製</text>
+    <text x="130" y="166" text-anchor="middle" font-size="11" fill="#64748b">AI 計算に特化</text>
+  </g>
+  <!-- Trainium -->
+  <g>
+    <rect x="260" y="76" width="200" height="120" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="360" y="112" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">Trainium</text>
+    <text x="360" y="142" text-anchor="middle" font-size="12" fill="#334155">Amazon 製</text>
+    <text x="360" y="166" text-anchor="middle" font-size="11" fill="#64748b">同じく AI 用</text>
+  </g>
+  <!-- GPU -->
+  <g>
+    <rect x="490" y="76" width="200" height="120" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="590" y="112" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">GPU</text>
+    <text x="590" y="142" text-anchor="middle" font-size="12" fill="#334155">画像処理が由来</text>
+    <text x="590" y="166" text-anchor="middle" font-size="11" fill="#64748b">AI にも広く使う</text>
+  </g>
+
+  <text x="360" y="226" text-anchor="middle" font-size="12" fill="#64748b">一社に頼らず、役割で組み合わせて使う。</text>
+</svg>

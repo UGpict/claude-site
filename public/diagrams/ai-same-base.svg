@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 280" font-family="sans-serif" role="img" aria-label="3つのAIは同じ土台の上に立つ。共通の大規模言語モデルという土台の上に、Claude・ChatGPT・Geminiがそれぞれの得意の色を持つ。">
+  <rect width="720" height="280" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">同じ土台の上に、ちがう色</text>
+
+  <!-- 3つの上物 -->
+  <g>
+    <rect x="70" y="74" width="170" height="96" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="155" y="112" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">Claude</text>
+    <text x="155" y="140" text-anchor="middle" font-size="11" fill="#64748b">文章とコードの質</text>
+  </g>
+  <g>
+    <rect x="275" y="74" width="170" height="96" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="360" y="112" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">ChatGPT</text>
+    <text x="360" y="140" text-anchor="middle" font-size="11" fill="#64748b">幅広さ</text>
+  </g>
+  <g>
+    <rect x="480" y="74" width="170" height="96" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="565" y="112" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">Gemini</text>
+    <text x="565" y="140" text-anchor="middle" font-size="11" fill="#64748b">画像・Google連携</text>
+  </g>
+
+  <!-- 土台 -->
+  <rect x="70" y="190" width="580" height="60" rx="12" fill="#eaeef5" stroke="#64748b" stroke-width="2"/>
+  <text x="360" y="220" text-anchor="middle" font-size="14" font-weight="700" fill="#334155">共通の土台：大規模言語モデル（LLM）</text>
+  <text x="360" y="240" text-anchor="middle" font-size="11" fill="#64748b">できることの大枠は同じ。ちがうのは会社ごとの得意の色。</text>
+</svg>

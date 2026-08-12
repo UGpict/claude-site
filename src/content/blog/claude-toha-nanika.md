@@ -2,7 +2,7 @@
 title: 'Claude とは何か — はじめての人のための入門'
 description: 'Claude の正体、モデルの種類（Opus / Sonnet / Haiku）、どこで使えるのかを、初心者向けにやさしく整理します。'
 pubDate: 'Jul 20 2026'
-updatedDate: 'Aug 10 2026'
+updatedDate: 'Aug 12 2026'
 ---
 
 「Claude（クロード）って最近よく聞くけれど、結局なに？」
@@ -105,6 +105,8 @@ ChatGPT との違いや選び方は [Claude と ChatGPT・Gemini はどう違う
 この順番で困ることはありません。
 
 ## 何が得意で、何が苦手か
+
+![Claudeの得意と苦手。得意は長い文章の要約・下書き・翻訳・コードの説明。苦手は最新のできごとと、事実をもっともらしく間違えること（ハルシネーション）。](/diagrams/claude-tokui-nigate.svg)
 
 得意なのは、言葉を扱う作業です。
 長い文章を読んで要点をまとめる、下書きを書く、コードを説明する。
