@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 230" font-family="sans-serif" role="img" aria-label="機密ファイルは2つの経路で塞ぐ。Readツール経由はpermissions.denyで、コマンド経由はsandboxのdenyReadで。両方塞ぐとプロンプトインジェクションにも効く。">
+  <rect width="720" height="230" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">機密ファイルは「2 経路」で塞ぐ</text>
+
+  <!-- path 1 -->
+  <rect x="40" y="70" width="290" height="120" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="185" y="102" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">Read ツール経由</text>
+  <text x="185" y="132" text-anchor="middle" font-size="12" fill="#334155" font-family="monospace">permissions.deny</text>
+  <text x="185" y="162" text-anchor="middle" font-size="11" fill="#64748b">読み取り操作をブロック</text>
+
+  <!-- path 2 -->
+  <rect x="390" y="70" width="290" height="120" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="535" y="102" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">コマンド経由</text>
+  <text x="535" y="132" text-anchor="middle" font-size="12" fill="#334155" font-family="monospace">sandbox.denyRead</text>
+  <text x="535" y="162" text-anchor="middle" font-size="11" fill="#64748b">cat などもブロック</text>
+
+  <text x="360" y="216" text-anchor="middle" font-size="12" fill="#64748b">両方塞ぐと、プロンプトインジェクション対策にもなる。</text>
+</svg>

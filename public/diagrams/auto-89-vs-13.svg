@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 250" font-family="sans-serif" role="img" aria-label="autoモードは有害な操作の89%を止めた。人による毎回の確認では13.6%しか止められなかった。人は確認を素通りしがちだから。">
+  <rect width="720" height="250" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">有害な操作を、どれだけ止められた？</text>
+
+  <!-- auto bar -->
+  <text x="60" y="96" font-size="14" font-weight="700" fill="#2f7d46">auto モード</text>
+  <rect x="60" y="106" width="560" height="34" rx="8" fill="#eef1ff"/>
+  <rect x="60" y="106" width="498" height="34" rx="8" fill="#3f9e5a"/>
+  <text x="574" y="130" font-size="15" font-weight="700" fill="#2f7d46">89%</text>
+
+  <!-- human bar -->
+  <text x="60" y="176" font-size="14" font-weight="700" fill="#b23b34">人が毎回確認</text>
+  <rect x="60" y="186" width="560" height="34" rx="8" fill="#fff5f5"/>
+  <rect x="60" y="186" width="76" height="34" rx="8" fill="#e0554e"/>
+  <text x="146" y="210" font-size="15" font-weight="700" fill="#b23b34">13.6%</text>
+
+  <text x="360" y="242" text-anchor="middle" font-size="12" fill="#64748b">人は確認プロンプトの97%を、ほぼ中身を見ずに承認してしまうため。</text>
+</svg>
