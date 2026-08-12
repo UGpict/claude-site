@@ -11,10 +11,20 @@
 //   GEMINI_API_KEY=xxxx node scripts/genThumbBg.mjs --force   # 全記事を作り直し
 //   IMAGE_MODEL=gemini-3-pro-image ... で使うモデルを上書き可
 //
-// 事前準備:
-//   1. npm i @google/genai
-//   2. Google AI Studio（aistudio.google.com）で API キーを取得
-//   3. 環境変数 GEMINI_API_KEY にセット（Git には絶対に入れない）
+// 認証は 2 通り（どちらか）:
+//   A) AI Studio の API キー（手軽）:
+//        npm i @google/genai
+//        aistudio.google.com で GEMINI_API_KEY を取得し、環境変数にセット
+//   B) Vertex AI ＝ KangaL と同じ GCP を再利用（新しい鍵を作らない）:
+//        npm i @google/genai
+//        Vertex AI API を有効化し、SA に roles/aiplatform.user を付与
+//        環境変数: GOOGLE_GENAI_USE_VERTEXAI=true
+//                  GOOGLE_CLOUD_PROJECT=<プロジェクトID 例: ai-bridging>
+//                  GOOGLE_CLOUD_LOCATION=us-central1（省略時この値）
+//                  GOOGLE_APPLICATION_CREDENTIALS=<サービスアカウントJSONのパス>
+//                  （または `gcloud auth application-default login` 済みならパス不要）
+//   ※ 鍵・JSON は Git に絶対に入れない（環境変数で渡す）。
+//   ※ 画像生成は GCP に実課金されます。
 import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -27,6 +37,11 @@ const BG_DIR = join(dir, '..', 'public', 'thumb-bg');
 const W = 1200;
 const H = 630;
 const MODEL = process.env.IMAGE_MODEL || 'gemini-2.5-flash-image';
+// Vertex AI（KangaL の GCP 再利用）を使うか、AI Studio の API キーを使うか
+const USE_VERTEX =
+	/^(1|true)$/i.test(process.env.GOOGLE_GENAI_USE_VERTEXAI || '') || (!process.env.GEMINI_API_KEY && !!process.env.GOOGLE_CLOUD_PROJECT);
+const GCP_PROJECT = process.env.GOOGLE_CLOUD_PROJECT;
+const GCP_LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
 
 const args = process.argv.slice(2);
 const force = args.includes('--force');
@@ -81,9 +96,18 @@ function buildPrompt(category) {
 
 // ── ここが唯一「画像生成AIを叩く」部分。SDK のバージョンで戻り値の形が変わりうるので、
 //    inlineData を探す実装にしてある。モデルは IMAGE_MODEL で上書き可。 ──
-async function generateImage(prompt) {
+let _ai;
+async function getClient() {
+	if (_ai) return _ai;
 	const { GoogleGenAI } = await import('@google/genai');
-	const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+	_ai = USE_VERTEX
+		? new GoogleGenAI({ vertexai: true, project: GCP_PROJECT, location: GCP_LOCATION }) // ADC で認証（KangaL の GCP）
+		: new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+	return _ai;
+}
+
+async function generateImage(prompt) {
+	const ai = await getClient();
 	const resp = await ai.models.generateContent({ model: MODEL, contents: prompt });
 
 	const parts = resp?.candidates?.[0]?.content?.parts ?? [];
@@ -95,10 +119,15 @@ async function generateImage(prompt) {
 }
 
 async function main() {
-	if (!process.env.GEMINI_API_KEY) {
-		console.error('[thumb-bg] GEMINI_API_KEY が未設定です。中止します。');
+	if (!USE_VERTEX && !process.env.GEMINI_API_KEY) {
+		console.error('[thumb-bg] 認証情報がありません。GEMINI_API_KEY か、Vertex 用の GOOGLE_CLOUD_PROJECT 等を設定してください。');
 		process.exit(1);
 	}
+	if (USE_VERTEX && !GCP_PROJECT) {
+		console.error('[thumb-bg] Vertex モードには GOOGLE_CLOUD_PROJECT が必要です。');
+		process.exit(1);
+	}
+	console.log(`[thumb-bg] 認証: ${USE_VERTEX ? `Vertex AI（project=${GCP_PROJECT}, location=${GCP_LOCATION}）` : 'AI Studio API キー'} / モデル: ${MODEL}`);
 	mkdirSync(BG_DIR, { recursive: true });
 	const cats = loadCategories();
 
