@@ -73,25 +73,38 @@ function frontmatter(src) {
 	const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 	return m ? m[1] : '';
 }
-function getTitle(fm) {
-	const m = fm.match(/^title:\s*(.+)$/m);
-	if (!m) return '';
-	let t = m[1].trim();
+function unquote(s) {
+	let t = s.trim();
 	if ((t.startsWith("'") && t.endsWith("'")) || (t.startsWith('"') && t.endsWith('"'))) t = t.slice(1, -1);
 	return t;
 }
+function getField(fm, key) {
+	const m = fm.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'));
+	return m ? unquote(m[1]) : '';
+}
+const getTitle = (fm) => getField(fm, 'title');
+const getDescription = (fm) => getField(fm, 'description');
 
-function buildPrompt(category) {
+// 記事の内容（タイトル＋要約）を渡し、「一目で主題が分かる象徴的なイラスト」を作らせる。
+// 文字は描かせない（日本語が崩れる）。左側は satori のタイトル用に空ける。
+function buildPrompt({ title, description, category }) {
 	const mood = CAT_MOOD[category] || CAT_MOOD['記事'];
 	return [
-		'A soft, friendly, minimalist flat-illustration background for a blog thumbnail.',
-		`Theme mood: ${mood}.`,
-		'Gentle pastel palette centered on calm blue (#2337ff family) with plenty of white.',
-		'Leave the LEFT HALF mostly empty and uncluttered for text overlay.',
-		'Clean modern editorial style, subtle geometric shapes, soft gradients.',
-		'ABSOLUTELY NO text, no letters, no words, no numbers, no logos, no watermark.',
+		'A striking blog thumbnail image that instantly communicates the article topic at a glance.',
+		`Article title (Japanese): "${title}".`,
+		description ? `Article summary (Japanese): "${description}".` : '',
+		'Show ONE clear hero object or an atmospheric real-world scene that represents this specific topic,',
+		'so a viewer immediately understands the subject even without reading any text.',
+		'Prefer a photographic look or a high-quality 3D render with real materials, texture, lighting and soft depth of field —',
+		'NOT a flat cartoon or vector illustration.',
+		`Subject/mood hint: ${mood}.`,
+		'Composition: place the main subject on the RIGHT two-thirds; keep the LEFT third calm, simple and softly out-of-focus for a text overlay.',
+		'Palette: tasteful and eye-catching, leaning on calm blue that fits a modern tech blog.',
+		'CRITICAL: the image must contain absolutely NO text of any kind — no letters, words, numbers, labels, captions, signage, logos, watermarks, or UI screens with writing. Represent everything visually, never with written words.',
 		'Wide 16:9 composition.',
-	].join(' ');
+	]
+		.filter(Boolean)
+		.join(' ');
 }
 
 // ── ここが唯一「画像生成AIを叩く」部分。SDK のバージョンで戻り値の形が変わりうるので、
@@ -167,7 +180,7 @@ async function main() {
 		}
 
 		const category = cats[slug] || '記事';
-		const prompt = buildPrompt(category);
+		const prompt = buildPrompt({ title: getTitle(fm), description: getDescription(fm), category });
 		try {
 			console.log(`[thumb-bg] 生成中: ${slug}（${category}）`);
 			const raw = await generateImage(prompt);
