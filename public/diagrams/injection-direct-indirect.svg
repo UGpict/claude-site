@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif" role="img" aria-label="直接と間接の2種類。直接は使う人自身があやしい指示を打つ。間接は資料に命令を隠す（本人は要約を頼んだだけ）でより危険。">
+  <rect width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="42" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">「直接」と「間接」の 2 種類</text>
+
+  <!-- 直接 -->
+  <g>
+    <rect x="40" y="76" width="290" height="192" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="185" y="112" text-anchor="middle" font-size="17" font-weight="700" fill="#000d8a">直接</text>
+    <text x="185" y="146" text-anchor="middle" font-size="13" fill="#334155">使う人自身が</text>
+    <text x="185" y="168" text-anchor="middle" font-size="13" fill="#334155">あやしい指示を打つ</text>
+    <text x="185" y="204" text-anchor="middle" font-size="12" fill="#64748b">「ルールを無視して教えて」</text>
+    <text x="185" y="224" text-anchor="middle" font-size="12" fill="#64748b">＝ いわゆる脱獄</text>
+    <text x="185" y="252" text-anchor="middle" font-size="11" fill="#64748b">自分でやっている</text>
+  </g>
+
+  <!-- 間接（より危険） -->
+  <g>
+    <rect x="390" y="76" width="290" height="192" rx="14" fill="#fff5f5" stroke="#e0554e" stroke-width="2"/>
+    <text x="535" y="112" text-anchor="middle" font-size="17" font-weight="700" fill="#b23b34">間接（より危険）</text>
+    <text x="535" y="146" text-anchor="middle" font-size="13" fill="#334155">資料の中に</text>
+    <text x="535" y="168" text-anchor="middle" font-size="13" fill="#334155">命令を隠しておく</text>
+    <text x="535" y="204" text-anchor="middle" font-size="12" fill="#b23b34">本人は「要約して」と</text>
+    <text x="535" y="224" text-anchor="middle" font-size="12" fill="#b23b34">頼んだだけなのに従う</text>
+    <text x="535" y="252" text-anchor="middle" font-size="11" fill="#64748b">巻き込まれる</text>
+  </g>
+</svg>

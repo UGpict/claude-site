@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif" role="img" aria-label="初心者ができる4つの備え。信頼できない資料を読ませない・重要な操作は自分で承認・指示と資料を分ける・最後は自分で確かめる。">
+  <rect width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="42" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">初心者ができる 4 つの備え</text>
+
+  <!-- card 1 -->
+  <g>
+    <rect x="16" y="78" width="160" height="188" rx="12" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+    <circle cx="96" cy="116" r="17" fill="#3f9e5a"/>
+    <text x="96" y="122" text-anchor="middle" font-size="17" font-weight="700" fill="#ffffff">1</text>
+    <text x="96" y="158" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2f7d46">資料を選ぶ</text>
+    <text x="96" y="188" text-anchor="middle" font-size="11" fill="#64748b">信頼できない文章を</text>
+    <text x="96" y="204" text-anchor="middle" font-size="11" fill="#64748b">無防備に読ませない</text>
+  </g>
+
+  <!-- card 2 -->
+  <g>
+    <rect x="192" y="78" width="160" height="188" rx="12" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+    <circle cx="272" cy="116" r="17" fill="#3f9e5a"/>
+    <text x="272" y="122" text-anchor="middle" font-size="17" font-weight="700" fill="#ffffff">2</text>
+    <text x="272" y="158" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2f7d46">自分で承認</text>
+    <text x="272" y="188" text-anchor="middle" font-size="11" fill="#64748b">重要な操作は</text>
+    <text x="272" y="204" text-anchor="middle" font-size="11" fill="#64748b">AI 任せにしない</text>
+  </g>
+
+  <!-- card 3 -->
+  <g>
+    <rect x="368" y="78" width="160" height="188" rx="12" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+    <circle cx="448" cy="116" r="17" fill="#3f9e5a"/>
+    <text x="448" y="122" text-anchor="middle" font-size="17" font-weight="700" fill="#ffffff">3</text>
+    <text x="448" y="158" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2f7d46">指示と資料を分ける</text>
+    <text x="448" y="188" text-anchor="middle" font-size="11" fill="#64748b">「ここからが資料」と</text>
+    <text x="448" y="204" text-anchor="middle" font-size="11" fill="#64748b">区切って渡す</text>
+  </g>
+
+  <!-- card 4 -->
+  <g>
+    <rect x="544" y="78" width="160" height="188" rx="12" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+    <circle cx="624" cy="116" r="17" fill="#3f9e5a"/>
+    <text x="624" y="122" text-anchor="middle" font-size="17" font-weight="700" fill="#ffffff">4</text>
+    <text x="624" y="158" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2f7d46">最後は自分で</text>
+    <text x="624" y="188" text-anchor="middle" font-size="11" fill="#64748b">鵜呑みにせず</text>
+    <text x="624" y="204" text-anchor="middle" font-size="11" fill="#64748b">おかしければ止める</text>
+  </g>
+</svg>
