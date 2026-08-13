@@ -1,0 +1,77 @@
+---
+// ページ送り（前へ / 次へ）。Astro の paginate() が返す page オブジェクトを渡す。
+interface Props {
+	page: {
+		currentPage: number;
+		lastPage: number;
+		url: { prev?: string; next?: string };
+	};
+}
+
+const { page } = Astro.props;
+---
+
+{
+	page.lastPage > 1 && (
+		<nav class="pager" aria-label="ページ送り">
+			{page.url.prev ? (
+				<a class="plink" href={page.url.prev} rel="prev">
+					← 前のページに戻る
+				</a>
+			) : (
+				<span class="plink disabled">← 前のページに戻る</span>
+			)}
+
+			<span class="count">
+				{page.currentPage} / {page.lastPage} ページ
+			</span>
+
+			{page.url.next ? (
+				<a class="plink" href={page.url.next} rel="next">
+					次のページに進む →
+				</a>
+			) : (
+				<span class="plink disabled">次のページに進む →</span>
+			)}
+		</nav>
+	)
+}
+
+<style>
+	.pager {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		margin-top: 2.5rem;
+	}
+	.plink {
+		font-weight: 700;
+		font-size: 0.9rem;
+		text-decoration: none;
+		color: var(--accent-dark);
+		background: rgba(35, 55, 255, 0.1);
+		padding: 0.55rem 1rem;
+		border-radius: 999px;
+		transition: background 0.15s ease;
+	}
+	.plink:hover {
+		background: rgba(35, 55, 255, 0.18);
+	}
+	.plink.disabled {
+		color: rgb(var(--gray));
+		background: rgb(var(--gray-light));
+		pointer-events: none;
+	}
+	.count {
+		font-size: 0.85rem;
+		color: rgb(var(--gray));
+		white-space: nowrap;
+	}
+	@media (max-width: 480px) {
+		.plink {
+			padding: 0.5rem 0.7rem;
+			font-size: 0.82rem;
+		}
+	}
+</style>

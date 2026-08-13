@@ -1,0 +1,53 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { getCollection } from 'astro:content';
+import Base from '../../../layouts/Base.astro';
+import PostList from '../../../components/PostList.astro';
+import Pagination from '../../../components/Pagination.astro';
+import { SITE_TITLE, categoryOf } from '../../../consts';
+
+// カテゴリごとに 1 ページ 8 記事でページ送り。1 ページ目は /category/<名前>/、以降は /category/<名前>/2/ …
+export const getStaticPaths = (async ({ paginate }) => {
+	const posts = await getCollection('blog');
+	const categories = [...new Set(posts.map((p) => categoryOf(p.id)))];
+	return categories.flatMap((category) => {
+		const filtered = posts
+			.filter((p) => categoryOf(p.id) === category)
+			.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+		return paginate(filtered, { params: { category }, pageSize: 8 });
+	});
+}) satisfies GetStaticPaths;
+
+const { category } = Astro.params;
+const { page } = Astro.props;
+---
+
+<Base
+	title={page.currentPage > 1 ? `${category}の記事（${page.currentPage}ページ目） | ${SITE_TITLE}` : `${category}の記事 | ${SITE_TITLE}`}
+	description={`「${category}」カテゴリの記事一覧。`}
+	shareTitle={SITE_TITLE}
+	ogImage={`/thumb/_cat-${category}.webp`}
+>
+	<p class="crumb"><a href="/blog/">記事一覧</a> ／ カテゴリ</p>
+	<h1 class="page-title">カテゴリ：{category}</h1>
+	<p class="lead">「{category}」の記事が {page.total} 件あります。</p>
+
+	<PostList posts={page.data} />
+	<Pagination page={page} />
+</Base>
+
+<style>
+	.crumb {
+		font-size: 0.85rem;
+		color: rgb(var(--gray));
+		margin: 0 0 0.5rem;
+	}
+	.page-title {
+		font-size: 1.8rem;
+		margin-bottom: 0.3rem;
+	}
+	.lead {
+		color: rgb(var(--gray));
+		margin-bottom: 1.5rem;
+	}
+</style>

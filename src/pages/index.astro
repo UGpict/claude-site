@@ -8,7 +8,10 @@ import { SITE_DESCRIPTION, SITE_TITLE, categoryOf, thumbUrl } from '../consts';
 const posts = (await getCollection('blog')).sort(
 	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
 );
-const [featured, ...rest] = posts;
+// トップは featured 1 本＋最新 8 本まで。続きは記事一覧（ページ送り）へ。
+const [featured, ...others] = posts;
+const rest = others.slice(0, 8);
+const hasMore = others.length > rest.length;
 ---
 
 <Base title={SITE_TITLE} description={SITE_DESCRIPTION} ogImage="/thumb/_home.webp">
@@ -66,6 +69,14 @@ const [featured, ...rest] = posts;
 			))
 		}
 	</ul>
+
+	{
+		hasMore && (
+			<div class="more-wrap">
+				<a class="more-link" href="/blog/">記事一覧をすべて見る →</a>
+			</div>
+		)
+	}
 </Base>
 
 <style>
@@ -192,5 +203,23 @@ const [featured, ...rest] = posts;
 	}
 	.grid .title {
 		font-size: 1.1rem;
+	}
+
+	.more-wrap {
+		margin-top: 2.5rem;
+		text-align: center;
+	}
+	.more-link {
+		display: inline-block;
+		font-weight: 700;
+		text-decoration: none;
+		color: var(--accent-dark);
+		background: rgba(35, 55, 255, 0.1);
+		padding: 0.7rem 1.5rem;
+		border-radius: 999px;
+		transition: background 0.15s ease;
+	}
+	.more-link:hover {
+		background: rgba(35, 55, 255, 0.18);
 	}
 </style>

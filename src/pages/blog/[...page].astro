@@ -1,0 +1,36 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import PostList from '../../components/PostList.astro';
+import Pagination from '../../components/Pagination.astro';
+import { SITE_TITLE } from '../../consts';
+
+// 1 ページあたり 8 記事。1 ページ目は /blog/、以降は /blog/2/ …
+export const getStaticPaths = (async ({ paginate }) => {
+	const posts = (await getCollection('blog')).sort(
+		(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+	);
+	return paginate(posts, { pageSize: 8 });
+}) satisfies GetStaticPaths;
+
+const { page } = Astro.props;
+---
+
+<Base
+	title={page.currentPage > 1 ? `記事一覧（${page.currentPage}ページ目） | ${SITE_TITLE}` : `記事一覧 | ${SITE_TITLE}`}
+	description="Claude と AI をやさしく解説する記事の一覧です。"
+	shareTitle={SITE_TITLE}
+	ogImage="/thumb/_blog.webp"
+>
+	<h1 class="page-title">記事一覧</h1>
+	<PostList posts={page.data} />
+	<Pagination page={page} />
+</Base>
+
+<style>
+	.page-title {
+		font-size: 1.8rem;
+		margin-bottom: 1.5rem;
+	}
+</style>

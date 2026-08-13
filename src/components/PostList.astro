@@ -1,54 +1,43 @@
 ---
 import { Image } from 'astro:assets';
-import { getCollection } from 'astro:content';
-import FormattedDate from '../../components/FormattedDate.astro';
-import Base from '../../layouts/Base.astro';
-import { SITE_TITLE, categoryOf, thumbUrl } from '../../consts';
+import type { CollectionEntry } from 'astro:content';
+import FormattedDate from './FormattedDate.astro';
+import { categoryOf, thumbUrl } from '../consts';
 
-const posts = (await getCollection('blog')).sort(
-	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
-);
+interface Props {
+	posts: CollectionEntry<'blog'>[];
+}
+
+const { posts } = Astro.props;
 ---
 
-<Base
-	title={`記事一覧 | ${SITE_TITLE}`}
-	description="Claude と AI をやさしく解説する記事の一覧です。"
-	shareTitle={SITE_TITLE}
-	ogImage="/thumb/_blog.webp"
->
-	<h1 class="page-title">記事一覧</h1>
-	<ul class="list">
-		{
-			posts.map((post) => (
-				<li>
-					<a class="row" href={`/blog/${post.id}/`}>
-						<div class="thumb">
-							{post.data.heroImage ? (
-								<Image src={post.data.heroImage} width={320} height={180} alt="" />
-							) : (
-								<img src={thumbUrl(post.id)} width="320" height="180" alt="" loading="lazy" />
-							)}
+<ul class="list">
+	{
+		posts.map((post) => (
+			<li>
+				<a class="row" href={`/blog/${post.id}/`}>
+					<div class="thumb">
+						{post.data.heroImage ? (
+							<Image src={post.data.heroImage} width={320} height={180} alt="" />
+						) : (
+							<img src={thumbUrl(post.id)} width="320" height="180" alt="" loading="lazy" />
+						)}
+					</div>
+					<div class="body">
+						<div class="meta">
+							<span class="badge">{categoryOf(post.id)}</span>
+							<FormattedDate date={post.data.pubDate} />
 						</div>
-						<div class="body">
-							<div class="meta">
-								<span class="badge">{categoryOf(post.id)}</span>
-								<FormattedDate date={post.data.pubDate} />
-							</div>
-							<h2 class="title">{post.data.title}</h2>
-							<p class="excerpt">{post.data.description}</p>
-						</div>
-					</a>
-				</li>
-			))
-		}
-	</ul>
-</Base>
+						<h2 class="title">{post.data.title}</h2>
+						<p class="excerpt">{post.data.description}</p>
+					</div>
+				</a>
+			</li>
+		))
+	}
+</ul>
 
 <style>
-	.page-title {
-		font-size: 1.8rem;
-		margin-bottom: 1.5rem;
-	}
 	.list {
 		list-style: none;
 		margin: 0;
