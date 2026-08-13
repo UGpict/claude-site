@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 250" font-family="sans-serif" role="img" aria-label="これまでの道具が部品になる。MCP（手）・Skills（得意技）・CLAUDE.md（常識）・メモリー（記憶）が揃うと、自分でやり切るAIエージェントになる。">
+  <rect width="720" height="250" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">道具が揃うと、エージェントになる</text>
+  <defs>
+    <marker id="ap-arrow" markerWidth="11" markerHeight="11" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/></marker>
+  </defs>
+
+  <rect x="30" y="70" width="150" height="60" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="105" y="96" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">MCP</text>
+  <text x="105" y="116" text-anchor="middle" font-size="11" fill="#64748b">外の道具を使う「手」</text>
+
+  <rect x="30" y="142" width="150" height="60" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="105" y="168" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">Skills</text>
+  <text x="105" y="188" text-anchor="middle" font-size="11" fill="#64748b">得意技・やり方</text>
+
+  <rect x="200" y="70" width="150" height="60" rx="10" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+  <text x="275" y="96" text-anchor="middle" font-size="13" font-weight="700" fill="#2f7d46">CLAUDE.md</text>
+  <text x="275" y="116" text-anchor="middle" font-size="11" fill="#64748b">いつもの常識</text>
+
+  <rect x="200" y="142" width="150" height="60" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="275" y="168" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">メモリー</text>
+  <text x="275" y="188" text-anchor="middle" font-size="11" fill="#64748b">あなたの記憶</text>
+
+  <line x1="360" y1="136" x2="420" y2="136" stroke="#2337ff" stroke-width="2.5" marker-end="url(#ap-arrow)"/>
+
+  <rect x="428" y="82" width="262" height="108" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2.5"/>
+  <text x="559" y="126" text-anchor="middle" font-size="17" font-weight="700" fill="#000d8a">AIエージェント</text>
+  <text x="559" y="154" text-anchor="middle" font-size="12" fill="#334155">自分で段取りを組んでやり切る</text>
+</svg>
