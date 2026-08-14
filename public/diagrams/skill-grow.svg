@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200" font-family="sans-serif" role="img" aria-label="スキルは小さく作って育てる。まずプロンプトとして貼って試す→気に入ったらファイルにする→使いながら一言ずつ足す。">
+  <rect width="720" height="200" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">小さく作って、育てる</text>
+  <defs>
+    <marker id="sg-arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#3f9e5a"/></marker>
+  </defs>
+  <rect x="30" y="82" width="190" height="66" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="125" y="110" text-anchor="middle" font-size="13.5" font-weight="700" fill="#000d8a">まず貼って試す</text>
+  <text x="125" y="132" text-anchor="middle" font-size="11" fill="#64748b">プロンプトとして</text>
+
+  <line x1="222" y1="115" x2="256" y2="115" stroke="#3f9e5a" stroke-width="2" marker-end="url(#sg-arrow)"/>
+
+  <rect x="260" y="82" width="190" height="66" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="355" y="110" text-anchor="middle" font-size="13.5" font-weight="700" fill="#000d8a">ファイルにする</text>
+  <text x="355" y="132" text-anchor="middle" font-size="11" fill="#64748b">気に入ったら常駐</text>
+
+  <line x1="452" y1="115" x2="486" y2="115" stroke="#3f9e5a" stroke-width="2" marker-end="url(#sg-arrow)"/>
+
+  <rect x="490" y="82" width="200" height="66" rx="12" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+  <text x="590" y="110" text-anchor="middle" font-size="13.5" font-weight="700" fill="#2f7d46">一言ずつ足す</text>
+  <text x="590" y="132" text-anchor="middle" font-size="11" fill="#64748b">使いながら磨く</text>
+</svg>

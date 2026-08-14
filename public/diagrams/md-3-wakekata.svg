@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 220" font-family="sans-serif" role="img" aria-label="CLAUDE.mdが大きくなったときの3つの分け方。@で別ファイルを読み込む・フォルダごとに置く・対象を絞って読み込む。">
+  <rect width="720" height="220" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">大きくなったときの 3 つの分け方</text>
+  <g>
+    <rect x="30" y="66" width="200" height="120" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="130" y="100" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">その1</text>
+    <text x="130" y="128" text-anchor="middle" font-size="12" fill="#334155" font-family="monospace">@ で読み込む</text>
+    <text x="130" y="154" text-anchor="middle" font-size="11" fill="#64748b">別ファイルに分ける</text>
+  </g>
+  <g>
+    <rect x="260" y="66" width="200" height="120" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="360" y="100" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">その2</text>
+    <text x="360" y="128" text-anchor="middle" font-size="12" fill="#334155">フォルダごとに置く</text>
+    <text x="360" y="154" text-anchor="middle" font-size="11" fill="#64748b">その場所だけのルール</text>
+  </g>
+  <g>
+    <rect x="490" y="66" width="200" height="120" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="590" y="100" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">その3</text>
+    <text x="590" y="128" text-anchor="middle" font-size="12" fill="#334155">対象を絞って読む</text>
+    <text x="590" y="154" text-anchor="middle" font-size="11" fill="#64748b">必要な時だけ効かせる</text>
+  </g>
+</svg>

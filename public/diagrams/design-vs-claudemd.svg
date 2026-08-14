@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 220" font-family="sans-serif" role="img" aria-label="design.mdとCLAUDE.mdの違い。design.mdは作る前に一度書く設計メモ。CLAUDE.mdは毎回読まれる常時のルール。">
+  <rect width="720" height="220" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">design.md と CLAUDE.md の違い</text>
+  <g>
+    <rect x="40" y="66" width="300" height="120" rx="14" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="190" y="100" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">design.md</text>
+    <text x="190" y="130" text-anchor="middle" font-size="12.5" fill="#334155">作る前に一度書く「設計メモ」</text>
+    <text x="190" y="158" text-anchor="middle" font-size="11" fill="#64748b">何を・どう作るかを先に合わせる</text>
+  </g>
+  <g>
+    <rect x="380" y="66" width="300" height="120" rx="14" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+    <text x="530" y="100" text-anchor="middle" font-size="15" font-weight="700" fill="#2f7d46">CLAUDE.md</text>
+    <text x="530" y="130" text-anchor="middle" font-size="12.5" fill="#334155">毎回読まれる「常時のルール」</text>
+    <text x="530" y="158" text-anchor="middle" font-size="11" fill="#64748b">ずっと守ってほしい申し送り</text>
+  </g>
+</svg>

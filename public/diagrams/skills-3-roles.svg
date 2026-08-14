@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 210" font-family="sans-serif" role="img" aria-label="役割が三つに分かれる。CLAUDE.mdはいつもの常識、Skillsは特定作業の得意技、MCPは外の道具。競合せず組み合わせて使う。">
+  <rect width="720" height="210" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">役割は三つに分かれる</text>
+  <g>
+    <rect x="30" y="66" width="200" height="112" rx="12" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+    <text x="130" y="100" text-anchor="middle" font-size="14" font-weight="700" fill="#2f7d46">CLAUDE.md</text>
+    <text x="130" y="128" text-anchor="middle" font-size="12" fill="#334155">いつもの常識</text>
+    <text x="130" y="152" text-anchor="middle" font-size="11" fill="#64748b">毎回かならず読む</text>
+  </g>
+  <g>
+    <rect x="260" y="66" width="200" height="112" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <text x="360" y="100" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">Skills</text>
+    <text x="360" y="128" text-anchor="middle" font-size="12" fill="#334155">特定作業の得意技</text>
+    <text x="360" y="152" text-anchor="middle" font-size="11" fill="#64748b">必要なときだけ開く</text>
+  </g>
+  <g>
+    <rect x="490" y="66" width="200" height="112" rx="12" fill="#f5f5f5" stroke="#64748b" stroke-width="2"/>
+    <text x="590" y="100" text-anchor="middle" font-size="14" font-weight="700" fill="#334155">MCP</text>
+    <text x="590" y="128" text-anchor="middle" font-size="12" fill="#334155">外の道具の差込口</text>
+    <text x="590" y="152" text-anchor="middle" font-size="11" fill="#64748b">道具そのものを増やす</text>
+  </g>
+</svg>

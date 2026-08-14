@@ -75,6 +75,8 @@ Claude Code には、いきなり書かせず「まず計画を立てさせる�
 
 似た名前の markdown ファイルなので、役割を並べて整理しておきます。
 
+![design.mdとCLAUDE.mdの違い。design.mdは作る前に一度書く設計メモ。CLAUDE.mdは毎回読まれる常時のルール。](/diagrams/design-vs-claudemd.svg)
+
 | | CLAUDE.md | design.md |
 | --- | --- | --- |
 | 中身 | ずっと守るルール | 今回の設計図 |
