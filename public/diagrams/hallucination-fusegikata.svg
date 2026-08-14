@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 210" font-family="sans-serif" role="img" aria-label="ハルシネーションの防ぎ方3ステップ。出典を聞く、自分で確かめる、重要なことは裏取りする。">
+  <rect width="720" height="210" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">うのみにしない3ステップ</text>
+  <defs>
+    <marker id="hf-arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/></marker>
+  </defs>
+
+  <rect x="24" y="82" width="200" height="72" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="124" y="112" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">① 出典を聞く</text>
+  <text x="124" y="134" text-anchor="middle" font-size="11" fill="#64748b">「どこ情報？」と尋ねる</text>
+
+  <line x1="226" y1="118" x2="256" y2="118" stroke="#2337ff" stroke-width="2" marker-end="url(#hf-arrow)"/>
+
+  <rect x="260" y="82" width="200" height="72" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="360" y="112" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">② 自分で確かめる</text>
+  <text x="360" y="134" text-anchor="middle" font-size="11" fill="#64748b">公式・一次情報で照合</text>
+
+  <line x1="462" y1="118" x2="492" y2="118" stroke="#2337ff" stroke-width="2" marker-end="url(#hf-arrow)"/>
+
+  <rect x="496" y="82" width="200" height="72" rx="12" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+  <text x="596" y="112" text-anchor="middle" font-size="14" font-weight="700" fill="#2f7d46">③ 重要なら裏取り</text>
+  <text x="596" y="134" text-anchor="middle" font-size="11" fill="#64748b">お金・健康・契約は特に</text>
+
+  <text x="360" y="184" text-anchor="middle" font-size="12" fill="#64748b">下書きや案出しはうのみOK。事実として使うときだけ確認する。</text>
+</svg>

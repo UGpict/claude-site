@@ -41,6 +41,10 @@ export const CATEGORY: Record<string, string> = {
 	'claude-memory-toha': '使い方',
 	'ai-agent-toha': '入門',
 	'ai-agent-renkei': '入門',
+	'claude-model-erabikata': '入門',
+	'prompt-template-shu': '使い方',
+	'ai-kojinjoho-chuiten': '注意点',
+	'ai-hallucination-toha': '注意点',
 };
 export const categoryOf = (id: string): string => CATEGORY[id] ?? '記事';
 

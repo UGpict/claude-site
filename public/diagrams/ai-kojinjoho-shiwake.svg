@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 250" font-family="sans-serif" role="img" aria-label="AIに入れていい情報と入れないほうがいい情報の仕分け。一般的な相談や公開情報はOK、個人情報や会社の機密は入れない。">
+  <rect width="720" height="250" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">入れていい？入れないで？</text>
+
+  <rect x="30" y="66" width="320" height="164" rx="12" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+  <text x="190" y="94" text-anchor="middle" font-size="15" font-weight="700" fill="#2f7d46">入れてOK</text>
+  <text x="190" y="124" text-anchor="middle" font-size="12" fill="#334155">一般的な相談・調べもの</text>
+  <text x="190" y="148" text-anchor="middle" font-size="12" fill="#334155">公開されている情報</text>
+  <text x="190" y="172" text-anchor="middle" font-size="12" fill="#334155">名前を伏せた文章の下書き</text>
+  <text x="190" y="196" text-anchor="middle" font-size="12" fill="#334155">ダミーに置きかえた例</text>
+
+  <rect x="370" y="66" width="320" height="164" rx="12" fill="#fff5f5" stroke="#e0554e" stroke-width="2"/>
+  <text x="530" y="94" text-anchor="middle" font-size="15" font-weight="700" fill="#b23b34">入れないで</text>
+  <text x="530" y="124" text-anchor="middle" font-size="12" fill="#334155">氏名・住所・電話・メール</text>
+  <text x="530" y="148" text-anchor="middle" font-size="12" fill="#334155">パスワード・カード番号</text>
+  <text x="530" y="172" text-anchor="middle" font-size="12" fill="#334155">会社の未公開情報・顧客名簿</text>
+  <text x="530" y="196" text-anchor="middle" font-size="12" fill="#334155">他人の秘密・機微な情報</text>
+</svg>

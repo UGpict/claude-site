@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 250" font-family="sans-serif" role="img" aria-label="迷ったときの選び方。かんたん・急ぎならHaiku、ふつうの用事ならSonnet、難しい・重要ならOpus。迷ったらまずSonnet。">
+  <rect width="720" height="250" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">迷ったときの選び方</text>
+  <defs>
+    <marker id="me-arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/></marker>
+  </defs>
+
+  <rect x="30" y="72" width="230" height="52" rx="10" fill="#f5f5f5" stroke="#64748b" stroke-width="2"/>
+  <text x="145" y="104" text-anchor="middle" font-size="13" fill="#334155">かんたん・急ぎ・大量に</text>
+  <line x1="264" y1="98" x2="300" y2="98" stroke="#2337ff" stroke-width="2" marker-end="url(#me-arrow)"/>
+  <rect x="306" y="72" width="120" height="52" rx="10" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+  <text x="366" y="104" text-anchor="middle" font-size="14" font-weight="700" fill="#2f7d46">Haiku</text>
+
+  <rect x="30" y="136" width="230" height="52" rx="10" fill="#f5f5f5" stroke="#64748b" stroke-width="2"/>
+  <text x="145" y="168" text-anchor="middle" font-size="13" fill="#334155">ふつうの用事のほとんど</text>
+  <line x1="264" y1="162" x2="300" y2="162" stroke="#2337ff" stroke-width="2" marker-end="url(#me-arrow)"/>
+  <rect x="306" y="136" width="120" height="52" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="2.5"/>
+  <text x="366" y="168" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">Sonnet</text>
+
+  <rect x="30" y="200" width="230" height="52" rx="10" fill="#f5f5f5" stroke="#64748b" stroke-width="2"/>
+  <text x="145" y="232" text-anchor="middle" font-size="13" fill="#334155">難しい・重要・長い仕事</text>
+  <line x1="264" y1="226" x2="300" y2="226" stroke="#2337ff" stroke-width="2" marker-end="url(#me-arrow)"/>
+  <rect x="306" y="200" width="120" height="52" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="366" y="232" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">Opus</text>
+
+  <rect x="470" y="120" width="220" height="84" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="580" y="154" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">迷ったら</text>
+  <text x="580" y="180" text-anchor="middle" font-size="14" fill="#334155">まず Sonnet でOK</text>
+</svg>
