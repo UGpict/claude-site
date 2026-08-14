@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 210" font-family="sans-serif" role="img" aria-label="使い分けの流れ。①指揮役が段取りを決める、②実装を複数のAIに並列で任せる、③まとめて確認する、④指揮役が仕上げる。">
+  <rect width="720" height="210" fill="#ffffff"/>
+  <text x="360" y="36" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">使い分けの流れ</text>
+  <defs>
+    <marker id="tn-arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/></marker>
+  </defs>
+
+  <rect x="20" y="80" width="150" height="66" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="95" y="108" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">① 段取り</text>
+  <text x="95" y="128" text-anchor="middle" font-size="11" fill="#64748b">指揮役（Claude）</text>
+
+  <line x1="172" y1="113" x2="196" y2="113" stroke="#2337ff" stroke-width="2" marker-end="url(#tn-arrow)"/>
+
+  <rect x="200" y="80" width="150" height="66" rx="12" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+  <text x="275" y="108" text-anchor="middle" font-size="13" font-weight="700" fill="#2f7d46">② 実装</text>
+  <text x="275" y="128" text-anchor="middle" font-size="11" fill="#64748b">得意なAIに並列で</text>
+
+  <line x1="352" y1="113" x2="376" y2="113" stroke="#2337ff" stroke-width="2" marker-end="url(#tn-arrow)"/>
+
+  <rect x="380" y="80" width="150" height="66" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="455" y="108" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">③ 確認</text>
+  <text x="455" y="128" text-anchor="middle" font-size="11" fill="#64748b">指揮役がチェック</text>
+
+  <line x1="532" y1="113" x2="556" y2="113" stroke="#2337ff" stroke-width="2" marker-end="url(#tn-arrow)"/>
+
+  <rect x="560" y="80" width="150" height="66" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="635" y="108" text-anchor="middle" font-size="13" font-weight="700" fill="#000d8a">④ 仕上げ</text>
+  <text x="635" y="128" text-anchor="middle" font-size="11" fill="#64748b">まとめ・文章化</text>
+
+  <text x="360" y="182" text-anchor="middle" font-size="12" fill="#64748b">②だけを別の得意なAIに、①③④は指揮役のAIが担当するイメージ。</text>
+</svg>
