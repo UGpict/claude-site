@@ -45,6 +45,7 @@ export const CATEGORY: Record<string, string> = {
 	'prompt-template-shu': '使い方',
 	'ai-kojinjoho-chuiten': '注意点',
 	'ai-hallucination-toha': '注意点',
+	'fable-vs-sol': '入門',
 };
 export const categoryOf = (id: string): string => CATEGORY[id] ?? '記事';
 

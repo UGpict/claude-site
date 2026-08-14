@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 262" font-family="sans-serif" role="img" aria-label="Fable 5とSolの選び方。今使っている方を続ける、コーディング中心ならSol、長い自律作業や堅実さならFable、ふつうの用事なら最上位は不要。">
+  <rect width="720" height="262" fill="#ffffff"/>
+  <text x="360" y="36" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">どちらを選ぶ？</text>
+  <defs>
+    <marker id="fs-arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/></marker>
+  </defs>
+
+  <rect x="24" y="60" width="300" height="40" rx="10" fill="#f5f5f5" stroke="#64748b" stroke-width="2"/>
+  <text x="174" y="85" text-anchor="middle" font-size="12.5" fill="#334155">今すでにどちらかを使っている</text>
+  <line x1="328" y1="80" x2="360" y2="80" stroke="#2337ff" stroke-width="2" marker-end="url(#fs-arrow)"/>
+  <rect x="366" y="60" width="330" height="40" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="531" y="85" text-anchor="middle" font-size="12.5" font-weight="700" fill="#000d8a">今のを続ける（慣れ・データが活きる）</text>
+
+  <rect x="24" y="110" width="300" height="40" rx="10" fill="#f5f5f5" stroke="#64748b" stroke-width="2"/>
+  <text x="174" y="135" text-anchor="middle" font-size="12.5" fill="#334155">コーディング・開発が中心</text>
+  <line x1="328" y1="130" x2="360" y2="130" stroke="#2337ff" stroke-width="2" marker-end="url(#fs-arrow)"/>
+  <rect x="366" y="110" width="330" height="40" rx="10" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+  <text x="531" y="135" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2f7d46">GPT-5.6 Sol が強いと評判</text>
+
+  <rect x="24" y="160" width="300" height="40" rx="10" fill="#f5f5f5" stroke="#64748b" stroke-width="2"/>
+  <text x="174" y="185" text-anchor="middle" font-size="12.5" fill="#334155">長い自律作業・堅実さ重視</text>
+  <line x1="328" y1="180" x2="360" y2="180" stroke="#2337ff" stroke-width="2" marker-end="url(#fs-arrow)"/>
+  <rect x="366" y="160" width="330" height="40" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="531" y="185" text-anchor="middle" font-size="12.5" font-weight="700" fill="#000d8a">Claude Fable 5 が得意</text>
+
+  <rect x="24" y="210" width="300" height="40" rx="10" fill="#f5f5f5" stroke="#64748b" stroke-width="2"/>
+  <text x="174" y="235" text-anchor="middle" font-size="12.5" fill="#334155">ふつうの用事がほとんど</text>
+  <line x1="328" y1="230" x2="360" y2="230" stroke="#2337ff" stroke-width="2" marker-end="url(#fs-arrow)"/>
+  <rect x="366" y="210" width="330" height="40" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="531" y="235" text-anchor="middle" font-size="12.5" font-weight="700" fill="#000d8a">最上位は不要（中位で十分）</text>
+</svg>

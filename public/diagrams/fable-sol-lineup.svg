@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif" role="img" aria-label="各社の最上位クラスの位置づけ。Claudeの頂点がFable 5、ChatGPTの頂点がSol。今回はこの2つをくらべる。">
+  <rect width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">各社の「最上位クラス」をくらべる</text>
+
+  <text x="180" y="70" text-anchor="middle" font-size="14" font-weight="700" fill="#334155">Claude（Anthropic）</text>
+  <text x="540" y="70" text-anchor="middle" font-size="14" font-weight="700" fill="#334155">ChatGPT（OpenAI）</text>
+
+  <!-- Claude column, top = Fable 5 -->
+  <rect x="60" y="86" width="240" height="38" rx="9" fill="#eef1ff" stroke="#2337ff" stroke-width="2.5"/>
+  <text x="180" y="110" text-anchor="middle" font-size="14" font-weight="700" fill="#000d8a">Fable 5（最上位）</text>
+  <rect x="60" y="132" width="240" height="34" rx="9" fill="#f5f5f5" stroke="#64748b" stroke-width="1.5"/>
+  <text x="180" y="154" text-anchor="middle" font-size="12" fill="#64748b">Opus</text>
+  <rect x="60" y="174" width="240" height="34" rx="9" fill="#f5f5f5" stroke="#64748b" stroke-width="1.5"/>
+  <text x="180" y="196" text-anchor="middle" font-size="12" fill="#64748b">Sonnet</text>
+  <rect x="60" y="216" width="240" height="34" rx="9" fill="#f5f5f5" stroke="#64748b" stroke-width="1.5"/>
+  <text x="180" y="238" text-anchor="middle" font-size="12" fill="#64748b">Haiku</text>
+
+  <!-- OpenAI column, top = Sol -->
+  <rect x="420" y="86" width="240" height="38" rx="9" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2.5"/>
+  <text x="540" y="110" text-anchor="middle" font-size="14" font-weight="700" fill="#2f7d46">Sol（最上位）</text>
+  <rect x="420" y="132" width="240" height="34" rx="9" fill="#f5f5f5" stroke="#64748b" stroke-width="1.5"/>
+  <text x="540" y="154" text-anchor="middle" font-size="12" fill="#64748b">Terra</text>
+  <rect x="420" y="174" width="240" height="34" rx="9" fill="#f5f5f5" stroke="#64748b" stroke-width="1.5"/>
+  <text x="540" y="196" text-anchor="middle" font-size="12" fill="#64748b">Luna</text>
+
+  <text x="360" y="284" text-anchor="middle" font-size="12" fill="#64748b">どちらも各社のいちばん賢いクラス。今回はこの頂点どうしをくらべます。</text>
+</svg>
