@@ -126,6 +126,51 @@ const faqSchema =
 	</article>
 </Base>
 
+<script>
+	// ```mermaid を含む記事だけ、mermaid.js を遅延ロードして図に描画する。
+	// 図が無いページでは import 自体が走らないので、余計な読み込みは発生しない。
+	const nodes = document.querySelectorAll<HTMLElement>('pre.mermaid');
+	if (nodes.length) {
+		try {
+			const { default: mermaid } = await import('mermaid');
+			mermaid.initialize({
+				startOnLoad: false,
+				theme: 'base',
+				themeVariables: {
+					primaryColor: '#eef1ff',
+					primaryBorderColor: '#2337ff',
+					primaryTextColor: '#000d8a',
+					lineColor: '#94a3b8',
+					secondaryColor: '#e9f6ec',
+					tertiaryColor: '#fff5f5',
+					// グループ（subgraph）はカード風の淡い面＋細い枠に
+					clusterBkg: '#f7f8fc',
+					clusterBorder: '#e2e6f0',
+					// 矢印ラベルは白地で線に埋もれないように
+					edgeLabelBackground: '#ffffff',
+					fontFamily: 'sans-serif',
+					fontSize: '15px',
+				},
+				// 曲線・余白を足して「詰まって見える」のを避ける
+				flowchart: {
+					curve: 'basis',
+					htmlLabels: true,
+					padding: 14,
+					nodeSpacing: 45,
+					rankSpacing: 60,
+					useMaxWidth: true,
+				},
+				sequence: { useMaxWidth: true },
+			});
+			await mermaid.run({ nodes });
+		} catch (e) {
+			// 描画に失敗しても内容が消えないよう、元のソースを見える状態に戻す
+			nodes.forEach((n) => n.setAttribute('data-processed', 'error'));
+			console.error('mermaid render failed', e);
+		}
+	}
+</script>
+
 <style>
 	.ad-disclosure {
 		margin: 0 auto 1.5em;
@@ -254,6 +299,37 @@ const faqSchema =
 	}
 	.body :global(table) {
 		font-size: 0.95em;
+	}
+
+	/* Mermaid 図：描画が終わるまでは隠し、生ソースのチラつきを防ぐ */
+	.body :global(pre.mermaid) {
+		visibility: hidden;
+		margin: 1.8em auto;
+		padding: 0;
+		background: none;
+		border: none;
+		text-align: center;
+		line-height: normal;
+		white-space: normal;
+		overflow-x: auto;
+	}
+	.body :global(pre.mermaid[data-processed]) {
+		visibility: visible;
+	}
+	/* 描画に失敗して生ソースへ戻したときだけ、コードとして読める体裁にする */
+	.body :global(pre.mermaid[data-processed='error']) {
+		text-align: left;
+		white-space: pre;
+		font-family: monospace;
+		font-size: 0.85em;
+		padding: 1em;
+		background: #fbfbfa;
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 8px;
+	}
+	.body :global(pre.mermaid svg) {
+		max-width: 100%;
+		height: auto;
 	}
 
 	/* 薄い黄色のマーカー（そこだけ読めば要点が分かる） */

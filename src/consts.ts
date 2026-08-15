@@ -48,6 +48,7 @@ export const CATEGORY: Record<string, string> = {
 	'fable-vs-sol': '入門',
 	'ai-tsukaiwake-jissen': '使い方',
 	'ai-tsukaiwake-jidoka': '使い方',
+	'mermaid-ai': '使い方',
 };
 export const categoryOf = (id: string): string => CATEGORY[id] ?? '記事';
 

@@ -3,6 +3,7 @@
 import mdx from '@astrojs/mdx';
 import sitemap from '@astrojs/sitemap';
 import { defineConfig, fontProviders } from 'astro/config';
+import remarkMermaid from './src/plugins/remark-mermaid.mjs';
 
 // https://astro.build/config
 export default defineConfig({
@@ -11,6 +12,8 @@ export default defineConfig({
 	trailingSlash: 'always',
 	// コードブロックは黒背景のダークテーマで表示
 	markdown: {
+		// ```mermaid は shiki より前に <pre class="mermaid"> へ変換して図として描画する
+		remarkPlugins: [remarkMermaid],
 		shikiConfig: {
 			theme: 'github-dark',
 			wrap: true,
