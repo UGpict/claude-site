@@ -264,6 +264,8 @@ async function main() {
 	await write('_home.webp', await renderCard({ title: SITE_TITLE, label: '', colors: DEFAULT_COLOR }));
 	await write('_blog.webp', await renderCard({ title: '記事一覧', label: '', colors: DEFAULT_COLOR }));
 	await write('_about.webp', await renderCard({ title: 'このブログについて', label: '', colors: DEFAULT_COLOR }));
+	await write('_privacy.webp', await renderCard({ title: 'プライバシーポリシー', label: '', colors: DEFAULT_COLOR }));
+	await write('_contact.webp', await renderCard({ title: 'お問い合わせ', label: '', colors: DEFAULT_COLOR }));
 	for (const cat of [...new Set(Object.values(CATEGORY))]) {
 		await write(`_cat-${cat}.webp`, await renderCard({ title: `「${cat}」の記事`, label: cat, colors: CAT_COLOR[cat] ?? CAT_COLOR['記事'] }));
 	}

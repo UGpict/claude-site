@@ -1,0 +1,64 @@
+---
+import Layout from '../layouts/BlogPost.astro';
+
+// Google フォームの「埋め込み（<>）」タブに表示される URL を貼るだけで有効化されます。
+// 例: 'https://docs.google.com/forms/d/e/XXXXXXXX/viewform?embedded=true'
+const FORM_EMBED_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSf6y1izWmTGxIpNmolCXdlRs_qLqnzX1Se5yrwtIyO1Q0zLtw/viewform?embedded=true';
+---
+
+<Layout
+	title="お問い合わせ"
+	description="「0から始める優しいAI生活」へのお問い合わせフォーム。記事へのご質問・ご感想・誤りのご指摘・お仕事のご相談など、こちらからお気軽にどうぞ。"
+	pubDate={new Date('August 16 2026')}
+	ogImage="/thumb/_contact.webp"
+>
+	<p>
+		記事へのご質問・ご感想、内容の誤りのご指摘、お仕事のご相談などは、下記のフォームからお気軽にお送りください。
+		いただいた内容は確認のうえ、必要に応じて返信いたします（すべてのお問い合わせに返信できるとは限りません。
+		あらかじめご了承ください）。
+	</p>
+	<p>
+		お預かりした情報の取り扱いについては、<a href="/privacy/">プライバシーポリシー</a>をご確認ください。
+	</p>
+
+	{
+		FORM_EMBED_URL ? (
+			<div class="form-wrap">
+				<iframe
+					src={FORM_EMBED_URL}
+					title="お問い合わせフォーム"
+					width="100%"
+					height="1100"
+					loading="lazy"
+					frameborder="0"
+					marginheight={0}
+					marginwidth={0}
+				>
+					読み込んでいます…
+				</iframe>
+			</div>
+		) : (
+			<p class="notice">
+				お問い合わせフォームは準備中です。しばらくお待ちください。
+			</p>
+		)
+	}
+</Layout>
+
+<style>
+	.form-wrap {
+		width: 100%;
+		margin: 1.5em 0;
+	}
+	.form-wrap iframe {
+		display: block;
+		width: 100%;
+		border: 0;
+	}
+	.notice {
+		padding: 1em 1.2em;
+		background: #fbfbfa;
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 8px;
+	}
+</style>
