@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" font-family="sans-serif">
+  <rect width="720" height="360" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">AI が抜き出しやすい本文の書き方 5つ</text>
+
+  <!-- 1 -->
+  <circle cx="96" cy="82" r="17" fill="#2337ff"/>
+  <text x="96" y="88" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">1</text>
+  <text x="126" y="88" font-size="16" fill="#0f1219">見出しの直後に、結論を 1 文で置く</text>
+
+  <!-- 2 -->
+  <circle cx="96" cy="134" r="17" fill="#2337ff"/>
+  <text x="96" y="140" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">2</text>
+  <text x="126" y="140" font-size="16" fill="#0f1219">箇条書きより、表にする</text>
+
+  <!-- 3 -->
+  <circle cx="96" cy="186" r="17" fill="#2337ff"/>
+  <text x="96" y="192" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">3</text>
+  <text x="126" y="192" font-size="16" fill="#0f1219">質問形の見出しにする</text>
+
+  <!-- 4 -->
+  <circle cx="96" cy="238" r="17" fill="#94a3b8"/>
+  <text x="96" y="244" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">4</text>
+  <text x="126" y="244" font-size="16" fill="#0f1219">表記ゆれを吸収する（はんだ／半田／ハンダ）</text>
+
+  <!-- 5 -->
+  <circle cx="96" cy="290" r="17" fill="#94a3b8"/>
+  <text x="96" y="296" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">5</text>
+  <text x="126" y="296" font-size="16" fill="#0f1219">数値や式を明記する</text>
+
+  <text x="126" y="330" font-size="12.5" fill="#64748b">とくに 1〜3 は、覚えておくだけで文章が変わる</text>
+</svg>
