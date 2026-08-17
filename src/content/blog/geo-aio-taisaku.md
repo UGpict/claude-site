@@ -49,7 +49,29 @@ GEO は、その上に「AI が抜き出しやすい形」を少し足すだけ�
 
 そこで実際にやっている GEO 対策を整理すると、大きく 4 つの層に分けられました。
 
-![AIに引用されるための4つの工夫。A機械が読める名札、B抜き出されやすい書き方、C自分だけの一次情報、D見せ方をそろえる。](/tech/geo-4-layers.svg)
+```mermaid
+flowchart TD
+  S["あなたの記事"]
+  subgraph G["4つの工夫（GEO）"]
+    direction LR
+    A["A 機械が読める名札"]
+    B["B 抜き出されやすい書き方"]
+    C["C 自分だけの一次情報"]
+    D["D 見せ方をそろえる"]
+  end
+  S --> G
+  G --> AI["AI が中身を正しく理解"]
+  AI --> R(["答えに出典として引用される"])
+  classDef blue fill:#eef1ff,stroke:#2337ff,color:#000d8a,stroke-width:1.5px;
+  classDef green fill:#e9f6ec,stroke:#3f9e5a,color:#2f7d46,stroke-width:1.5px;
+  classDef slate fill:#eef1f6,stroke:#64748b,color:#334155,stroke-width:1.5px;
+  class A,B blue
+  class C green
+  class D slate
+  class R green
+```
+
+↑「4つの工夫」で整えた記事を、AI が正しく理解し、答えの出典として引用してくれる——という流れです。
 
 むずかしそうに見えますが、初心者語に翻訳すれば、どれも「なるほど」という話です。
 順番に見ていきましょう。
@@ -130,6 +152,8 @@ AI は、ページのタイトルや説明文を「要約の候補」として�
 URL の正規化については [末尾スラッシュと canonical の話](/blog/trailing-slash-canonical/)も参考になります。
 
 ## 実際にやってみて — 効いた順番
+
+![中央の記事から光の線が伸び、まわりの引用符やネットワークのノードとつながっている。AIに引用される記事のイメージ。](/img/geo-aio-taisaku-1.webp)
 
 正直な実感を書いておきます。
 
