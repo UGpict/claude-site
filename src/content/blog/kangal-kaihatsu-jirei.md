@@ -491,3 +491,5 @@ Gmail の全ユーザー開放は、Google の審査を待っている段階で�
 この姿勢こそが、進化し続ける詐欺と長く戦うための、いちばん誠実な土台だと思っています。
 
 > KangaL は Findy × Google Cloud Japan「DevOps × AI Agent Hackathon」への提出作品です。作品ページは ProtoPedia で公開しています。
+
+その後、同じハッカソンの決勝ピッチを見に行った話は、[AI ハッカソンの決勝を見てきた](/blog/hackathon-pitch-kizuki/)にまとめました。

@@ -21,7 +21,7 @@ Claude Code を使いはじめると、必ず出会うのが **CLAUDE.md**（ク
 Claude はこれを読んで<mark>守ろうとしてくれますが、絶対に従うとは限らない</mark>。いわば「家のルール」に近い立ち位置です。
 まずは、その役割から見ていきましょう。
 
-（Claude Code そのものについては、前の記事 [Claude Code の使い方](/blog/claude-code-tsukaikata/) をどうぞ。）
+（Claude Code そのものについては、前の記事 [Claude Code の使い方](/blog/claude-code-tsukaikata/) をどうぞ。作らせる前に「何を・どう作るか」を書く [design.md](/blog/design-md-toha/) とも、考え方の近い相棒です。）
 
 ## CLAUDE.md とは — 毎回読まれる「申し送り」
 
