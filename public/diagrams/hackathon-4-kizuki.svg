@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 336" font-family="sans-serif">
+  <rect width="720" height="336" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">決勝で見た、これからの AI の4つの気づき</text>
+
+  <!-- 1 -->
+  <circle cx="96" cy="88" r="17" fill="#2337ff"/>
+  <text x="96" y="94" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">1</text>
+  <text x="126" y="94" font-size="16" fill="#0f1219">「最後は人が決める」を動かさない</text>
+
+  <!-- 2 -->
+  <circle cx="96" cy="140" r="17" fill="#2337ff"/>
+  <text x="96" y="146" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">2</text>
+  <text x="126" y="146" font-size="16" fill="#0f1219">強いのは、その道のプロの一次知識</text>
+
+  <!-- 3 -->
+  <circle cx="96" cy="192" r="17" fill="#3f9e5a"/>
+  <text x="96" y="198" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">3</text>
+  <text x="126" y="198" font-size="16" fill="#0f1219">AI は高い。要所だけに使ってコストを下げる</text>
+
+  <!-- 4 -->
+  <circle cx="96" cy="244" r="17" fill="#3f9e5a"/>
+  <text x="96" y="250" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">4</text>
+  <text x="126" y="250" font-size="16" fill="#0f1219">あえて無料で配り、データと入口を取る</text>
+
+  <text x="126" y="292" font-size="12.5" fill="#64748b">派手な全自動より、地に足のついた現実的な使い方が評価されていた</text>
+</svg>
