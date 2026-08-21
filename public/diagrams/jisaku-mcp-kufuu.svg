@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="sans-serif">
+  <rect x="0" y="0" width="720" height="300" fill="#ffffff"/>
+  <text x="360" y="34" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">渡すなら、生のままではなく</text>
+
+  <!-- 悪い例 -->
+  <rect x="40" y="70" width="300" height="170" rx="14" fill="#fff5f5" stroke="#e0554e" stroke-width="2"/>
+  <text x="190" y="104" text-anchor="middle" font-size="16" font-weight="700" fill="#b23b34">生データを丸ごと投げる</text>
+  <text x="190" y="140" text-anchor="middle" font-size="13" fill="#b23b34">田中太郎 / 090-xxxx</text>
+  <text x="190" y="162" text-anchor="middle" font-size="13" fill="#b23b34">売上・契約・.env</text>
+  <text x="190" y="200" text-anchor="middle" font-size="13" fill="#b23b34">✗ 誰の情報か丸わかり</text>
+  <text x="190" y="222" text-anchor="middle" font-size="13" fill="#b23b34">✗ 鍵まで一緒に流出</text>
+
+  <!-- 良い例 -->
+  <rect x="380" y="70" width="300" height="170" rx="14" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="2"/>
+  <text x="530" y="104" text-anchor="middle" font-size="16" font-weight="700" fill="#2f7d46">マスクして範囲を絞る</text>
+  <text x="530" y="140" text-anchor="middle" font-size="13" fill="#2f7d46">A 様 / 顧客001</text>
+  <text x="530" y="162" text-anchor="middle" font-size="13" fill="#2f7d46">相談に要る部分だけ</text>
+  <text x="530" y="200" text-anchor="middle" font-size="13" fill="#2f7d46">✓ 個人は特定できない</text>
+  <text x="530" y="222" text-anchor="middle" font-size="13" fill="#2f7d46">✓ 鍵は手元に残す</text>
+</svg>

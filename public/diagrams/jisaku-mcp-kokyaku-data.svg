@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" font-family="sans-serif">
+  <defs>
+    <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+      <path d="M0,0 L9,4 L0,8 Z" fill="#e0554e"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="360" fill="#ffffff"/>
+  <text x="360" y="34" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">その顧客データ、どこへ行く？</text>
+
+  <!-- 手元 -->
+  <rect x="36" y="112" width="190" height="100" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="131" y="150" text-anchor="middle" font-size="15" font-weight="700" fill="#000d8a">あなたの手元</text>
+  <text x="131" y="176" text-anchor="middle" font-size="13" fill="#334155">顧客データ</text>
+  <text x="131" y="196" text-anchor="middle" font-size="13" font-family="monospace" fill="#334155">.env</text>
+
+  <!-- 他人サーバー -->
+  <rect x="296" y="100" width="184" height="124" rx="12" fill="#fff5f5" stroke="#e0554e" stroke-width="2"/>
+  <text x="388" y="140" text-anchor="middle" font-size="15" font-weight="700" fill="#b23b34">他人の自作</text>
+  <text x="388" y="162" text-anchor="middle" font-size="15" font-weight="700" fill="#b23b34">MCP サーバー</text>
+  <text x="388" y="192" text-anchor="middle" font-size="12" fill="#b23b34">中身は見えない</text>
+
+  <!-- 行き先 -->
+  <rect x="548" y="96" width="150" height="46" rx="8" fill="#fff5f5" stroke="#e0554e" stroke-width="1.5"/>
+  <text x="623" y="124" text-anchor="middle" font-size="13" fill="#b23b34">ログに残る</text>
+  <rect x="548" y="154" width="150" height="46" rx="8" fill="#fff5f5" stroke="#e0554e" stroke-width="1.5"/>
+  <text x="623" y="182" text-anchor="middle" font-size="13" fill="#b23b34">第三者へ渡る</text>
+  <rect x="548" y="212" width="150" height="46" rx="8" fill="#fff5f5" stroke="#e0554e" stroke-width="1.5"/>
+  <text x="623" y="240" text-anchor="middle" font-size="13" fill="#b23b34">別の用途に使われる</text>
+
+  <!-- 矢印 -->
+  <line x1="226" y1="162" x2="290" y2="162" stroke="#e0554e" stroke-width="2" marker-end="url(#arrowRed)"/>
+  <line x1="480" y1="150" x2="542" y2="120" stroke="#e0554e" stroke-width="1.8" marker-end="url(#arrowRed)"/>
+  <line x1="480" y1="162" x2="542" y2="177" stroke="#e0554e" stroke-width="1.8" marker-end="url(#arrowRed)"/>
+  <line x1="480" y1="176" x2="542" y2="233" stroke="#e0554e" stroke-width="1.8" marker-end="url(#arrowRed)"/>
+
+  <text x="360" y="318" text-anchor="middle" font-size="14" font-weight="700" fill="#b23b34">返事は返っても、データの行き先は自分から見えない</text>
+</svg>
