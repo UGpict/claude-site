@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="sans-serif">
+  <rect width="720" height="320" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">このブログを回しているスキル</text>
+
+  <!-- 記事制作（専用） -->
+  <rect x="30" y="66" width="300" height="230" rx="12" fill="#eef1ff" stroke="#2337ff"/>
+  <text x="50" y="96" font-size="16" font-weight="700" fill="#000d8a">記事を1本つくる（専用）</text>
+  <text x="50" y="130" font-size="14" fill="#334155">blog-article … 型どおりに書く</text>
+  <text x="50" y="160" font-size="14" fill="#334155">eeat-experience … 体験を聞く</text>
+  <text x="50" y="190" font-size="14" fill="#334155">mermaid-diagram … 流れ図</text>
+  <text x="50" y="220" font-size="14" fill="#334155">thumbnail-bg … サムネ背景</text>
+
+  <!-- 文体（主役） -->
+  <rect x="350" y="66" width="150" height="230" rx="12" fill="#fff5f5" stroke="#e0554e"/>
+  <text x="368" y="96" font-size="15" font-weight="700" fill="#b23b34">文体を整える</text>
+  <text x="368" y="128" font-size="13" fill="#334155">natural-</text>
+  <text x="368" y="148" font-size="13" fill="#334155">ja-writing</text>
+  <text x="368" y="182" font-size="13" fill="#b23b34">いちばん</text>
+  <text x="368" y="202" font-size="13" fill="#b23b34">手放せない</text>
+
+  <!-- 開発の土台（汎用） -->
+  <rect x="520" y="66" width="170" height="230" rx="12" fill="#e9f6ec" stroke="#3f9e5a"/>
+  <text x="538" y="96" font-size="15" font-weight="700" fill="#2f7d46">開発の土台</text>
+  <text x="538" y="130" font-size="13" fill="#334155">spec-driven-dev</text>
+  <text x="538" y="160" font-size="13" fill="#334155">session-handoff</text>
+  <text x="538" y="190" font-size="13" fill="#334155">judgment-to-skill</text>
+  <text x="538" y="230" font-size="12" fill="#64748b">記事以外の作業も</text>
+  <text x="538" y="248" font-size="12" fill="#64748b">同じ「型」で回す</text>
+</svg>
