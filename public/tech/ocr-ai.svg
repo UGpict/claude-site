@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" font-family="sans-serif">
+  <rect width="720" height="340" fill="#ffffff"/>
+  <text x="360" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#0f1219">OCR：画像から文字を取り出す</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+      <path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/>
+    </marker>
+  </defs>
+
+  <!-- flow: 画像 → OCR → テキスト -->
+  <rect x="40" y="70" width="150" height="70" rx="12" fill="#eef1ff" stroke="#2337ff"/>
+  <text x="115" y="100" text-anchor="middle" font-size="15" fill="#000d8a">写真・スクショ</text>
+  <text x="115" y="122" text-anchor="middle" font-size="15" fill="#000d8a">・PDF の画像</text>
+
+  <line x1="195" y1="105" x2="285" y2="105" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="290" y="70" width="140" height="70" rx="12" fill="#2337ff"/>
+  <text x="360" y="100" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">OCR</text>
+  <text x="360" y="122" text-anchor="middle" font-size="13" fill="#eef1ff">文字を認識</text>
+
+  <line x1="435" y1="105" x2="525" y2="105" stroke="#2337ff" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="530" y="70" width="150" height="70" rx="12" fill="#eef1ff" stroke="#2337ff"/>
+  <text x="605" y="100" text-anchor="middle" font-size="15" fill="#000d8a">編集できる</text>
+  <text x="605" y="122" text-anchor="middle" font-size="15" fill="#000d8a">テキスト</text>
+
+  <!-- 昔 / 今 の対比 -->
+  <rect x="40" y="180" width="310" height="128" rx="12" fill="#fff5f5" stroke="#e0554e"/>
+  <text x="60" y="210" font-size="16" font-weight="700" fill="#b23b34">昔：専用ソフト</text>
+  <text x="60" y="238" font-size="14" fill="#334155">読み取り範囲や設定を自分で調整</text>
+  <text x="60" y="262" font-size="14" fill="#334155">きれいな印刷物向け</text>
+  <text x="60" y="290" font-size="14" fill="#b23b34">手書きの癖字はとくに苦手</text>
+
+  <rect x="370" y="180" width="310" height="128" rx="12" fill="#e9f6ec" stroke="#3f9e5a"/>
+  <text x="390" y="210" font-size="16" font-weight="700" fill="#2f7d46">今：AI に画像を渡すだけ</text>
+  <text x="390" y="238" font-size="14" fill="#334155">アップして「文字にして」と頼む</text>
+  <text x="390" y="262" font-size="14" fill="#334155">印刷・デジタル文字はスラスラ</text>
+  <text x="390" y="290" font-size="14" fill="#b23b34">癖の強い手書きは今も苦手</text>
+</svg>
