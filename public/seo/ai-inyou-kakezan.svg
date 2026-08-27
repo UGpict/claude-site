@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" font-family="sans-serif">
+  <rect width="720" height="340" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">引用の鍵は「信頼のある土台 × 一次情報」</text>
+
+  <!-- 行1：会社サイト -->
+  <text x="88" y="94" font-size="13" font-weight="700" fill="#2f7d46">会社サイト</text>
+  <rect x="88" y="104" width="150" height="58" rx="10" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="1.5"/>
+  <text x="163" y="128" text-anchor="middle" font-size="12.5" fill="#2f7d46">信頼の土台</text>
+  <text x="163" y="150" text-anchor="middle" font-size="16" font-weight="700" fill="#2f7d46">7 年</text>
+  <text x="251" y="141" text-anchor="middle" font-size="24" fill="#334155">×</text>
+  <rect x="264" y="104" width="150" height="58" rx="10" fill="#eef1ff" stroke="#2337ff" stroke-width="1.5"/>
+  <text x="339" y="128" text-anchor="middle" font-size="12.5" fill="#000d8a">一次情報</text>
+  <text x="339" y="150" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">あり</text>
+  <text x="427" y="141" text-anchor="middle" font-size="24" fill="#334155">=</text>
+  <rect x="440" y="104" width="150" height="58" rx="10" fill="#3f9e5a" stroke="#3f9e5a" stroke-width="1.5"/>
+  <text x="515" y="139" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">AI に引用される</text>
+
+  <!-- 行2：このブログ -->
+  <text x="88" y="196" font-size="13" font-weight="700" fill="#64748b">このブログ（新規）</text>
+  <rect x="88" y="206" width="150" height="58" rx="10" fill="#eef1f6" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="163" y="230" text-anchor="middle" font-size="12.5" fill="#64748b">信頼の土台</text>
+  <text x="163" y="252" text-anchor="middle" font-size="16" font-weight="700" fill="#64748b">ほぼ 0</text>
+  <text x="251" y="243" text-anchor="middle" font-size="24" fill="#334155">×</text>
+  <rect x="264" y="206" width="150" height="58" rx="10" fill="#eef1f6" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="339" y="230" text-anchor="middle" font-size="12.5" fill="#64748b">一次情報</text>
+  <text x="339" y="252" text-anchor="middle" font-size="16" font-weight="700" fill="#64748b">これから</text>
+  <text x="427" y="243" text-anchor="middle" font-size="24" fill="#334155">=</text>
+  <rect x="440" y="206" width="150" height="58" rx="10" fill="#eef1f6" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="515" y="241" text-anchor="middle" font-size="16" font-weight="700" fill="#64748b">まだ 0</text>
+
+  <text x="360" y="308" text-anchor="middle" font-size="13.5" fill="#64748b">掛け算だから、土台が 0 だと結果も 0 になる</text>
+</svg>

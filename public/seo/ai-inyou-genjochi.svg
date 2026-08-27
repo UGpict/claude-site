@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 390" font-family="sans-serif">
+  <rect width="720" height="390" fill="#ffffff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">引用される会社サイトと、まだ引用されない新規ブログ</text>
+
+  <!-- 左：会社サイト -->
+  <rect x="44" y="72" width="296" height="262" rx="14" fill="#e9f6ec" stroke="#3f9e5a" stroke-width="1.5"/>
+  <text x="192" y="108" text-anchor="middle" font-size="18" font-weight="700" fill="#2f7d46">会社サイト</text>
+  <text x="192" y="132" text-anchor="middle" font-size="12.5" fill="#2f7d46">7 年もののドメイン</text>
+  <text x="72" y="172" font-size="15" fill="#0f1219">ドメイン歴　　7 年</text>
+  <text x="72" y="204" font-size="15" fill="#0f1219">引用ページ　　5 月作成</text>
+  <text x="72" y="236" font-size="15" fill="#0f1219">一次情報　　　あり</text>
+  <rect x="72" y="262" width="240" height="44" rx="10" fill="#ffffff" stroke="#3f9e5a" stroke-width="1.5"/>
+  <text x="192" y="290" text-anchor="middle" font-size="15" font-weight="700" fill="#2f7d46">AI に引用される</text>
+
+  <!-- 右：このブログ -->
+  <rect x="380" y="72" width="296" height="262" rx="14" fill="#eef1f6" stroke="#64748b" stroke-width="1.5"/>
+  <text x="528" y="108" text-anchor="middle" font-size="18" font-weight="700" fill="#334155">このブログ</text>
+  <text x="528" y="132" text-anchor="middle" font-size="12.5" fill="#64748b">今月始めた新規サイト</text>
+  <text x="408" y="172" font-size="15" fill="#0f1219">ドメイン歴　　今月〜</text>
+  <text x="408" y="204" font-size="15" fill="#0f1219">一次情報　　　これから</text>
+  <rect x="408" y="262" width="240" height="44" rx="10" fill="#ffffff" stroke="#64748b" stroke-width="1.5"/>
+  <text x="528" y="290" text-anchor="middle" font-size="15" font-weight="700" fill="#64748b">まだ引用されない</text>
+
+  <text x="360" y="368" text-anchor="middle" font-size="13.5" fill="#64748b">差は「新しさ」ではなく、土台の信頼 × 一次情報</text>
+</svg>

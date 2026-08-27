@@ -55,6 +55,7 @@ export const CATEGORY: Record<string, string> = {
 	'rag-toha': '入門',
 	'ai-ocr-mojiyomitori': '使い方',
 	'blog-jisaku-skill': '制作記録',
+	'ai-inyou-shinki-site': '制作記録',
 };
 export const categoryOf = (id: string): string => CATEGORY[id] ?? '記事';
 
