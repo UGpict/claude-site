@@ -57,6 +57,7 @@ export const CATEGORY: Record<string, string> = {
 	'blog-jisaku-skill': '制作記録',
 	'ai-inyou-shinki-site': '制作記録',
 	'ai-agent-sandbox-keijiban': '注意点',
+	'chaos-pendulum-tsukutta': '制作記録',
 };
 export const categoryOf = (id: string): string => CATEGORY[id] ?? '記事';
 
