@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import AffiliateBanner from '../../components/AffiliateBanner.astro';
 
 // 将来ゲームを増やすときはこの配列に足すだけでカードが並ぶ。
 const games = [
@@ -48,6 +49,9 @@ const description =
 				))
 			}
 		</ul>
+
+		<!-- 広告（楽天アフィリエイト。もしも経由・「スポンサーリンク」表記つき） -->
+		<AffiliateBanner />
 	</div>
 </Base>
 

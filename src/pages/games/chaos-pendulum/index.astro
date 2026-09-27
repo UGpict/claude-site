@@ -1,6 +1,7 @@
 ---
 import Base from '../../../layouts/Base.astro';
 import ChaosPendulum from '../../../components/games/ChaosPendulum.astro';
+import AffiliateBanner from '../../../components/AffiliateBanner.astro';
 
 const title = 'カオス振り子ストップ｜二重振り子を狙って止めるブラウザゲーム';
 const description =
@@ -59,12 +60,11 @@ const description =
 			<button type="button" class="share-btn" data-share-btn disabled>結果をシェア</button>
 		</section>
 
-		<!-- 誤タップ防止のため、ゲーム操作領域から十分に離してから広告枠を置く -->
+		<!-- 誤タップ防止のため、ゲーム操作領域から十分に離してから広告を置く -->
 		<div class="ad-gap" aria-hidden="true"></div>
 
-		<!-- 7. 広告枠（プレースホルダー。実広告は既存の AdSense 運用に合わせて後日差し込む） -->
-		<!-- TODO(ads): AdSense の広告ユニットを入れる場合はここに。ゲーム操作直近には置かないこと。 -->
-		<div class="ad-slot" aria-hidden="true"></div>
+		<!-- 広告（楽天アフィリエイト。もしも経由・「スポンサーリンク」表記つき） -->
+		<AffiliateBanner />
 
 		<!-- 8. 「このゲームをどう作ったか」記事への導線 -->
 		<section class="making-of">
@@ -201,20 +201,6 @@ const description =
 	/* 広告はゲーム操作領域から十分に離す（タップ誤クリック防止） */
 	.ad-gap {
 		height: 3rem;
-	}
-	.ad-slot {
-		min-height: 120px;
-		margin: 0 auto 1rem;
-		border: 1px dashed rgb(var(--gray-light));
-		border-radius: 10px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-	.ad-slot::before {
-		content: '広告枠';
-		color: #aaaaaa;
-		font-size: 0.85rem;
 	}
 
 	.making-of p,
