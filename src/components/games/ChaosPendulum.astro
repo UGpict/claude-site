@@ -94,6 +94,12 @@
 				<button type="button" class="cp-tab" data-period="all">歴代</button>
 			</div>
 		</div>
+		<div class="cp-rank-header" data-cp-rank-header hidden>
+			<span class="rk">順位</span>
+			<span class="nm">名前</span>
+			<span class="df">難易度</span>
+			<span class="sc">点数</span>
+		</div>
 		<ol class="cp-rank-list" data-cp-rank-list></ol>
 		<p class="cp-rank-status" data-cp-rank-status>ゲームを遊ぶとランキングが表示されます。</p>
 	</section>
@@ -146,6 +152,7 @@
 		const againBtn = q<HTMLButtonElement>('[data-cp-again]');
 		const submitStatus = q('[data-cp-submit-status]');
 		const rankList = q<HTMLOListElement>('[data-cp-rank-list]');
+		const rankHeader = q('[data-cp-rank-header]');
 		const rankStatus = q('[data-cp-rank-status]');
 		const rankTabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-period]'));
 		const diffBtns = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-diff]'));
@@ -203,11 +210,13 @@
 				try {
 					const entries = await getRanking(period);
 					renderRanking(entries);
+					if (rankHeader) rankHeader.hidden = entries.length === 0;
 					if (rankStatus)
 						rankStatus.textContent = entries.length ? '' : 'まだ記録がありません。';
 				} catch {
 					// API 障害時のフォールバック（ゲーム本体には影響しない）
 					if (rankList) rankList.replaceChildren();
+					if (rankHeader) rankHeader.hidden = true;
 					if (rankStatus) rankStatus.textContent = 'ランキングを取得できませんでした';
 				}
 			};
@@ -781,12 +790,31 @@
 		padding: 0;
 		font-variant-numeric: tabular-nums;
 	}
+	/* 見出し行と各行で同じ固定カラムを使い、列をきっちり揃える */
+	.cp-rank-header,
 	.cp-rank-list li {
 		display: grid;
-		grid-template-columns: minmax(2.6rem, auto) 1fr auto auto;
+		grid-template-columns: 3rem 1fr 4.6rem 5rem;
 		align-items: center;
-		gap: 0.7rem;
+		gap: 0.5rem;
 		padding: 0.5rem 0.2rem;
+	}
+	.cp-rank-header {
+		padding-top: 0.2rem;
+		padding-bottom: 0.5rem;
+		border-bottom: 2px solid rgb(var(--gray-light));
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: rgb(var(--gray));
+	}
+	.cp-rank-header .rk,
+	.cp-rank-header .sc {
+		text-align: right;
+	}
+	.cp-rank-header .df {
+		text-align: center;
+	}
+	.cp-rank-list li {
 		border-bottom: 1px solid rgb(var(--gray-light));
 	}
 	.cp-rank-list .rk {
@@ -800,7 +828,8 @@
 		white-space: nowrap;
 	}
 	.cp-rank-list .df {
-		font-size: 0.78rem;
+		justify-self: center;
+		font-size: 0.75rem;
 		font-weight: 600;
 		color: #555555;
 		background: rgb(var(--gray-light));
@@ -818,6 +847,7 @@
 	}
 	.cp-rank-list .sc {
 		font-weight: 700;
+		text-align: right;
 		font-variant-numeric: tabular-nums;
 	}
 	.cp-rank-status {
