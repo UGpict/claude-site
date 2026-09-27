@@ -34,9 +34,15 @@ spec: [../specs/chaos-beat.md](../specs/chaos-beat.md) を満たす作り方。�
   `pulse` は拍頭で膨らみ減衰する形（例：`Math.max(0, 1 - beatPhase*1.6)` 等）。物理・判定距離は素の R を使う（見た目だけ脈動）。
 - 音（拍のクリック）は Phase 2。Phase 1 は視覚脈動のみ。
 
+### 固定タイムステップ（予測一致のための不変条件・重要）
+- 物理は**固定ステップ FIXED_H(=1/300秒)** で進める（accumulator: `acc += dt*timeScale`、`while(acc>=FIXED_H) rk4(s,FIXED_H)`）。
+- 可変 dt で積分すると、カオスなのでフレームレート差だけで軌道がズレ、`predictPath` と実機が食い違い
+  「的を通らない」不具合になる。固定ステップなら軌道が毎回同じ離散列になり、予測が**完全一致**する。
+- `predictPath` も必ず同じ FIXED_H で積分すること。ここを崩すと的の配置が破綻する。
+
 ### timeScale
-- ループの物理積分ステップに `timeScale` を掛ける（`dt * timeScale` を積分に使う。実時間の経過＝30秒判定は実 dt で計る）。
-- slowmo 中：timeScale≈0.15。Magnet Assist（Phase2）：的付近で timeScale≈0.65。通常：1.0（鬼は 1.3）。
+- timeScale は「1フレームで進める**ステップ数**」を変えるだけ（ステップ幅 FIXED_H は不変）。だから軌道は変わらず速度だけ変わる。
+- slowmo 中：0.15。Magnet Assist：的付近で 0.6〜0.82（難易度別）。通常：1.0（鬼は 1.3）。30秒判定は実 dt で計る。
 
 ## ターゲット生成（軌道上に置く）
 - ランダムな位置だと先端が通らず理不尽になる。→ **これから先端が通る軌道上**に置く。

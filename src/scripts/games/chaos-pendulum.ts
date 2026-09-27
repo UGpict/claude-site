@@ -184,6 +184,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 	let state: 'playing' | 'slowmo' | 'over' = 'playing';
 	let gameTime = 0; // 経過（実秒）
 	let slowmoT = 0;
+	let acc = 0; // 固定タイムステップ用の時間アキュムレータ
 	let score = 0;
 	let combo = 0;
 	let maxCombo = 0;
@@ -277,17 +278,23 @@ export function initGame(options: InitGameOptions): GameHandle {
 		miss: 'MISS',
 	};
 
-	// これから先端が通る軌道を予測する（通常速度前提・ループと同じ積分で近い将来を精度良く）。
-	// 二重振り子はカオスなので遠い未来はズレる。だから horizon は短め（~1.4秒）に保つ。
-	const PRED_DT = 1 / 60;
+	// 物理は固定タイムステップ（FIXED_H）で進める。これでフレームレート・timeScale に依らず
+	// 軌道が毎回同じ離散列になり、下の予測が実機と「完全一致」する（＝的が必ず通過する）。
+	const FIXED_H = 1 / 300;
+	const PRED_SAMPLE = 4; // 何ステップごとに軌道点を記録するか
+	const PRED_DT = FIXED_H * PRED_SAMPLE; // 記録点どうしの物理時間間隔
+
+	// これから先端が通る軌道（固定ステップで予測 → 実機と一致）。カオスなので horizon は短め。
 	function predictPath(): [number, number][] {
 		let sim = s.slice();
 		const path: [number, number][] = [];
-		const frames = Math.round(1.4 / PRED_DT);
-		for (let f = 0; f < frames; f++) {
-			for (let i = 0; i < 10; i++) sim = rk4(sim, PRED_DT / 10);
-			const [, , x2, y2] = tips(sim);
-			path.push([x2, y2]);
+		const totalSteps = Math.round(1.4 / FIXED_H);
+		for (let i = 1; i <= totalSteps; i++) {
+			sim = rk4(sim, FIXED_H);
+			if (i % PRED_SAMPLE === 0) {
+				const [, , x2, y2] = tips(sim);
+				path.push([x2, y2]);
+			}
 		}
 		return path;
 	}
@@ -298,9 +305,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 		const minF = Math.round(0.5 / PRED_DT); // 反応の猶予（0.5秒先以降）
 		const maxF = path.length - 1;
 		const idx = minF >= maxF ? maxF : minF + Math.floor(Math.random() * (maxF - minF));
-		const [x2now, y2now] = [tips(s)[2], tips(s)[3]];
-		const [tx, ty] = path[idx] ?? [x2now, y2now];
-		// 先端が到達するのは約 idx*PRED_DT 秒後。そこ＋猶予0.9秒で見逃し扱いにしてテンポを保つ。
+		const [tx, ty] = path[idx] ?? [tips(s)[2], tips(s)[3]];
+		// 先端が到達するのは約 idx*PRED_DT 秒後（通常速度時）。そこ＋猶予0.9秒で見逃し扱いにする。
 		const arrival = idx * PRED_DT;
 		target = { x: tx, y: ty, r: TARGET_R, bornAt: gameTime, expireAt: gameTime + arrival + 0.9 };
 	}
@@ -310,6 +316,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		trail = [];
 		gameTime = 0;
 		slowmoT = 0;
+		acc = 0;
 		score = 0;
 		combo = 0;
 		maxCombo = 0;
@@ -645,9 +652,15 @@ export function initGame(options: InitGameOptions): GameHandle {
 					if (dPx < ASSIST_PX) ts *= preset.assist;
 				}
 			}
-			const h = dt * ts;
-			const n = 10;
-			for (let i = 0; i < n; i++) s = rk4(s, h / n);
+			// 固定タイムステップで積分（timeScale は「1フレームで進めるステップ数」を変えるだけ）。
+			// こうすると軌道が毎回同じ離散列になり、予測（predictPath）と完全一致する。
+			acc += dt * ts;
+			let steps = 0;
+			while (acc >= FIXED_H && steps < 60) {
+				s = rk4(s, FIXED_H);
+				acc -= FIXED_H;
+				steps++;
+			}
 			const [, , x2, y2] = tips(s);
 			trail.push([x2, y2]);
 			if (trail.length > 140) trail.shift();
