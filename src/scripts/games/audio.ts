@@ -12,6 +12,10 @@ export interface GameAudio {
 	stopClick(): void;
 	/** 判定音（perfect / great / good / near / miss） */
 	judgment(kind: HitKind): void;
+	/** 拍のクリック音（accent=小節頭は強め） */
+	beat(accent: boolean): void;
+	/** CHAOS FEVER 突入の上昇音 */
+	fever(): void;
 	/** 自己ベスト更新の特別な音 */
 	best(): void;
 	/** ランキング上位入りの祝福音 */
@@ -125,6 +129,16 @@ export function createAudio(): GameAudio {
 					tone(180, 0, 0.16, 'sawtooth', 0.14, 150);
 					break;
 			}
+		},
+		beat(accent: boolean) {
+			// 拍のクリック。小節頭(accent)は少し高く強め。控えめにして邪魔しない。
+			if (accent) tone(660, 0, 0.05, 'square', 0.09);
+			else tone(440, 0, 0.04, 'square', 0.055);
+		},
+		fever() {
+			// 上昇するリザー（フィーバー突入）
+			tone(330, 0, 0.28, 'sawtooth', 0.16, 990);
+			tone(660, 0.06, 0.24, 'triangle', 0.14, 1320);
 		},
 		best() {
 			// 特別感のある3音アルペジオ

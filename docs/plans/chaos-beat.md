@@ -48,10 +48,10 @@ spec: [../specs/chaos-beat.md](../specs/chaos-beat.md) / design: [../design/chao
 - [ ] ゲームページのコピー（lead/how-to）を30秒・コンボ・判定に更新
 - [ ] `npx astro build` 通過を確認 → コミット → プッシュ → 実機で手触り確認
 
-## Phase 2 — 気持ちよさ
-- [ ] CHAOS FEVER（PERFECT3連→速度1.3×・得点2×・演出強化・MISSで解除）
-- [ ] Magnet Assist（易しい：的付近で timeScale≈0.65／普通：弱／難しい・鬼：なし）
-- [ ] BPM ビートで的が脈動（audio のビートクロックと同期）
+## Phase 2 — 気持ちよさ ✅ 2026-09-27 実装・デプロイ済み
+- [x] CHAOS FEVER（PERFECT3連→速度1.3×・得点2×・縁の明滅＋FEVER表示・MISS/NEARで解除）
+- [x] Magnet Assist（easy assist=0.6／normal=0.82／hard・oni=なし。的付近90pxでスロー）
+- [x] BPM 拍の音（engine が `beat` イベントを emit → audio.beat。4拍ごとにアクセント）。的の視覚脈動は Phase 1 済み
 
 ## Phase 3 — アーケード化
 - [ ] コンボで曲が層を増す（drum→bass→synth→melody）

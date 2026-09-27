@@ -259,6 +259,15 @@
 						audio.judgment(p.kind);
 					}
 
+					if (name === 'beat') {
+						const p = payload as GameEventPayloads['beat'];
+						audio.beat(p.accent);
+					}
+
+					if (name === 'fever_start') {
+						audio.fever();
+					}
+
 					if (name === 'game_over') {
 						const g = payload as GameEventPayloads['game_over'];
 						lastResult = {

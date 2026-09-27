@@ -8,7 +8,15 @@
 // このファイルは Astro / GA4 / 広告 / 音 に依存しない純粋なエンジン。
 // 外へは onEvent(name, payload) だけで通知する（送信先はこのファイルの外で決める）。
 
-export type GameEventName = 'game_view' | 'game_start' | 'hit' | 'game_over' | 'game_retry';
+export type GameEventName =
+	| 'game_view'
+	| 'game_start'
+	| 'hit'
+	| 'beat'
+	| 'fever_start'
+	| 'fever_end'
+	| 'game_over'
+	| 'game_retry';
 
 /** 判定の種類。得点対象は perfect/great/good のみ（near/miss は 0 点）。 */
 export type HitKind = 'perfect' | 'great' | 'good' | 'near' | 'miss';
@@ -21,6 +29,8 @@ interface DifficultyPreset {
 	targetR: number;
 	/** 振り子の速度倍率（鬼だけ速い。timeScale の基準） */
 	speed: number;
+	/** Magnet Assist：的付近での timeScale（1=補助なし。小さいほど易しい） */
+	assist: number;
 	/** θ1 初期角の絶対値レンジ（大きいほど暴れる） */
 	a1: [number, number];
 	/** θ2 初期角の絶対値レンジ */
@@ -30,10 +40,10 @@ interface DifficultyPreset {
 }
 
 export const DIFFICULTY_PRESETS: Record<Difficulty, DifficultyPreset> = {
-	easy: { targetR: 0.55, speed: 1, a1: [1.9, 3.0], a2: [1.6, 3.1], dist: [0.5, 1.4] },
-	normal: { targetR: 0.34, speed: 1, a1: [1.9, 3.0], a2: [1.5, 3.1], dist: [0.6, 1.6] },
-	hard: { targetR: 0.2, speed: 1, a1: [1.9, 3.0], a2: [1.4, 3.1], dist: [0.7, 1.8] },
-	oni: { targetR: 0.13, speed: 1.3, a1: [2.2, 3.3], a2: [2.0, 3.3], dist: [0.8, 1.9] },
+	easy: { targetR: 0.55, speed: 1, assist: 0.6, a1: [1.9, 3.0], a2: [1.6, 3.1], dist: [0.5, 1.4] },
+	normal: { targetR: 0.34, speed: 1, assist: 0.82, a1: [1.9, 3.0], a2: [1.5, 3.1], dist: [0.6, 1.6] },
+	hard: { targetR: 0.2, speed: 1, assist: 1, a1: [1.9, 3.0], a2: [1.4, 3.1], dist: [0.7, 1.8] },
+	oni: { targetR: 0.13, speed: 1.3, assist: 1, a1: [2.2, 3.3], a2: [2.0, 3.3], dist: [0.8, 1.9] },
 };
 
 export interface GameEventPayloads {
@@ -53,6 +63,9 @@ export interface GameEventPayloads {
 		/** near/miss のときの「あと◯px」。それ以外は 0 */
 		nearMissPx: number;
 	};
+	beat: { index: number; accent: boolean };
+	fever_start: undefined;
+	fever_end: undefined;
 	game_over: { score: number; maxCombo: number; hits: number; perfectCount: number };
 	game_retry: undefined;
 }
@@ -93,6 +106,11 @@ export function initGame(options: InitGameOptions): GameHandle {
 	const BEAT = 60 / BPM;
 	const SLOWMO_TIME = 0.2; // 叩いた後のスロー時間（実秒）
 	const SLOWMO_SCALE = 0.15; // スロー中の物理倍率
+	const FEVER_STREAK = 3; // PERFECT 連続でフィーバー発火
+	const FEVER_TIME = 5; // フィーバー継続（実秒）
+	const FEVER_SPEED = 1.3; // フィーバー中の速度倍率
+	const FEVER_MULT = 2; // フィーバー中の得点倍率
+	const ASSIST_PX = 90; // Magnet Assist が効く的付近の半径（画面px）
 
 	const g = 9.81,
 		L1 = 1,
@@ -170,6 +188,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 	let maxCombo = 0;
 	let hits = 0;
 	let perfectCount = 0;
+	let perfectStreak = 0;
+	let fever = false;
+	let feverT = 0;
+	let lastBeat = -1;
 
 	// 演出（表示のみ・物理/スコアに干渉しない）
 	let flash = 0;
@@ -270,6 +292,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 		maxCombo = 0;
 		hits = 0;
 		perfectCount = 0;
+		perfectStreak = 0;
+		fever = false;
+		feverT = 0;
+		lastBeat = -1;
 		flash = 0;
 		popT = 0;
 		resultLabel = '';
@@ -286,6 +312,18 @@ export function initGame(options: InitGameOptions): GameHandle {
 		$score.textContent = String(score);
 		$combo.textContent = String(combo);
 		$time.style.width = Math.max(0, 1 - gameTime / GAME_TIME) * 100 + '%';
+	}
+
+	function startFever() {
+		fever = true;
+		feverT = FEVER_TIME;
+		emit('fever_start', undefined);
+	}
+	function endFever() {
+		if (!fever) return;
+		fever = false;
+		feverT = 0;
+		emit('fever_end', undefined);
 	}
 
 	/** プレイヤーが叩いた（state==='playing' のときだけ呼ばれる） */
@@ -313,8 +351,16 @@ export function initGame(options: InitGameOptions): GameHandle {
 		} else {
 			combo = 0;
 		}
+		// CHAOS FEVER：PERFECT 連続で発火。MISS/NEAR で解除、GREAT/GOOD は連続を切るだけ。
+		if (kind === 'perfect') {
+			perfectStreak++;
+			if (perfectStreak >= FEVER_STREAK && !fever) startFever();
+		} else {
+			perfectStreak = 0;
+			if (!scoring) endFever();
+		}
 		const mult = comboMult(combo);
-		const add = scoring ? Math.round(pts * mult) : 0;
+		const add = scoring ? Math.round(pts * mult * (fever ? FEVER_MULT : 1)) : 0;
 		score += add;
 		hits++;
 		if (kind === 'perfect') perfectCount++;
@@ -355,6 +401,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 	/** 寿命切れ（見逃し）。スローは挟まず即次。 */
 	function expireTarget() {
 		combo = 0;
+		perfectStreak = 0;
+		endFever();
 		hits++;
 		resultLabel = 'MISS';
 		popT = 1;
@@ -411,6 +459,15 @@ export function initGame(options: InitGameOptions): GameHandle {
 		ctx!.clearRect(0, 0, W, H);
 		ctx!.lineCap = 'round';
 		ctx!.lineJoin = 'round';
+
+		// CHAOS FEVER：ピンクの縁が拍で明滅
+		if (fever && state !== 'over') {
+			const pulse = beatPulse();
+			ctx!.globalAlpha = 0.1 + 0.12 * pulse;
+			ctx!.fillStyle = col.pink;
+			ctx!.fillRect(0, 0, W, H);
+			ctx!.globalAlpha = 1;
+		}
 
 		// 可動範囲
 		ctx!.strokeStyle = col.dim;
@@ -512,13 +569,20 @@ export function initGame(options: InitGameOptions): GameHandle {
 			ctx!.globalAlpha = 1;
 		}
 
-		// コンボ（2以上で上部に表示）
-		if (combo >= 2 && state !== 'over') {
-			ctx!.fillStyle = col.pink;
-			ctx!.font = `600 ${Math.round(Math.min(W, H) * 0.07)}px "Klee One", sans-serif`;
+		// コンボ／フィーバー表示（上部）
+		if (state !== 'over') {
 			ctx!.textAlign = 'center';
 			ctx!.textBaseline = 'top';
-			ctx!.fillText(`${combo} COMBO`, cx, H * 0.05);
+			if (fever) {
+				const s2 = 1 + 0.12 * beatPulse();
+				ctx!.fillStyle = col.yellow;
+				ctx!.font = `600 ${Math.round(Math.min(W, H) * 0.08 * s2)}px "Klee One", sans-serif`;
+				ctx!.fillText('🔥 CHAOS FEVER 🔥', cx, H * 0.04);
+			} else if (combo >= 2) {
+				ctx!.fillStyle = col.pink;
+				ctx!.font = `600 ${Math.round(Math.min(W, H) * 0.07)}px "Klee One", sans-serif`;
+				ctx!.fillText(`${combo} COMBO`, cx, H * 0.05);
+			}
 			ctx!.textAlign = 'start';
 			ctx!.textBaseline = 'alphabetic';
 		}
@@ -545,7 +609,19 @@ export function initGame(options: InitGameOptions): GameHandle {
 		last = now;
 
 		if (state === 'playing' || state === 'slowmo') {
-			const ts = state === 'slowmo' ? SLOWMO_SCALE : baseSpeed;
+			// timeScale：スロー最優先。通常は 難易度速度×（フィーバー1.3）。
+			// さらに Magnet Assist（的付近でスロー）を掛ける。
+			let ts: number;
+			if (state === 'slowmo') {
+				ts = SLOWMO_SCALE;
+			} else {
+				ts = baseSpeed * (fever ? FEVER_SPEED : 1);
+				if (preset.assist < 1) {
+					const [, , x2, y2] = tips(s);
+					const dPx = Math.hypot(x2 - target.x, y2 - target.y) * scale;
+					if (dPx < ASSIST_PX) ts *= preset.assist;
+				}
+			}
 			const h = dt * ts;
 			const n = 10;
 			for (let i = 0; i < n; i++) s = rk4(s, h / n);
@@ -554,6 +630,20 @@ export function initGame(options: InitGameOptions): GameHandle {
 			if (trail.length > 140) trail.shift();
 
 			gameTime += dt; // 30秒は実時間で計る
+
+			// フィーバーの残り時間
+			if (fever) {
+				feverT -= dt;
+				if (feverT <= 0) endFever();
+			}
+
+			// 拍の通知（視覚脈動と同じ gameTime 基準）。4拍ごとにアクセント。
+			const bi = Math.floor(gameTime / BEAT);
+			if (bi !== lastBeat) {
+				lastBeat = bi;
+				emit('beat', { index: bi, accent: bi % 4 === 0 });
+			}
+
 			if (state === 'slowmo') {
 				slowmoT -= dt;
 				if (slowmoT <= 0) {
