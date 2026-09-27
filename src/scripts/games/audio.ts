@@ -70,7 +70,23 @@ export function createAudio(): GameAudio {
 		window.addEventListener('keydown', unlock, { once: true });
 	}
 
-	/** 単音。freq→freqTo へスイープ可。start は ctx.currentTime からの相対秒 */
+	// 先読み予約した予告音のうち「まだ鳴り始めていない」ものを、次のパターン開始時に取り消すため追跡する。
+	let pending: { osc: OscillatorNode; startAt: number }[] = [];
+	function clearPendingCues(c: AudioContext): void {
+		const now = c.currentTime;
+		for (const p of pending) {
+			if (p.startAt > now) {
+				try {
+					p.osc.stop(now);
+				} catch {
+					/* 既に停止済みなどは無視 */
+				}
+			}
+		}
+		pending = [];
+	}
+
+	/** 単音。freq→freqTo へスイープ可。start は ctx.currentTime からの相対秒。track=true で取消対象に追跡。 */
 	function tone(
 		freq: number,
 		start: number,
@@ -78,6 +94,7 @@ export function createAudio(): GameAudio {
 		type: OscillatorType,
 		gain: number,
 		freqTo?: number,
+		track = false,
 	): void {
 		const c = ensureCtx();
 		if (!c || muted) return;
@@ -94,6 +111,7 @@ export function createAudio(): GameAudio {
 		osc.connect(g).connect(c.destination);
 		osc.start(t0);
 		osc.stop(t0 + dur + 0.02);
+		if (track) pending.push({ osc, startAt: t0 });
 	}
 
 	return {
@@ -140,14 +158,17 @@ export function createAudio(): GameAudio {
 		},
 		scheduleRhythm(cues) {
 			// tone() は ctx.currentTime + start に予約するので、offset を渡すだけで fps 非依存に先読みできる。
-			for (const c of cues) {
-				if (c.sound === 'accent') {
+			const c = ensureCtx();
+			if (!c || muted) return;
+			clearPendingCues(c); // 前パターンの未再生の予告（早押しで消えた的のドン等）を取り消す
+			for (const cue of cues) {
+				if (cue.sound === 'accent') {
 					// ドン：ここで押す合図。低く太い音＋クリック。
-					tone(180, c.offset, 0.14, 'sine', 0.22, 120);
-					tone(90, c.offset, 0.16, 'triangle', 0.13);
+					tone(180, cue.offset, 0.14, 'sine', 0.22, 120, true);
+					tone(90, cue.offset, 0.16, 'triangle', 0.13, undefined, true);
 				} else {
 					// タン：軽い予告クリック。
-					tone(720, c.offset, 0.05, 'square', 0.08);
+					tone(720, cue.offset, 0.05, 'square', 0.08, undefined, true);
 				}
 			}
 		},
