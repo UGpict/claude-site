@@ -28,6 +28,8 @@ export type Difficulty = 'easy' | 'normal' | 'hard' | 'oni';
 interface DifficultyPreset {
 	/** 的の半径（大きいほど易しい。採点式の TARGET_R に入る） */
 	targetR: number;
+	/** 1ラウンドの制限時間（秒）。長いほど狙いを合わせる余裕がある＝易しい */
+	time: number;
 	/** θ1 初期角の絶対値レンジ（大きいほど暴れる＝カオスが強い） */
 	a1: [number, number];
 	/** θ2 初期角の絶対値レンジ */
@@ -40,10 +42,11 @@ interface DifficultyPreset {
 // 二重振り子がただの一重振り子のように穏やかになり、ゲームの主役が消えるため。
 // 難易度差は主に「的の大きさ」でつける（易しい＝大きい的、鬼＝極小の的）。
 export const DIFFICULTY_PRESETS: Record<Difficulty, DifficultyPreset> = {
-	easy: { targetR: 0.42, a1: [1.9, 3.0], a2: [1.6, 3.1], dist: [0.6, 1.5] },
-	normal: { targetR: 0.3, a1: [1.9, 3.0], a2: [1.5, 3.1], dist: [0.7, 1.7] },
-	hard: { targetR: 0.18, a1: [1.9, 3.0], a2: [1.4, 3.1], dist: [0.7, 1.8] },
-	oni: { targetR: 0.11, a1: [2.2, 3.3], a2: [2.0, 3.3], dist: [0.8, 1.9] },
+	// 易しい＝大きい的＋長い時間で「ちゃんと狙えば入る」。カオスな暴れ方は維持。
+	easy: { targetR: 0.55, time: 20, a1: [1.9, 3.0], a2: [1.6, 3.1], dist: [0.5, 1.4] },
+	normal: { targetR: 0.34, time: 16, a1: [1.9, 3.0], a2: [1.5, 3.1], dist: [0.6, 1.6] },
+	hard: { targetR: 0.18, time: 15, a1: [1.9, 3.0], a2: [1.4, 3.1], dist: [0.7, 1.8] },
+	oni: { targetR: 0.11, time: 13, a1: [2.2, 3.3], a2: [2.0, 3.3], dist: [0.8, 1.9] },
 };
 
 // 難易度ボーナス倍率。ランキングのスコアは「基本点(0〜500) × この倍率」で出す（難しいほど高得点）。
@@ -106,11 +109,11 @@ export interface GameHandle {
 type Vec = number[];
 
 export function initGame(options: InitGameOptions): GameHandle {
-	const ROUNDS = 5,
-		TIME_LIMIT = 15;
+	const ROUNDS = 5;
 	// 難易度で切り替わる値。TARGET_R は採点式にそのまま入る（大きいほど易しい）。
 	let preset: DifficultyPreset = DIFFICULTY_PRESETS[options.difficulty ?? 'normal'];
 	let TARGET_R = preset.targetR;
+	let TIME_LIMIT = preset.time;
 	const g = 9.81,
 		L1 = 1,
 		L2 = 1,
@@ -529,6 +532,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		setDifficulty(level: Difficulty) {
 			preset = DIFFICULTY_PRESETS[level];
 			TARGET_R = preset.targetR;
+			TIME_LIMIT = preset.time;
 			newGame();
 		},
 		restart() {

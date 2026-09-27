@@ -27,8 +27,8 @@ const NICK_MAX = 20;
 
 // 難易度ごとの的の半径（採点の PERFECT 判定に使う）。エンジンの DIFFICULTY_PRESETS と一致させる。
 const TARGET_R_BY_DIFF: Record<string, number> = {
-	easy: 0.42,
-	normal: 0.3,
+	easy: 0.55,
+	normal: 0.34,
 	hard: 0.18,
 	oni: 0.11,
 };
