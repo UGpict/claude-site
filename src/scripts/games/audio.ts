@@ -100,13 +100,17 @@ export function createAudio(): GameAudio {
 		judgment(kind: RoundKind) {
 			switch (kind) {
 				case 'perfect':
-					// 高く短く気持ちいい2音上昇
-					tone(880, 0, 0.09, 'triangle', 0.2);
-					tone(1320, 0.08, 0.12, 'triangle', 0.2);
+					// 駆け上がる明るいアルペジオ＋高音のきらめき（達成感を強めた祝福音）
+					tone(784, 0, 0.09, 'triangle', 0.2); // G5
+					tone(988, 0.06, 0.09, 'triangle', 0.2); // B5
+					tone(1319, 0.12, 0.11, 'triangle', 0.22); // E6
+					tone(1976, 0.2, 0.2, 'triangle', 0.22); // B6
+					tone(2637, 0.22, 0.16, 'sine', 0.12); // E7 きらめき
 					break;
 				case 'nice':
-					// PERFECT より控えめな単音
-					tone(660, 0, 0.12, 'triangle', 0.16);
+					// 気持ちよく上がる2音（PERFECT よりは控えめ）
+					tone(660, 0, 0.1, 'triangle', 0.16); // E5
+					tone(988, 0.08, 0.13, 'triangle', 0.17); // B5
 					break;
 				case 'miss':
 					// 低く少し濁った音（不快すぎない）

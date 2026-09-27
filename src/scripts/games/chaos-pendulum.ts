@@ -1,8 +1,12 @@
 // カオス振り子ストップ — ゲームエンジン
 //
-// 【重要】物理計算・RK4 数値積分・スコア計算・的との距離判定・1ラウンド15秒・
-// 全5ラウンド・0〜100点の採点仕様・ゲーム進行ルールは、単一HTML版から一切変更していない。
+// 【重要】物理計算・RK4 数値積分・スコア計算式・的との距離判定・1ラウンド15秒・
+// 全5ラウンド・0〜100点の採点仕様・ゲーム進行ルールは、単一HTML版から変更しない。
 // これらを変更する場合は明示的な指示が必要（リファクタリング都合の挙動変更も禁止）。
+//
+// 例外（明示指示で追加）：難易度プリセット。的の大きさ・振り子の初期エネルギー・
+// 的の距離レンジだけを difficulty で切り替える。TIME_LIMIT(15秒)・ROUNDS(5)・
+// 採点式・物理そのものは difficulty で変えない（スコアの地続き性を保つため）。
 //
 // このファイルは Astro / GA4 / 広告に依存しない純粋なゲームエンジン。
 // 将来 CrazyGames 等へ切り出す際は initGame() をそのまま利用できる。
@@ -17,6 +21,28 @@ export type GameEventName =
 
 /** 判定の種類（表示・効果音の分岐用。採点ロジックそのものは変えていない） */
 export type RoundKind = 'perfect' | 'nice' | 'miss' | 'timeup';
+
+/** 難易度。的の大きさ・初期エネルギー・的の距離だけを切り替える（採点式・時間・物理は不変） */
+export type Difficulty = 'easy' | 'normal' | 'hard' | 'oni';
+
+interface DifficultyPreset {
+	/** 的の半径（大きいほど易しい。採点式の TARGET_R に入る） */
+	targetR: number;
+	/** θ1 初期角の絶対値レンジ（大きいほど暴れる＝カオスが強い） */
+	a1: [number, number];
+	/** θ2 初期角の絶対値レンジ */
+	a2: [number, number];
+	/** 的を置く距離レンジ（軸からの距離。先端の可動域は最大 2） */
+	dist: [number, number];
+}
+
+// どれも「頑張れば届く」範囲に置く。易しい＝大きい的＋穏やかな揺れ、鬼＝小さい的＋最大級の暴れ。
+export const DIFFICULTY_PRESETS: Record<Difficulty, DifficultyPreset> = {
+	easy: { targetR: 0.4, a1: [0.7, 1.4], a2: [0.6, 1.5], dist: [0.5, 1.3] },
+	normal: { targetR: 0.26, a1: [1.3, 2.2], a2: [1.1, 2.3], dist: [0.6, 1.6] },
+	hard: { targetR: 0.18, a1: [1.9, 3.0], a2: [1.4, 3.1], dist: [0.7, 1.8] },
+	oni: { targetR: 0.12, a1: [2.3, 3.3], a2: [2.0, 3.3], dist: [0.8, 1.9] },
+};
 
 export interface GameEventPayloads {
 	game_view: undefined;
@@ -52,20 +78,28 @@ export interface GameElements {
 export interface InitGameOptions {
 	canvas: HTMLCanvasElement;
 	elements: GameElements;
+	/** 初期難易度（省略時は normal） */
+	difficulty?: Difficulty;
 	/** 計測などの副作用は必ずこのコールバック経由で外へ出す（エンジンは送信先を知らない） */
 	onEvent?: <K extends GameEventName>(name: K, payload: GameEventPayloads[K]) => void;
 }
 
 export interface GameHandle {
 	destroy(): void;
+	/** 難易度を切り替えて最初から遊び直す（進行中のゲームはリセットされる） */
+	setDifficulty(level: Difficulty): void;
+	/** 同じ難易度のまま、ラウンド1から遊び直す */
+	restart(): void;
 }
 
 type Vec = number[];
 
 export function initGame(options: InitGameOptions): GameHandle {
 	const ROUNDS = 5,
-		TIME_LIMIT = 15,
-		TARGET_R = 0.18;
+		TIME_LIMIT = 15;
+	// 難易度で切り替わる値。TARGET_R は採点式にそのまま入る（大きいほど易しい）。
+	let preset: DifficultyPreset = DIFFICULTY_PRESETS[options.difficulty ?? 'normal'];
+	let TARGET_R = preset.targetR;
 	const g = 9.81,
 		L1 = 1,
 		L2 = 1,
@@ -134,6 +168,39 @@ export function initGame(options: InitGameOptions): GameHandle {
 	// 止めた瞬間の演出（表示のみ・物理/スコアには一切干渉しない）
 	let flash = 0;
 	let resultLabel = '';
+	let popT = 0; // 結果ラベルのポップ演出用タイマー（1→0）
+
+	// 成功時の紙吹雪パーティクル（表示のみ・キャンバス座標）
+	interface Particle {
+		x: number;
+		y: number;
+		vx: number;
+		vy: number;
+		life: number;
+		ttl: number;
+		size: number;
+		color: string;
+	}
+	let particles: Particle[] = [];
+	function burst(px: number, py: number, big: boolean) {
+		const n = big ? 40 : 16;
+		const speed = big ? 340 : 210;
+		const palette = big ? [col.yellow, col.pink, col.chalk, col.blue] : [col.chalk, col.blue];
+		for (let i = 0; i < n; i++) {
+			const a = Math.random() * Math.PI * 2;
+			const sp = speed * (0.35 + Math.random() * 0.85);
+			particles.push({
+				x: px,
+				y: py,
+				vx: Math.cos(a) * sp,
+				vy: Math.sin(a) * sp - 70, // 少し上向きに散らす
+				life: 0,
+				ttl: 0.6 + Math.random() * 0.6,
+				size: (big ? 3 : 2) + Math.random() * 3,
+				color: palette[(Math.random() * palette.length) | 0],
+			});
+		}
+	}
 
 	function deriv([t1, t2, w1, w2]: Vec): Vec {
 		const d = t1 - t2,
@@ -169,15 +236,17 @@ export function initGame(options: InitGameOptions): GameHandle {
 	const sign = () => (Math.random() < 0.5 ? -1 : 1);
 
 	function newRound() {
-		s = [sign() * rand(1.9, 3.0), sign() * rand(1.4, 3.1), 0, 0];
+		s = [sign() * rand(preset.a1[0], preset.a1[1]), sign() * rand(preset.a2[0], preset.a2[1]), 0, 0];
 		const ang = rand(0, Math.PI * 2),
-			dist = rand(0.7, 1.8);
+			dist = rand(preset.dist[0], preset.dist[1]);
 		target = [Math.sin(ang) * dist, Math.cos(ang) * dist];
 		trail = [];
 		elapsed = 0;
 		state = 'run';
 		flash = 0;
 		resultLabel = '';
+		popT = 0;
+		particles = [];
 		$round.textContent = String(round);
 		$act.textContent = '止める';
 		$msg.textContent = '先端のおもりを黄色い丸の中で止めよう。';
@@ -221,6 +290,17 @@ export function initGame(options: InitGameOptions): GameHandle {
 					: 'miss';
 		resultLabel = kind === 'timeup' ? 'TIME UP' : kind === 'perfect' ? 'PERFECT' : kind === 'nice' ? 'NICE' : 'MISS';
 		flash = 1;
+		popT = 1;
+
+		// 成功時だけ紙吹雪を散らす（表示のみ）。PERFECT は的の中心からも噴き上げて達成感を強める。
+		if (kind === 'perfect' || kind === 'nice') {
+			const [tipX, tipY] = P(x2, y2);
+			burst(tipX, tipY, kind === 'perfect');
+			if (kind === 'perfect') {
+				const [tgx, tgy] = P(target[0], target[1]);
+				burst(tgx, tgy, true);
+			}
+		}
 
 		emit('round_complete', {
 			round,
@@ -349,21 +429,39 @@ export function initGame(options: InitGameOptions): GameHandle {
 			ctx!.setLineDash([]);
 		}
 
-		// 止めた瞬間の軽いフラッシュ＋結果ラベル（表示のみ）
+		// 止めた瞬間の軽いフラッシュ（PERFECT は金色っぽく）（表示のみ）
 		if (flash > 0) {
 			ctx!.globalAlpha = flash * 0.35;
-			ctx!.fillStyle = col.chalk;
+			ctx!.fillStyle = resultLabel === 'PERFECT' ? col.yellow : col.chalk;
 			ctx!.fillRect(0, 0, W, H);
 			ctx!.globalAlpha = 1;
 		}
+
+		// 成功パーティクル（表示のみ）
+		if (particles.length) {
+			for (const p of particles) {
+				const k = Math.max(0, 1 - p.life / p.ttl);
+				ctx!.globalAlpha = k;
+				ctx!.fillStyle = p.color;
+				ctx!.beginPath();
+				ctx!.arc(p.x, p.y, p.size * (0.5 + k * 0.5), 0, Math.PI * 2);
+				ctx!.fill();
+			}
+			ctx!.globalAlpha = 1;
+		}
+
+		// 結果ラベル。止めた直後だけ大きくポップしてから落ち着く（表示のみ）
 		if (state !== 'run' && resultLabel) {
+			const pop = 1 + popT * (resultLabel === 'PERFECT' ? 0.6 : 0.3);
+			const baseSize = Math.round(Math.min(W, H) * 0.1);
+			ctx!.save();
 			ctx!.fillStyle = resultLabel === 'PERFECT' ? col.yellow : col.chalk;
-			ctx!.font = `600 ${Math.round(Math.min(W, H) * 0.1)}px "Klee One", sans-serif`;
+			ctx!.font = `600 ${Math.round(baseSize * pop)}px "Klee One", sans-serif`;
 			ctx!.textAlign = 'center';
 			ctx!.textBaseline = 'middle';
+			ctx!.globalAlpha = resultLabel === 'PERFECT' ? 1 : 0.92;
 			ctx!.fillText(resultLabel, cx, Math.max(H * 0.14, cy - scale * 1.7));
-			ctx!.textAlign = 'start';
-			ctx!.textBaseline = 'alphabetic';
+			ctx!.restore();
 		}
 	}
 
@@ -382,8 +480,22 @@ export function initGame(options: InitGameOptions): GameHandle {
 			$time.style.width = Math.max(0, 1 - elapsed / TIME_LIMIT) * 100 + '%';
 			if (elapsed >= TIME_LIMIT) stop(true);
 		}
-		// 演出フラッシュの減衰（表示のみ）
+		// 演出フラッシュ・ポップの減衰（表示のみ）
 		if (flash > 0) flash = Math.max(0, flash - dt * 3);
+		if (popT > 0) popT = Math.max(0, popT - dt * 2.4);
+
+		// パーティクル更新（表示のみ・物理には無関係）
+		if (particles.length) {
+			for (const p of particles) {
+				p.life += dt;
+				p.x += p.vx * dt;
+				p.y += p.vy * dt;
+				p.vy += 560 * dt; // ゆるい重力で舞い落ちる
+				p.vx *= 1 - 1.1 * dt; // 空気抵抗
+			}
+			particles = particles.filter((p) => p.life < p.ttl);
+		}
+
 		if (W) draw();
 		rafId = requestAnimationFrame(loop);
 	}
@@ -400,6 +512,14 @@ export function initGame(options: InitGameOptions): GameHandle {
 			$act.removeEventListener('click', onActClick);
 			cv.removeEventListener('pointerdown', onPointerDown);
 			window.removeEventListener('keydown', onKeyDown);
+		},
+		setDifficulty(level: Difficulty) {
+			preset = DIFFICULTY_PRESETS[level];
+			TARGET_R = preset.targetR;
+			newGame();
+		},
+		restart() {
+			newGame();
 		},
 	};
 }

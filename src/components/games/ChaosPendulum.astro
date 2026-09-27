@@ -23,6 +23,15 @@
 				</button>
 			</div>
 		</header>
+		<div class="cp-diff" role="group" aria-label="難易度を選ぶ">
+			<span class="cp-diff-label">難易度</span>
+			<div class="cp-diff-btns">
+				<button type="button" class="cp-diff-btn" data-diff="easy">易しい</button>
+				<button type="button" class="cp-diff-btn active" data-diff="normal">普通</button>
+				<button type="button" class="cp-diff-btn" data-diff="hard">難しい</button>
+				<button type="button" class="cp-diff-btn" data-diff="oni">鬼</button>
+			</div>
+		</div>
 		<div class="cp-timebar" aria-hidden="true"><i data-cp-time></i></div>
 		<div class="cp-stage">
 			<canvas data-cp-canvas aria-label="二重振り子のゲーム画面"></canvas>
@@ -65,12 +74,16 @@
 			</div>
 			<p class="cp-submit-status" data-cp-submit-status aria-live="polite"></p>
 		</div>
+
+		<div class="cp-again">
+			<button type="button" class="cp-again-btn" data-cp-again>1 から始める</button>
+		</div>
 	</section>
 
 	<!-- ランキング -->
 	<section class="cp-ranking" data-cp-ranking>
 		<div class="cp-ranking-head">
-			<h3>ランキング</h3>
+			<h3>ランキング <small class="cp-rank-diff" data-cp-rank-diff>（普通）</small></h3>
 			<div class="cp-tabs" role="tablist">
 				<button type="button" class="cp-tab active" data-period="daily">今日</button>
 				<button type="button" class="cp-tab" data-period="weekly">今週</button>
@@ -83,7 +96,12 @@
 </div>
 
 <script>
-	import { initGame, type GameEventName, type GameEventPayloads } from '../../scripts/games/chaos-pendulum';
+	import {
+		initGame,
+		type Difficulty,
+		type GameEventName,
+		type GameEventPayloads,
+	} from '../../scripts/games/chaos-pendulum';
 	import { trackGameEvent } from '../../scripts/games/analytics';
 	import { createAudio } from '../../scripts/games/audio';
 	import { updateBest } from '../../scripts/games/storage';
@@ -93,6 +111,13 @@
 		type RankingEntry,
 		type RankingPeriod,
 	} from '../../scripts/games/ranking';
+
+	const DIFF_LABEL: Record<Difficulty, string> = {
+		easy: '易しい',
+		normal: '普通',
+		hard: '難しい',
+		oni: '鬼',
+	};
 
 	const root = document.querySelector<HTMLElement>('[data-cp-root]');
 	if (root) {
@@ -112,10 +137,13 @@
 		const newBestBadge = q('[data-cp-newbest]');
 		const nickInput = q<HTMLInputElement>('[data-cp-nick]');
 		const submitBtn = q<HTMLButtonElement>('[data-cp-submit]');
+		const againBtn = q<HTMLButtonElement>('[data-cp-again]');
 		const submitStatus = q('[data-cp-submit-status]');
 		const rankList = q<HTMLOListElement>('[data-cp-rank-list]');
 		const rankStatus = q('[data-cp-rank-status]');
 		const rankTabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-period]'));
+		const diffBtns = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-diff]'));
+		const rankDiffLabel = q('[data-cp-rank-diff]');
 
 		if (canvas && round && total && time && msg && act) {
 			const audio = createAudio();
@@ -139,6 +167,7 @@
 
 			// --- ランキング表示 ---
 			let currentPeriod: RankingPeriod = 'daily';
+			let currentDifficulty: Difficulty = 'normal';
 			let rankingViewed = false;
 
 			const renderRanking = (entries: RankingEntry[]) => {
@@ -166,7 +195,7 @@
 			const loadRanking = async (period: RankingPeriod) => {
 				if (rankStatus) rankStatus.textContent = '読み込み中…';
 				try {
-					const entries = await getRanking(period);
+					const entries = await getRanking(period, currentDifficulty);
 					renderRanking(entries);
 					if (rankStatus)
 						rankStatus.textContent = entries.length ? '' : 'まだ記録がありません。';
@@ -208,9 +237,10 @@
 			} | null = null;
 			let submitted = false;
 
-			initGame({
+			const handle = initGame({
 				canvas,
 				elements: { round, total, time, msg, act },
+				difficulty: currentDifficulty,
 				onEvent(name: GameEventName, payload: GameEventPayloads[GameEventName]) {
 					// 計測（GA4）。エンジンは送信先を知らない。
 					trackGameEvent(name, (payload as Record<string, unknown>) ?? {});
@@ -257,11 +287,14 @@
 							roundDistances,
 						};
 
-						const { isNewBest, best } = updateBest({
-							score: g.score,
-							perfectCount,
-							averageDistance,
-						});
+						const { isNewBest, best } = updateBest(
+							{
+								score: g.score,
+								perfectCount,
+								averageDistance,
+							},
+							currentDifficulty,
+						);
 
 						if (finalEl) finalEl.textContent = String(g.score);
 						if (bestEl) bestEl.textContent = String(best.bestScore);
@@ -288,6 +321,27 @@
 				},
 			});
 
+			// --- 難易度の切り替え（選ぶと最初から遊び直し＋その難易度のランキングを表示） ---
+			diffBtns.forEach((btn) =>
+				btn.addEventListener('click', () => {
+					const level = (btn.dataset.diff as Difficulty) ?? 'normal';
+					if (level === currentDifficulty) return;
+					currentDifficulty = level;
+					diffBtns.forEach((b) => b.classList.toggle('active', b === btn));
+					if (rankDiffLabel) rankDiffLabel.textContent = `（${DIFF_LABEL[level]}）`;
+					trackGameEvent('difficulty_change', { difficulty: level });
+					handle.setDifficulty(level); // ゲームを最初から
+					loadRanking(currentPeriod); // 表示中のランキングもこの難易度に合わせる
+				}),
+			);
+
+			// --- 「1 から始める」：結果パネルからラウンド1で遊び直す ---
+			againBtn?.addEventListener('click', () => {
+				trackGameEvent('game_retry', {});
+				handle.restart(); // game_start が飛び、結果パネルは自動で隠れる
+				root.querySelector('[data-cp-canvas]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			});
+
 			// --- ランキング登録（プレイヤーが希望したときだけ・自動送信しない） ---
 			submitBtn?.addEventListener('click', async () => {
 				if (!lastResult || submitted) return;
@@ -296,7 +350,11 @@
 				if (submitStatus) submitStatus.textContent = '登録中…';
 				trackGameEvent('ranking_submit', { score: lastResult.score });
 				try {
-					const res = await submitScore({ nickname, ...lastResult });
+					const res = await submitScore({
+						nickname,
+						difficulty: currentDifficulty,
+						...lastResult,
+					});
 					submitted = true;
 					if (submitStatus) submitStatus.textContent = `今日 ${res.rank}位`;
 					trackGameEvent('ranking_submit_success', {
@@ -388,6 +446,57 @@
 	.cp-mute:focus-visible {
 		outline: 2px solid var(--yellow);
 		outline-offset: 2px;
+	}
+
+	/* 難易度セレクター */
+	.cp-diff {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		flex-wrap: wrap;
+		padding: 10px 20px 0;
+	}
+	.cp-diff-label {
+		font-size: 0.85rem;
+		color: var(--chalk);
+		opacity: 0.8;
+	}
+	.cp-diff-btns {
+		display: flex;
+		gap: 6px;
+		flex-wrap: wrap;
+	}
+	.cp-diff-btn {
+		font: inherit;
+		font-size: 0.9rem;
+		font-weight: 600;
+		background: transparent;
+		color: var(--chalk);
+		border: 1px solid var(--chalk-dim);
+		border-radius: 999px;
+		padding: 5px 16px;
+		cursor: pointer;
+		transition:
+			background 0.12s ease,
+			color 0.12s ease,
+			transform 0.12s ease;
+	}
+	.cp-diff-btn:hover {
+		border-color: var(--chalk);
+	}
+	.cp-diff-btn:focus-visible {
+		outline: 2px solid var(--yellow);
+		outline-offset: 2px;
+	}
+	.cp-diff-btn.active {
+		background: var(--yellow);
+		color: var(--board-deep);
+		border-color: var(--yellow);
+	}
+	/* 鬼だけ少しだけ物騒に */
+	.cp-diff-btn[data-diff='oni'].active {
+		background: var(--pink);
+		border-color: var(--pink);
 	}
 
 	.cp-timebar {
@@ -560,6 +669,37 @@
 		color: #333333;
 	}
 
+	/* 「1 から始める」ボタン（結果パネル内） */
+	.cp-again {
+		margin-top: 1.1rem;
+		padding-top: 1rem;
+		border-top: 1px solid rgb(var(--gray-light));
+		display: flex;
+		justify-content: center;
+	}
+	.cp-again-btn {
+		font: inherit;
+		font-weight: 700;
+		font-size: 1.05rem;
+		background: #2f3e37;
+		color: #ece8dc;
+		border: none;
+		border-radius: 999px;
+		padding: 12px 40px;
+		cursor: pointer;
+		transition:
+			transform 0.12s ease,
+			box-shadow 0.12s ease;
+	}
+	.cp-again-btn:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 6px 18px rgba(47, 62, 55, 0.28);
+	}
+	.cp-again-btn:focus-visible {
+		outline: 3px solid var(--accent);
+		outline-offset: 3px;
+	}
+
 	/* ランキング */
 	.cp-ranking {
 		margin-top: 1.4rem;
@@ -577,6 +717,11 @@
 	.cp-ranking-head h3 {
 		margin: 0;
 		font-size: 1.15rem;
+	}
+	.cp-rank-diff {
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: rgb(var(--gray));
 	}
 	.cp-tabs {
 		display: flex;

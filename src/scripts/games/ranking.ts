@@ -2,6 +2,8 @@
 // ゲームエンジンはこのモジュールに依存しない（API の存在を知らない）。
 // API が落ちていても呼び出し側がフォールバックできるよう、失敗時は例外を投げるだけにする。
 
+import type { Difficulty } from './chaos-pendulum';
+
 export type RankingPeriod = 'daily' | 'weekly' | 'all';
 
 export interface RankingEntry {
@@ -14,6 +16,7 @@ export interface RankingEntry {
 
 export interface ScoreSubmission {
 	nickname: string;
+	difficulty: Difficulty;
 	score: number;
 	rounds: number;
 	duration: number;
@@ -33,10 +36,14 @@ export interface SubmitResult {
 
 const BASE = '/api/games/chaos-pendulum';
 
-export async function getRanking(period: RankingPeriod): Promise<RankingEntry[]> {
-	const res = await fetch(`${BASE}/ranking?period=${encodeURIComponent(period)}`, {
-		headers: { accept: 'application/json' },
-	});
+export async function getRanking(
+	period: RankingPeriod,
+	difficulty: Difficulty,
+): Promise<RankingEntry[]> {
+	const res = await fetch(
+		`${BASE}/ranking?period=${encodeURIComponent(period)}&difficulty=${encodeURIComponent(difficulty)}`,
+		{ headers: { accept: 'application/json' } },
+	);
 	if (!res.ok) throw new Error(`ranking fetch failed: ${res.status}`);
 	const data = (await res.json()) as { top?: RankingEntry[] };
 	return Array.isArray(data.top) ? data.top : [];

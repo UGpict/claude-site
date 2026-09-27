@@ -23,8 +23,20 @@ type Ctx = { request: Request; env: Env };
 const ROUNDS = 5;
 const MAX_ROUND_SCORE = 100;
 const MAX_TOTAL = 500;
-const TARGET_R = 0.18;
 const NICK_MAX = 20;
+
+// 難易度ごとの的の半径（採点の PERFECT 判定に使う）。エンジンの DIFFICULTY_PRESETS と一致させる。
+const TARGET_R_BY_DIFF: Record<string, number> = {
+	easy: 0.4,
+	normal: 0.26,
+	hard: 0.18,
+	oni: 0.12,
+};
+const DIFFICULTIES = Object.keys(TARGET_R_BY_DIFF);
+
+function sanitizeDifficulty(raw: unknown): string {
+	return typeof raw === 'string' && DIFFICULTIES.includes(raw) ? raw : 'normal';
+}
 
 const json = (data: unknown, status = 200) =>
 	new Response(JSON.stringify(data), {
@@ -102,6 +114,8 @@ export const onRequestPost = async (context: Ctx): Promise<Response> => {
 	const averageDistance = body.averageDistance;
 	const roundScores = body.roundScores;
 	const roundDistances = body.roundDistances;
+	const difficulty = sanitizeDifficulty(body.difficulty);
+	const targetR = TARGET_R_BY_DIFF[difficulty];
 
 	// --- 検証 ---
 	if (rounds !== ROUNDS) return json({ error: 'invalid rounds' }, 400);
@@ -129,8 +143,8 @@ export const onRequestPost = async (context: Ctx): Promise<Response> => {
 	// PERFECT はスコア80以上（100-round(d/TARGET_R*20), d<=TARGET_R）になるため、その整合を軽く確認
 	const highRounds = (roundScores as number[]).filter((s) => s >= 80).length;
 	if (perfectCount > highRounds) return json({ error: 'perfectCount inconsistent' }, 400);
-	// distance と perfect の整合（緩め）
-	const perfectByDist = (roundDistances as number[]).filter((d) => d <= TARGET_R).length;
+	// distance と perfect の整合（緩め）。的の半径は難易度で変わる。
+	const perfectByDist = (roundDistances as number[]).filter((d) => d <= targetR).length;
 	if (perfectCount > perfectByDist) return json({ error: 'perfectCount vs distance' }, 400);
 
 	if (!isFiniteNumber(duration) || duration < 0 || duration > 7200)
@@ -144,16 +158,17 @@ export const onRequestPost = async (context: Ctx): Promise<Response> => {
 	try {
 		await env.DB.prepare(
 			`INSERT INTO chaos_pendulum_scores
-			 (nickname, score, perfect_count, average_distance, rounds, created_at)
-			 VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+			 (nickname, score, perfect_count, average_distance, rounds, created_at, difficulty)
+			 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
 		)
-			.bind(nickname, score, perfectCount as number, averageDistance, ROUNDS, createdAt)
+			.bind(nickname, score, perfectCount as number, averageDistance, ROUNDS, createdAt, difficulty)
 			.run();
 
+		// 順位は同じ難易度の中だけで比べる（易しい/鬼のスコアを混ぜない）。
 		const daily = await rankFor(
 			env.DB,
-			'created_at >= ?5',
-			[cutoff('daily')],
+			'difficulty = ?5 AND created_at >= ?6',
+			[difficulty, cutoff('daily')],
 			score,
 			perfectCount as number,
 			averageDistance,
@@ -161,8 +176,8 @@ export const onRequestPost = async (context: Ctx): Promise<Response> => {
 		);
 		const weekly = await rankFor(
 			env.DB,
-			'created_at >= ?5',
-			[cutoff('weekly')],
+			'difficulty = ?5 AND created_at >= ?6',
+			[difficulty, cutoff('weekly')],
 			score,
 			perfectCount as number,
 			averageDistance,
@@ -170,8 +185,8 @@ export const onRequestPost = async (context: Ctx): Promise<Response> => {
 		);
 		const all = await rankFor(
 			env.DB,
-			'1 = 1',
-			[],
+			'difficulty = ?5',
+			[difficulty],
 			score,
 			perfectCount as number,
 			averageDistance,
