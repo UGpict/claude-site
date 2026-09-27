@@ -29,14 +29,11 @@ function cutoff(period: 'daily' | 'weekly'): string {
 	return new Date(shifted.getTime() - 9 * 3600000).toISOString();
 }
 
-const DIFFICULTIES = ['easy', 'normal', 'hard', 'oni'];
-const sanitizeDifficulty = (raw: string | null): string =>
-	raw && DIFFICULTIES.includes(raw) ? raw : 'normal';
-
 interface Row {
 	nickname: string;
 	score: number;
 	perfect_count: number;
+	difficulty: string;
 	created_at: string;
 }
 
@@ -48,25 +45,24 @@ export const onRequestGet = async (context: Ctx): Promise<Response> => {
 	const periodParam = url.searchParams.get('period') ?? 'daily';
 	const period: 'daily' | 'weekly' | 'all' =
 		periodParam === 'weekly' ? 'weekly' : periodParam === 'all' ? 'all' : 'daily';
-	const difficulty = sanitizeDifficulty(url.searchParams.get('difficulty'));
 
+	const cols = 'nickname, score, perfect_count, difficulty, created_at';
 	const order =
 		'ORDER BY score DESC, perfect_count DESC, average_distance ASC, created_at ASC LIMIT 10';
 
 	try {
+		// 全難易度をまぜた1本のランキング（難易度ボーナス込みのスコア順）。
 		let rows: Row[];
 		if (period === 'all') {
 			const r = await env.DB.prepare(
-				`SELECT nickname, score, perfect_count, created_at FROM chaos_pendulum_scores WHERE difficulty = ?1 ${order}`,
-			)
-				.bind(difficulty)
-				.all<Row>();
+				`SELECT ${cols} FROM chaos_pendulum_scores ${order}`,
+			).all<Row>();
 			rows = r.results;
 		} else {
 			const r = await env.DB.prepare(
-				`SELECT nickname, score, perfect_count, created_at FROM chaos_pendulum_scores WHERE difficulty = ?1 AND created_at >= ?2 ${order}`,
+				`SELECT ${cols} FROM chaos_pendulum_scores WHERE created_at >= ?1 ${order}`,
 			)
-				.bind(difficulty, cutoff(period))
+				.bind(cutoff(period))
 				.all<Row>();
 			rows = r.results;
 		}
@@ -74,12 +70,13 @@ export const onRequestGet = async (context: Ctx): Promise<Response> => {
 		const top = rows.map((row, i) => ({
 			rank: i + 1,
 			nickname: row.nickname,
+			difficulty: row.difficulty,
 			score: row.score,
 			perfectCount: row.perfect_count,
 			createdAt: row.created_at,
 		}));
 
-		return json({ period, difficulty, top });
+		return json({ period, top });
 	} catch (e) {
 		return json({ error: 'db error', detail: String(e) }, 500);
 	}

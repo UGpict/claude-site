@@ -46,6 +46,15 @@ export const DIFFICULTY_PRESETS: Record<Difficulty, DifficultyPreset> = {
 	oni: { targetR: 0.11, a1: [2.2, 3.3], a2: [2.0, 3.3], dist: [0.8, 1.9] },
 };
 
+// 難易度ボーナス倍率。ランキングのスコアは「基本点(0〜500) × この倍率」で出す（難しいほど高得点）。
+// 採点式や物理は変えず、最終スコアの重みだけを難易度で変える。バックエンドと必ず一致させる。
+export const DIFFICULTY_MULTIPLIER: Record<Difficulty, number> = {
+	easy: 1,
+	normal: 1.5,
+	hard: 2,
+	oni: 3,
+};
+
 export interface GameEventPayloads {
 	game_view: undefined;
 	game_start: undefined;
@@ -316,9 +325,9 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 		state = round >= ROUNDS ? 'over' : 'stopped';
 		if (state === 'over') {
-			// 終了後は盤面ボタンを隠し、続行は結果パネルの二択に任せる
+			// 終了後は盤面ボタンを隠し、続行は結果パネルの二択に任せる（スコアはパネルに表示）
 			$act.style.display = 'none';
-			$msg.textContent = `${text}　最終スコアは ${total} / ${ROUNDS * 100} 点。下から選んでね。`;
+			$msg.textContent = `${text}　全5ラウンド終了！ 下から選んでね。`;
 			const duration = Math.round((performance.now() - gameStartMs) / 1000);
 			emit('game_complete', { score: total, rounds: ROUNDS, duration });
 		} else {

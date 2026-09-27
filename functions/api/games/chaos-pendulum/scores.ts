@@ -32,6 +32,14 @@ const TARGET_R_BY_DIFF: Record<string, number> = {
 	hard: 0.18,
 	oni: 0.11,
 };
+// 難易度ボーナス倍率。エンジンの DIFFICULTY_MULTIPLIER と一致させる。
+// 保存・ランキングのスコアは「基本点 × 倍率」。順位付けはサーバー側で確定する。
+const MULT_BY_DIFF: Record<string, number> = {
+	easy: 1,
+	normal: 1.5,
+	hard: 2,
+	oni: 3,
+};
 const DIFFICULTIES = Object.keys(TARGET_R_BY_DIFF);
 
 function sanitizeDifficulty(raw: unknown): string {
@@ -154,6 +162,8 @@ export const onRequestPost = async (context: Ctx): Promise<Response> => {
 
 	const nickname = sanitizeNickname(body.nickname);
 	const createdAt = new Date().toISOString();
+	// 難易度ボーナスを掛けた最終スコア（保存・順位付けはこの値で行う）。
+	const effectiveScore = Math.round((score as number) * MULT_BY_DIFF[difficulty]);
 
 	try {
 		await env.DB.prepare(
@@ -161,33 +171,33 @@ export const onRequestPost = async (context: Ctx): Promise<Response> => {
 			 (nickname, score, perfect_count, average_distance, rounds, created_at, difficulty)
 			 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
 		)
-			.bind(nickname, score, perfectCount as number, averageDistance, ROUNDS, createdAt, difficulty)
+			.bind(nickname, effectiveScore, perfectCount as number, averageDistance, ROUNDS, createdAt, difficulty)
 			.run();
 
-		// 順位は同じ難易度の中だけで比べる（易しい/鬼のスコアを混ぜない）。
+		// 順位は全難易度をまぜた1本のランキングで比べる（難易度ボーナス込みのスコア順）。
 		const daily = await rankFor(
 			env.DB,
-			'difficulty = ?5 AND created_at >= ?6',
-			[difficulty, cutoff('daily')],
-			score,
+			'created_at >= ?5',
+			[cutoff('daily')],
+			effectiveScore,
 			perfectCount as number,
 			averageDistance,
 			createdAt,
 		);
 		const weekly = await rankFor(
 			env.DB,
-			'difficulty = ?5 AND created_at >= ?6',
-			[difficulty, cutoff('weekly')],
-			score,
+			'created_at >= ?5',
+			[cutoff('weekly')],
+			effectiveScore,
 			perfectCount as number,
 			averageDistance,
 			createdAt,
 		);
 		const all = await rankFor(
 			env.DB,
-			'difficulty = ?5',
-			[difficulty],
-			score,
+			'1 = 1',
+			[],
+			effectiveScore,
 			perfectCount as number,
 			averageDistance,
 			createdAt,
