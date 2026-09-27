@@ -460,30 +460,30 @@ export function initGame(options: InitGameOptions): GameHandle {
 	// 物理は固定タイムステップ（FIXED_H）で進める。これでフレームレート・timeScale に依らず
 	// 軌道が毎回同じ離散列になり、下の予測が実機と「完全一致」する（＝的が必ず通過する）。
 	const FIXED_H = 1 / 300;
-	const PRED_SAMPLE = 4; // 何ステップごとに軌道点を記録するか
-	const PRED_DT = FIXED_H * PRED_SAMPLE; // 記録点どうしの物理時間間隔
+	const PRED_HORIZON = 2.6; // 的を置く未来の上限（秒）。カオスなので近い将来だけ信頼する（リズム量子化で最大~2.3秒先）
+	const MAX_PRESS_LAG = 0.25; // 押した瞬間まで進める上限（秒）。ループの dt 上限と同じ
 
-	// これから先端が通る軌道（固定ステップで予測 → 実機と一致）。カオスなので horizon は短め。
-	// path[i] は「今の s から (i+1)×PRED_SAMPLE ステップ後」の先端位置。
-	function predictPath(): [number, number][] {
+	/**
+	 * 今の状態 s から、実際のゲームと同じ固定ステップ（FIXED_H・同じ rk4）で n ステップ進めた先端位置。
+	 * s 自体は変えない（コピーを進める）。サンプリングや補間はしない＝実機が通る離散列そのもの。
+	 */
+	function tipAfterSteps(n: number): [number, number] {
 		let sim = s.slice();
-		const path: [number, number][] = [];
-		const totalSteps = Math.round(2.6 / FIXED_H); // リズム量子化で最大~2.3秒先まで使うので広めに
-		for (let i = 1; i <= totalSteps; i++) {
-			sim = rk4(sim, FIXED_H);
-			if (i % PRED_SAMPLE === 0) {
-				const [, , x2, y2] = tips(sim);
-				path.push([x2, y2]);
-			}
-		}
-		return path;
+		for (let i = 0; i < n; i++) sim = rk4(sim, FIXED_H);
+		const [, , x2, y2] = tips(sim);
+		return [x2, y2];
 	}
+	/**
+	 * transport 時刻 t に対応する「現在の s から何ステップ先か」。
+	 * s は gameTime − acc の物理時刻にある（acc = 未消化の固定ステップ時間）ので、t − gameTime + acc を FIXED_H で丸める。
+	 * 的が生きている間は timeScale = 1 なので、この対応は的の生成から判定まで一定。
+	 */
+	const stepsUntil = (t: number) => Math.max(0, Math.round((t - gameTime + acc) / FIXED_H));
 
 	// 的は「リズムパターンの入力拍」に対応する未来軌道点へ置く。
 	// = 音（タン・タン・ドン）でタイミングが分かり、振り子を見て微調整すると PERFECT。
 	function newTarget() {
-		const path = predictPath();
-		const maxT = path.length * PRED_DT;
+		const maxT = PRED_HORIZON;
 
 		// パターンは「パターン先頭の拍」が属するセクションの譜面から順番に取り、先頭を次の拍頭に合わせる（beat grid と同期）。
 		// 以降、cue・hitAt・リングはすべてこの拍番号から beatTime() で求める（=BGMの拍頭と同じ式）。
@@ -514,10 +514,9 @@ export function initGame(options: InitGameOptions): GameHandle {
 		const hitBeat = startBeat + pat.hitBeat;
 		const hitAt = beatTime(hitBeat); // 入力すべき時刻（transport 時刻）
 
-		// 物理の状態 s は gameTime - acc の時点（acc = 未消化の固定ステップ時間）。その分も足して hitAt の点を引く。
-		const steps = (hitAt - gameTime + acc) / FIXED_H;
-		const idx = Math.min(path.length - 1, Math.max(0, Math.round(steps / PRED_SAMPLE) - 1));
-		const [tx, ty] = path[idx] ?? [tips(s)[2], tips(s)[3]];
+		// 的の中心＝hitAt の時刻に実際の物理が通る点。hitAt まで同じ固定ステップ列で直接積分して求める
+		// （以前の「13ms 間隔でサンプルした軌道から最寄り点」だと ±2 ステップ≒±7ms の量子化誤差が出て、小さい的ほど目立った）。
+		const [tx, ty] = tipAfterSteps(stepsUntil(hitAt));
 		target = {
 			x: tx,
 			y: ty,
@@ -649,7 +648,11 @@ export function initGame(options: InitGameOptions): GameHandle {
 	/** プレイヤーが叩いた（state==='playing' のときだけ呼ばれる） */
 	function hit() {
 		if (!target) return;
-		const [, , x2, y2] = tips(s);
+		// 押した瞬間の transport 時刻。判定は「最後に描いたフレームの物理状態」ではなく、その状態から同じ固定ステップ列で
+		// 押した瞬間まで進めた先端で行う（s は変えない）。以前は最大 1 フレーム＋acc（60fps で ~20ms）遅れた位置で判定しており、
+		// 的の中心がちょうど拍に来ていても「まだ届いていない」側にズレ、小さい的（難しい・鬼）ほど PERFECT を外していた。
+		const pressT = Math.max(gameTime, Math.min(clock(), gameTime + MAX_PRESS_LAG));
+		const [x2, y2] = tipAfterSteps(stepsUntil(pressT));
 		const d = Math.hypot(x2 - target.x, y2 - target.y);
 		const R = target.r;
 		let kind: HitKind;
@@ -703,7 +706,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 		const nearMissPx = kind === 'near' ? Math.round((d - R) * scale) : 0;
 		// 予定入力時刻（拍）とのズレ。負=早押し／正=遅押し。
-		const timingOffsetMs = Math.round((gameTime - target.hitAt) * 1000);
+		const timingOffsetMs = Math.round((pressT - target.hitAt) * 1000);
 		counts[kind]++;
 		pressCount++;
 		sumAbsOffsetMs += Math.abs(timingOffsetMs);

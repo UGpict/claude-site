@@ -62,10 +62,20 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
 
 ### 固定タイムステップ（予測一致のための不変条件）
 - 物理は **FIXED_H = 1/300 秒** 固定（`acc += dt × timeScale`、`while (acc ≥ FIXED_H) rk4(s, FIXED_H)`）。
-  `predictPath` も同じ FIXED_H で積分するので予測と実機が**完全一致**する。
+  的の位置・判定位置の計算も同じ FIXED_H・同じ rk4 で積分するので、予測と実機が**完全一致**する（補間・別積分は混ぜない）。
 - `dt = now() − 前フレーム` を **0.25秒まで**追従（1フレーム最大90ステップ）。小さくクランプすると物理が transport から恒久的に遅れて的を通らなくなる。
   それを超える停止（タブ非表示など）は、的が寿命切れ→次の的で予測し直すので自然に再同期する。
-- `newTarget()` は `acc`（未消化時間）も足して `(hitAt − gameTime + acc) / FIXED_H` ステップ後の予測点を引く。
+- **時刻 → ステップ数の対応**：物理状態 `s` は `gameTime − acc` の時点にある（`acc` = 未消化の固定ステップ時間）。
+  transport 時刻 t の先端は `stepsUntil(t) = round((t − gameTime + acc) / FIXED_H)` ステップ先。的が生きている間は timeScale=1 なので、
+  この対応は的の生成から判定まで一定（slowmo 明けに作る的も、次フレーム以降は等速で進むので同じ式でよい）。
+- **的の中心（`newTarget()`）**：`tipAfterSteps(stepsUntil(hitAt))` ＝ `s` のコピーを hitAt まで固定ステップで**直接積分**した先端。
+  以前は 4 ステップ（≈13ms）ごとにサンプルした `predictPath()` から最寄り点を拾っており、±2 ステップの量子化誤差（p95 ≈3.7px）があった。
+  予測の上限は `PRED_HORIZON = 2.6` 秒（範囲チェックのみ）。計算量は最大 ~690 ステップ＝以前の 780 ステップより軽い。
+- **判定位置（`hit()`）**：押した瞬間の transport 時刻 `pressT = now()`（`gameTime`〜`gameTime + 0.25` に丸める）で
+  `tipAfterSteps(stepsUntil(pressT))` を使う。`s` 自体は変えない（実機の物理列はそのまま）。
+  以前は「最後に描いたフレームの `s`」で判定しており、押した瞬間より最大 1 フレーム＋acc（60fps で ~20ms）遅れた位置＝
+  常に「まだ届いていない」側にズレていた（px では全難易度同じ ~11px p95 だが、的が小さい難しい・鬼ほど PERFECT を外す）。
+  `timingOffsetMs` も `pressT − hitAt` で計る。判定しきい値（0.35R/0.7R/R/1.25R）・targetR は不変。
 
 ### timeScale（リズム整合）
 - 的が生きている `playing` 中は **timeScale = 1**。`slowmo`（0.15）は叩いた直後の的が無い間だけ。
