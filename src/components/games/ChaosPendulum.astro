@@ -35,8 +35,13 @@
 				<div class="cp-start-inner">
 					<p class="cp-start-title">CHAOS BEAT</p>
 					<p class="cp-start-sub">音を聞いてタイミングを狙え</p>
+					<ol class="cp-start-steps" aria-label="3ステップの遊び方">
+						<li><span aria-hidden="true">🎧</span>タン・タン・<b>ドン</b>を聞く</li>
+						<li><span aria-hidden="true">⭕</span>輪が丸に重なったら<b>タップ</b></li>
+						<li><span aria-hidden="true">🔥</span>PERFECT 3連で<b>FEVER</b></li>
+					</ol>
 					<button type="button" class="cp-start-btn" data-cp-start-btn>▶ TAP TO START</button>
-					<p class="cp-start-hint">タップ / クリック / Space</p>
+					<p class="cp-start-hint">音が出ます（右上でオフ）・60秒で1曲</p>
 				</div>
 			</div>
 		</div>
@@ -272,6 +277,8 @@
 					trackGameEvent(name, perGame ? { ...params, difficulty: currentDifficulty } : params);
 
 					if (name === 'game_start') {
+						// プレイ中はスマホ下部に浮くシェアバーを隠す（盤面の下端に重なって誤タップしないように）
+						document.documentElement.classList.add('cp-playing');
 						submitted = false;
 						gameSerial++;
 						if (resultPanel) resultPanel.hidden = true;
@@ -337,6 +344,7 @@
 						if (submitBtn) submitBtn.disabled = false;
 						submitted = false;
 						root.classList.remove('is-final');
+						document.documentElement.classList.remove('cp-playing');
 						// FINISH! と終止音を聞かせてから結果パネル（その間に次のゲームが始まったら出さない）
 						const serial = gameSerial;
 						window.setTimeout(() => {
@@ -387,6 +395,18 @@
 				}
 				if (token !== startToken) return;
 				handle.start({ difficulty: currentDifficulty, retry }); // gameTime<0 のカウントインから開始
+				// 盤面（HUD〜判定メッセージ）が画面からはみ出していたら、カウントイン中に全体が見える位置へ。
+				// サイトのヘッダーは sticky なので、その高さぶん下げて HUD が隠れないようにする。
+				const game = root.querySelector<HTMLElement>('.cp-game');
+				if (game && !retry) {
+					const headerH = document.querySelector('body > header')?.getBoundingClientRect().height ?? 0;
+					const r = game.getBoundingClientRect();
+					if (r.top < headerH || r.bottom > window.innerHeight) {
+						const room = window.innerHeight - headerH;
+						const offset = r.height <= room ? headerH + (room - r.height) / 2 : headerH + 4;
+						window.scrollTo({ top: window.scrollY + r.top - offset, behavior: 'smooth' });
+					}
+				}
 				gameStarted = true;
 				if (startOverlay) startOverlay.hidden = true;
 				rankDifficulty = currentDifficulty;
@@ -589,6 +609,11 @@
 		background: var(--yellow);
 		transition: width 0.1s linear;
 	}
+	/* プレイ中はサイト共通の浮きシェアバー（スマホ下部）を隠す */
+	:global(html.cp-playing .rail-left) {
+		visibility: hidden !important;
+		pointer-events: none !important;
+	}
 	.cp-timetext b {
 		display: inline-block;
 		min-width: 2ch;
@@ -663,6 +688,24 @@
 	.cp-start-btn:focus-visible {
 		outline: 3px solid #ffffff;
 		outline-offset: 3px;
+	}
+	.cp-start-steps {
+		list-style: none;
+		margin: 0 auto 1.1em;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.35em;
+		font-size: 0.92rem;
+		text-align: left;
+		width: fit-content;
+	}
+	.cp-start-steps span {
+		display: inline-block;
+		width: 1.6em;
+	}
+	.cp-start-steps b {
+		color: var(--yellow);
 	}
 	.cp-start-hint {
 		font-size: 0.8rem;
@@ -939,8 +982,49 @@
 	}
 
 	@media (max-width: 520px) {
+		/* スマホ：ページ見出しと重複するタイトルを隠し、HUD と難易度を詰めて盤面をすぐ見せる */
+		.cp-title {
+			display: none;
+		}
 		.cp-header {
-			padding: 12px 14px 0;
+			padding: 10px 12px 0;
+		}
+		.cp-head-right {
+			width: 100%;
+			justify-content: space-between;
+			gap: 8px;
+		}
+		.cp-stats {
+			gap: 12px;
+			font-size: 0.9rem;
+		}
+		.cp-mute {
+			padding: 4px 10px;
+			font-size: 0.8rem;
+		}
+		.cp-diff {
+			padding: 8px 12px 0;
+		}
+		.cp-diff-label {
+			display: none;
+		}
+		.cp-diff-btns {
+			width: 100%;
+			flex-wrap: nowrap;
+		}
+		.cp-diff-btn {
+			flex: 1 1 0;
+			padding: 6px 0;
+			font-size: 0.85rem;
+		}
+		.cp-stage {
+			height: min(60vh, 520px);
+		}
+		.cp-start-title {
+			font-size: 1.5rem;
+		}
+		.cp-start-sub {
+			margin-bottom: 0.8em;
 		}
 		.cp-timebar {
 			margin: 8px 14px 0;
