@@ -37,6 +37,8 @@ export interface GameAudio {
 	scheduleRhythm(cues: ScheduledCue[]): void;
 	/** CHAOS FEVER 突入の上昇音 */
 	fever(): void;
+	/** CHAOS FEVER 解除の短い「シュン…」（罰音ではなく、落差を作るための控えめな下降音） */
+	feverEnd(): void;
 	/** 自己ベスト更新の特別な音 */
 	best(): void;
 	/** ランキング上位入りの祝福音 */
@@ -181,6 +183,7 @@ export function createAudio(): GameAudio {
 	let musicLevel = 0; // コンボ層 0=なし / 1=+bass / 2=+hihat / 3=+melody
 	let song: SongDefinition = DEFAULT_SONG; // 今の transport で鳴らす曲（セクション構成・尺）
 	let feverOn = false;
+	let feverCrashPending = false; // FEVER 突入後、次に予約する拍頭にクラッシュ＋インパクト（拍に同期した「解放」）
 
 	const musicVol = () => (muted ? 0 : BGM_LEVEL);
 	function ensureBgmGain(c: AudioContext): GainNode {
@@ -351,11 +354,24 @@ export function createAudio(): GameAudio {
 			const mel = bars[((bar % bars.length) + bars.length) % bars.length][b];
 			if (mel) bgmTone(c, dest, mel, time, 0.18, 'triangle', arr.melodyGain);
 		}
-		// FEVER：高音リード＋オープンハット
+		// FEVER：曲を明確に「解放」する。すべて BGM バス経由なので cue 前後のダッキングはそのまま効く。
+		//   lead ＋ オープンハット ＋ 伴奏パッド（セクションに無くても）＋ オクターブ上のメロディ ＋ 突入後の次の拍頭にクラッシュ
 		if (feverOn) {
+			if (feverCrashPending) {
+				feverCrashPending = false;
+				bgmNoise(c, dest, time, 1.1, 3500, 0.1);
+				bgmTone(c, dest, 48, time, 0.3, 'sine', 0.45, 28);
+			}
 			const lead = [1174.66, 1174.66, 1567.98, 1174.66][b];
 			bgmTone(c, dest, lead, time, 0.14, 'sawtooth', 0.075);
+			bgmTone(c, dest, lead * 1.5, time + SPB / 2, 0.1, 'triangle', 0.035); // 裏で5度上の合いの手
 			bgmNoise(c, dest, time + SPB / 2, 0.05, 6000, 0.045);
+			if (!arr.pad && b === 0) {
+				for (const f of chord) bgmTone(c, dest, f, time, BAR * 0.95, 'triangle', 0.022);
+			}
+			const bars = MOTIFS[arr.motif];
+			const oct = bars[((bar % bars.length) + bars.length) % bars.length][b];
+			if (oct) bgmTone(c, dest, oct * 2, time, 0.16, 'sine', 0.045);
 		}
 	}
 	/** 曲の終止（最終拍＝transport 時刻 song.duration）。BGM バスを通さず鳴らす（game_over のフェードで切れない） */
@@ -366,9 +382,15 @@ export function createAudio(): GameAudio {
 		g.gain.value = 0.9;
 		g.connect(c.destination);
 		bgmTone(c, g, 52, time, 0.4, 'sine', 0.55, 28);
-		bgmNoise(c, g, time, 1.4, 4000, 0.09);
+		bgmNoise(c, g, time, feverOn ? 2.2 : 1.4, 4000, feverOn ? 0.12 : 0.09);
 		for (const f of [293.66, 369.99, 440.0, 587.33]) bgmTone(c, g, f, time, 1.6, 'triangle', 0.08); // D major
 		bgmTone(c, g, 1174.66, time + 0.02, 1.2, 'sine', 0.05);
+		if (feverOn) {
+			// FEVER のまま終止：1オクターブ上の和音＋きらめきの駆け上がり＋長いクラッシュ（いちばん派手な終わり）
+			for (const f of [587.33, 739.99, 880.0, 1174.66]) bgmTone(c, g, f, time, 2.0, 'triangle', 0.05);
+			[1174.66, 1479.98, 1760.0, 2349.32, 2959.96].forEach((f, i) => bgmTone(c, g, f, time + 0.05 + i * 0.06, 0.5, 'sine', 0.045));
+			bgmTone(c, g, 36.71, time, 0.9, 'sine', 0.4, 30); // 深いサブ
+		}
 		setTimeout(() => g.disconnect(), (time - c.currentTime + 2) * 1000);
 	}
 	function bgmScheduler(): void {
@@ -439,9 +461,24 @@ export function createAudio(): GameAudio {
 			}
 		},
 		fever() {
-			// 上昇するリザー（フィーバー突入）
-			tone(330, 0, 0.28, 'sawtooth', 0.16, 990);
-			tone(660, 0.06, 0.24, 'triangle', 0.14, 1320);
+			// 突入SE＝3層：低音インパクト ＋ 上昇ライザー ＋ 高音スパークル（約0.5秒で収まる。次の cue を覆わない長さ）
+			const c = ensureCtx();
+			if (!c || muted) return;
+			const now = c.currentTime;
+			toneAt(c, 70, now, 0.35, 'sine', 0.32, 32); // インパクト
+			const g = c.createGain(); // ノイズの一撃
+			g.gain.value = 0.9;
+			g.connect(c.destination);
+			bgmNoise(c, g, now, 0.18, 800, 0.12);
+			setTimeout(() => g.disconnect(), 800);
+			toneAt(c, 330, now + 0.02, 0.32, 'sawtooth', 0.12, 1320); // ライザー
+			toneAt(c, 660, now + 0.06, 0.28, 'triangle', 0.12, 1760);
+			[2093.0, 2637.02, 3135.96, 4186.01].forEach((f, i) => toneAt(c, f, now + 0.18 + i * 0.05, 0.14, 'sine', 0.07)); // スパークル
+		},
+		feverEnd() {
+			// 「シュン…」：短い下降＋フィルタ感の弱いノイズ。罰ではなく「切れた」ことが分かるだけ
+			tone(900, 0, 0.22, 'sine', 0.07, 220);
+			tone(450, 0.01, 0.2, 'triangle', 0.04, 110);
 		},
 		async startTransport(leadBeats: number, songDef: SongDefinition = DEFAULT_SONG) {
 			song = songDef;
@@ -474,6 +511,7 @@ export function createAudio(): GameAudio {
 			};
 			musicLevel = 0;
 			feverOn = false;
+			feverCrashPending = false;
 			bgmBeat = 0;
 			if (!running || !c) return transport;
 
@@ -524,6 +562,8 @@ export function createAudio(): GameAudio {
 			musicLevel = Math.max(0, Math.min(3, level | 0));
 		},
 		setFever(active: boolean) {
+			if (active && !feverOn) feverCrashPending = true;
+			if (!active) feverCrashPending = false;
 			feverOn = active;
 		},
 		best() {

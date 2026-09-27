@@ -105,14 +105,35 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
 - **cue の取り消し**：`scheduleRhythm` の先頭で、前パターンの未再生 cue（早押しで消えた的のドン等）を stop する。
 - `stopMusic()`：game_over で 0.3秒フェードアウト。ミュート時は BGM 0・cue/SE 無音（時計は動く）。
 
+## CHAOS FEVER の演出（chaos-pendulum.ts の描画・audio.ts の音。物理・判定には触れない）
+- 定数は `FX`（`ENTRY_TIME 0.7` / `ENTRY_FLASH_ALPHA 0.6` / `ENTRY_ZOOM 0.05` / `BEAT_FLASH_ALPHA 0.12` / `OVERLAY_ALPHA_MAX 0.2` /
+  `TRAIL_LEN 140` / `FEVER_TRAIL_MULT 1.8` / `TRAIL_CHUNKS 28` / `FEVER_PARTICLE_MULT 2` / `MAX_PARTICLES 320` / `SHAKE_PX 6` /
+  `SHAKE_TIME 0.1` / `DROP_TIME 0.45`）と `RAINBOW`。低スペック対策として粒子は総数上限、軌跡は最大 28 回の stroke にまとめる。
+- 状態（表示・集計のみ）：`feverEntryT` / `feverDropT` / `feverStreak`（FEVER ×N）/ `shakeT` / `scorePop` / `pendingBursts`（二段目の爆発）/
+  `feverFinish` と集計 `feverCount / feverTime / feverHits / feverPerfects`。
+- **カメラ**：`draw()` の先頭で `ctx.save()` → 突入ズーム（中心基準の scale）と PERFECT シェイク（translate）→ 末尾で `restore()`。
+  物理・target 座標・判定は一切変えない（同じ固定ステップ・同じ hitAt）。
+- **描画順**（奥→手前）：背景の拍フラッシュ・虹の縁 → 可動範囲 → FINAL カウント・枠 → 突入の巨大文字 → 判定ラベル・「+xxx / FEVER ×2」 →
+  **アプローチリング・的** → 軌跡 → 振り子 → 判定フラッシュ → 粒子 → 解除の暗転 → 上部の FEVER/COMBO 表示 → セクション名 → FINISH → 突入フラッシュ。
+  文字は的より奥なので、次の的に重なっても的とリングは隠れない。突入フラッシュだけ最前面だが最初の約0.2秒（打鍵直後のスロー中）で消える。
+- **虹色**：`rainbowAt(t) = RAINBOW[floor(t/BEAT)]` → 次の色へ拍内で補間（beat grid 同期）。リングは2色ずらす。
+- **背景の拍フラッシュ**：`0.05 + BEAT_FLASH_ALPHA × beatPulse()`、拍ごとに pink/yellow。FINAL 中は上限を 0.07 下げる。
+- **判定ラベル位置**：FEVER 中は上部の見出し・ゲージと重ならないよう少し下げる（`labelY()`）。
+- **reduced motion**：`matchMedia('(prefers-reduced-motion: reduce)')` を監視。シェイク・ズーム無効、`particleMult 0.4`、`flashMult 0.4`。
+- **音**：`fever()`＝インパクト（70Hz sine）＋ノイズ＋ライザー（saw 330→1320 / tri 660→1760）＋スパークル（C7–C8 の駆け上がり）、約0.5秒。
+  `setFever(true)` で `feverCrashPending` → 次に予約する拍頭にクラッシュ＋キック。FEVER 層は BGM バス経由（ダッキング有効）。
+  `feverEnd()`＝900→220Hz の短い下降（`reason !== 'finish'` のときだけ）。`scheduleFinish()` は `feverOn` なら上の和音・駆け上がり・長いクラッシュ・サブを足す。
+- **終止時**：`endGame()` で FEVER 中なら `feverFinish=true`・粒子・`endFever('finish')`（解除演出なし）→ `game_over`。
+
 ## イベント（onEvent）
 - `game_view` / `game_start` / `game_retry`（retry 時のみ、game_start の前）
 - `rhythm_pattern`：`{ patternId, hitBeat, hitTime, cues: [{ beat, time, sound }] }`（時刻は transport 時刻）
 - `section_change`：`{ section, elapsed, musicIntensity }`（elapsed は小節頭に丸めた境界の transport 秒）
 - `hit`：`{ kind, pts, score, combo, comboMult, maxCombo, distancePx, nearMissPx, timingOffsetMs, expired }`
-- `fever_start` / `fever_end`
+- `fever_start` / `fever_end { reason: 'miss' | 'timeout' | 'finish', duration, hits }`
 - `game_over`：`{ score, maxCombo, hits, perfectCount, greatCount, goodCount, nearCount, missCount, expiredCount,
-  averageAbsTimingOffsetMs, averageTimingOffsetMs }`（平均は押した判定のみ。寿命切れは除外）
+  averageAbsTimingOffsetMs, averageTimingOffsetMs, feverCount, feverDuration, feverHits, feverPerfects }`
+  （平均は押した判定のみ。寿命切れは除外）
 - コンポーネントが GA4（`trackGameEvent`）へ橋渡し。`game_start / game_over / game_retry` には `difficulty` を付ける。
   `section_change` で FINAL のとき `.is-final`（残り秒数・時間バーをピンク強調）。`game_over` から `RESULT_DELAY_MS=1300` 後に
   結果パネル（その間に次のゲームが始まったら出さない）。

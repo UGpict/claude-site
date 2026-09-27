@@ -13,9 +13,43 @@ plan から外れる判断が出たら、コードより先に spec/design を�
 - [x] **sequence**：`RHYTHM_SEQUENCES`／`EASY_SEQUENCES`、順番消化・直前回避・序盤は易しい方のみ
 - [x] **persistent music**：drum / +bass(3) / +hihat(5) / +melody(10) / +lead(FEVER)、MISS で次拍から drum のみ、game_over でフェード
 - [x] **ranking**：難易度別・今日/今週/歴代、score＋maxCombo、自己ベスト、GA4
-- [x] **transport sync / TAP TO START / instrumentation**（詳細は下の履歴）
+- [x] **transport sync / TAP TO START / instrumentation**、**60秒で1曲**（詳細は下の履歴）
 
-## Current：60秒で1曲（2026-09-27 実装）
+## Current：CHAOS FEVER 強化（2026-09-27 実装）
+ルール（PERFECT3連・5秒・×2・MISS/NEAR解除）は据え置き。演出と音だけ。
+- [x] `FX` 定数・FEVER 演出状態の整理（表示・集計のみ。物理/判定/hitAt/beat grid/timeScale 不変）
+- [x] 突入：フラッシュ・ズーム・巨大 CHAOS FEVER ×2 SCORE・虹の粒子・3層突入SE・次の拍頭のクラッシュ・バイブ
+- [x] 虹の的・虹のアプローチリング（拍同期の色相循環）
+- [x] 軌跡強化（1.8倍・太く・濃く・グラデ、描画は 28 区間にまとめる）
+- [x] FEVER PERFECT：粒子増量・二段階爆発・虹の大きな PERFECT・「+xxx / FEVER ×2」・描画のみのシェイク
+- [x] 背景の拍フラッシュ（pink/yellow 交互）＋虹の縁、FINAL と重なるときは上限を下げる
+- [x] FEVER 層強化：lead＋5度の合いの手＋オープンハット＋パッド＋オクターブメロディ（BGM バス経由・ダッキング維持）
+- [x] 解除の落差：一瞬の暗転＋FEVER END＋控えめな「シュン…」、次の拍から FEVER 層が消える
+- [x] FEVER のまま終止：FINISH!! ＋ CHAOS FEVER FINISH ＋ 派手な終止音（解除扱いにしない）
+- [x] prefers-reduced-motion（シェイク・ズームなし、粒子・フラッシュ 40%）
+- [x] 計測：`fever_end { reason, duration, hits }`、`game_over` に feverCount/feverDuration/feverHits/feverPerfects
+- [x] 検証（ヘッドレス Chromium）：拍どおり押す自動プレイで PERFECT 31〜32/34（演出で判定・同期が崩れない）、
+      FEVER 中も 60fps（p95 17ms）、突入・FEVER PERFECT・解除・FEVER 終止の画面を確認。reduced-motion でも同等
+- [ ] 実機（スマホ・イヤホン）で突入SEとFEVER層の音量、シェイク量、粒子数の最終調整
+
+## Next
+- [ ] **要オーナー判断：D1 ランキングの初期化**（30秒版スコアは比較不能。手順は履歴「60秒で1曲」参照。自動では実行しない）
+- [ ] **playtest tuning（60秒版）**：セクション境界ごとの判定分布（hit × section_change）、FEVER の発生回数（多ければ終了後の短いクールダウンを検討）、
+      INTRO/CLIMAX の的サイズ倍率、BUILD のフィルや CLIMAX のパッドの音量。実機 20〜30 回＋GA4 の `averageTimingOffsetMs`・判定分布で、カウントイン長・音量・ダッキング量・
+      出力レイテンシ補正の要否を決める（判定ロジックは変えない。必要なら timingOffset を補助条件にする案を spec に起こしてから）
+
+## Later
+- [ ] プレイ時間モード（QUICK 30 / NORMAL 60 / FULL 90）：`SongDefinition` を足す＋モード UI＋ランキング/自己ベストのモード分離
+- [ ] moving targets（動く的。hitAt で必ず軌道と交わる設計が前提）
+- [ ] bonus targets（赤＝スコア3倍 / 青＝次の数秒×2 or コンボ保護 / 虹＝FEVER 突入。**時間延長は不可**。FEVER 倍率は ×2 のまま）
+- [ ] article update：制作記録 `chaos-pendulum-tsukutta` を現行仕様に加筆（updatedDate 更新）
+- [ ] 曲の作り込み（4〜8小節の basic/variation/build/climax）
+
+---
+
+## 履歴（記録のみ。現行仕様ではない）
+
+### 60秒で1曲（2026-09-27・完了）
 - [x] docs を30秒版 → 60秒セクション制へ（30秒版は spec の Deprecated に記録）
 - [x] `song.ts` 新設：`GAME_DURATION=60`・`SongDefinition`・`GameSection`（sequencePool / musicIntensity / targetScale / arrangement）。
       エンジンは `options.song`、audio は `startTransport(lead, song)` で同じ曲データを使う（尺の直書きをやめた）
@@ -37,23 +71,6 @@ plan から外れる判断が出たら、コードより先に spec/design を�
   # 初期化（60秒版の公開直前・直後に）
   npx wrangler d1 execute chaos_pendulum --remote --command="DELETE FROM chaos_pendulum_scores;"
   ```
-
-## Next
-- [ ] **playtest tuning（60秒版）**：セクション境界ごとの判定分布（hit × section_change）、FEVER の発生回数（多ければ終了後の短いクールダウンを検討）、
-      INTRO/CLIMAX の的サイズ倍率、BUILD のフィルや CLIMAX のパッドの音量。実機 20〜30 回＋GA4 の `averageTimingOffsetMs`・判定分布で、カウントイン長・音量・ダッキング量・
-      出力レイテンシ補正の要否を決める（判定ロジックは変えない。必要なら timingOffset を補助条件にする案を spec に起こしてから）
-- [ ] **FEVER polish**（控えめに。速度は変えない）
-
-## Later
-- [ ] プレイ時間モード（QUICK 30 / NORMAL 60 / FULL 90）：`SongDefinition` を足す＋モード UI＋ランキング/自己ベストのモード分離
-- [ ] moving targets（動く的。hitAt で必ず軌道と交わる設計が前提）
-- [ ] bonus targets（赤＝スコア3倍 / 青＝次の数秒×2 or コンボ保護 / 虹＝FEVER。**時間延長は不可**）
-- [ ] article update：制作記録 `chaos-pendulum-tsukutta` を現行仕様に加筆（updatedDate 更新）
-- [ ] 曲の作り込み（4〜8小節の basic/variation/build/climax）
-
----
-
-## 履歴（記録のみ。現行仕様ではない）
 
 ### transport sync / TAP TO START / instrumentation（2026-09-27・完了）
 - [x] **transport sync**

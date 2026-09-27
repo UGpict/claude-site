@@ -296,12 +296,20 @@
 					}
 
 					if (name === 'fever_start') {
-						audio.setFever(true);
-						audio.fever();
+						audio.setFever(true); // 次の拍頭からクラッシュ＋FEVER 層（lead/パッド/オクターブ）
+						audio.fever(); // 突入SE（インパクト＋ライザー＋スパークル）
+						try {
+							navigator.vibrate?.([25, 40, 60]); // 対応端末だけ軽く「ドドン」
+						} catch {
+							/* 非対応は無視 */
+						}
 					}
 
 					if (name === 'fever_end') {
-						audio.setFever(false);
+						const p = payload as GameEventPayloads['fever_end'];
+						audio.setFever(false); // 次の拍から FEVER 層が消える（MISS なら combo0 で基本アレンジだけに）
+						// 曲の終止まで FEVER を保った場合は解除音を鳴らさない（そのまま最も派手な終止音へ）
+						if (p.reason !== 'finish') audio.feverEnd();
 					}
 
 					if (name === 'game_over') {
