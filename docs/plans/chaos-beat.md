@@ -39,6 +39,17 @@ plan から外れる判断が出たら、コードより先に spec/design を�
 - [x] スマホ：盤面内の重複タイトルを隠し HUD・難易度を1行に詰める。開始時は sticky ヘッダーの下に盤面全体が収まるようスクロール
 - [x] プレイ中はスマホ下部の浮きシェアバーを隠す（盤面下端での誤タップ防止）
 
+### 不具合修正：スマホで「もう一回！」から再戦できない（2026-09-27）
+- 原因：ゲーム時計（audio.now）が AudioContext.currentTime だけに依存。iOS で state が 'running' のまま currentTime が止まる／
+  'interrupted' になると、カウントインが拍0に届かず止まる（click→startGame→transport→engine.start→countin までは到達）。
+  加えて resume 待ち（最大0.5秒）の間、結果パネルが残って無反応に見えた／結果パネルの smooth スクロール中のタップは iOS で click にならない。
+- [x] startTransport：resume は 0.4 秒で打ち切り、currentTime が実際に進むか 0.25 秒以内に確認。ダメなら performance 時計（必ず有限時間で resolve・例外なし）
+- [x] audio.now() に監視：state が running 以外、または currentTime が 0.3 秒止まったら performance 時計へ継ぎ目なく切替（以後その回は無音で継続）
+- [x] 再戦：タップ直後に結果パネルを隠す・ボタンを無効化（1タップ = 1スタート）、スクロールは開始後に rAF で behavior:'auto'
+- [x] 結果パネルの表示スクロールも smooth → auto
+- [x] 検証（iPhone 13 エミュレーション＋偽 AudioContext）：running / suspended / resume 無応答 / interrupted / currentTime 停止 / resume 拒否 /
+      二重タップ / 同一 tick の3連クリック / プレイ中の時計停止、PC のクリック・Space で、全て countin → playing まで到達、game_start 1回・BGM タイマー最大1
+
 ## Next
 - [ ] **要オーナー判断：D1 ランキングの初期化**（30秒版スコアは比較不能。手順は履歴「60秒で1曲」参照。自動では実行しない）
 - [ ] **playtest tuning（60秒版）**：セクション境界ごとの判定分布（hit × section_change）、FEVER の発生回数（多ければ終了後の短いクールダウンを検討）、

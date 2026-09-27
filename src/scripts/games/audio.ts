@@ -103,7 +103,7 @@ export function createAudio(): GameAudio {
 				return null;
 			}
 		}
-		if (ctx.state === 'suspended') void ctx.resume();
+		if (ctx.state === 'suspended') ctx.resume().catch(() => {}); // 失敗は startTransport 側で performance 時計へ
 		return ctx;
 	}
 
@@ -175,6 +175,51 @@ export function createAudio(): GameAudio {
 	const BGM_LEVEL = 0.5; // BGM のマスター音量。cue（ドン）より明確に小さく
 	const DUCK = 0.55; // accent 前後の BGM 倍率（約 -5dB）
 	let transport: AudioTransport | null = null;
+	// --- 音の時計が本当に進んでいるかの監視（スマホ対策） ---
+	// iOS Safari などでは、AudioContext が 'interrupted' になったり、state が 'running' のまま currentTime が
+	// 止まったりすることがある。止まった時計を拍の原点にするとカウントインが永遠に終わらない（再戦できない）。
+	// → 開始時に「進んでいること」を確かめ、プレイ中も止まったら performance 時計へ継ぎ目なく切り替える。
+	const RESUME_TIMEOUT_MS = 400; // resume() がこれ以上返らなければ待たない
+	const ADVANCE_CHECK_MS = 250; // currentTime が進むのを確かめる最大時間
+	const CLOCK_STALL_SEC = 0.3; // プレイ中、これ以上 currentTime が進まなければ止まったとみなす
+	let lastAudioT = -1;
+	let lastAudioAdvanceAt = 0; // perfNow() 基準
+	let lastTransportT = 0;
+	const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+	/** currentTime が実際に進むか（'running' 以外＝interrupted/suspended/closed は不可） */
+	async function clockAdvances(c: AudioContext): Promise<boolean> {
+		if (c.state !== 'running') return false;
+		const t0 = c.currentTime;
+		const deadline = perfNow() + ADVANCE_CHECK_MS / 1000;
+		while (perfNow() < deadline) {
+			await sleep(15);
+			if (c.state !== 'running') return false;
+			if (c.currentTime !== t0) return true;
+		}
+		return false;
+	}
+	/** プレイ中の監視：進んでいれば true。state が running 以外、または CLOCK_STALL_SEC 以上止まっていれば false */
+	function audioClockAlive(c: AudioContext): boolean {
+		if (c.state !== 'running') return false;
+		const t = c.currentTime;
+		const pn = perfNow();
+		if (t !== lastAudioT) {
+			lastAudioT = t;
+			lastAudioAdvanceAt = pn;
+			return true;
+		}
+		return pn - lastAudioAdvanceAt < CLOCK_STALL_SEC;
+	}
+	/** 音の時計が止まった：transport を performance 時計へ切り替える（いまの transport 時刻から継ぎ目なく続ける）。以後は無音 */
+	function fallbackToPerformance(): void {
+		if (!transport || transport.clock !== 'audio') return;
+		transport = { ...transport, startTime: perfNow() - lastTransportT, clock: 'performance' };
+		if (musicTimer) {
+			clearInterval(musicTimer);
+			musicTimer = null;
+		}
+		if (ctx) clearPendingCues(ctx);
+	}
 	let bgmGain: GainNode | null = null;
 	let duckFrom = 0; // 予約済みダッキングが始まる audio 時刻（まだ始まっていなければ取り消せる）
 	let musicTimer: ReturnType<typeof setInterval> | null = null;
@@ -488,17 +533,18 @@ export function createAudio(): GameAudio {
 				clearInterval(musicTimer);
 				musicTimer = null;
 			}
-			// ① resume を待つ（最大0.5秒）。動かない環境は performance 時計で無音進行
+			// ① resume を待つ（最大 RESUME_TIMEOUT_MS）→ currentTime が実際に進むか確認（最大 ADVANCE_CHECK_MS）。
+			//    どちらかダメなら performance 時計で無音進行。どの経路でも有限時間で必ず resolve する（ゲーム開始を止めない）。
 			let running = false;
 			if (c) {
-				if (c.state !== 'running') {
-					try {
-						await Promise.race([c.resume(), new Promise((r) => setTimeout(r, 500))]);
-					} catch {
-						/* resume 失敗は無音扱い */
+				try {
+					if (c.state !== 'running') {
+						await Promise.race([c.resume().catch(() => {}), sleep(RESUME_TIMEOUT_MS)]);
 					}
+					running = await clockAdvances(c);
+				} catch {
+					running = false; // resume 失敗・closed などは無音扱い
 				}
-				running = c.state === 'running';
 			}
 			const lead = Math.max(0, Math.round(leadBeats));
 			const base = running && c ? c.currentTime : perfNow();
@@ -513,28 +559,40 @@ export function createAudio(): GameAudio {
 			feverOn = false;
 			feverCrashPending = false;
 			bgmBeat = 0;
+			lastTransportT = -(START_DELAY + lead * SPB);
 			if (!running || !c) return transport;
+			lastAudioT = c.currentTime;
+			lastAudioAdvanceAt = perfNow();
 
-			// ③ 前ゲームの残響（予約済みの拍・cue）を切り、新しい BGM バスで拍0から開始
-			clearPendingCues(c);
-			if (bgmGain) {
-				const old = bgmGain;
-				old.gain.cancelScheduledValues(c.currentTime);
-				old.gain.setValueAtTime(old.gain.value, c.currentTime);
-				old.gain.linearRampToValueAtTime(0, c.currentTime + 0.05);
-				setTimeout(() => old.disconnect(), 400);
-				bgmGain = null;
+			// ③ 前ゲームの残響（予約済みの拍・cue）を切り、新しい BGM バスで拍0から開始。
+			//    ここで例外が出ても（壊れた AudioContext 等）ゲームは performance 時計で始められるようにする。
+			try {
+				clearPendingCues(c);
+				if (bgmGain) {
+					const old = bgmGain;
+					old.gain.cancelScheduledValues(c.currentTime);
+					old.gain.setValueAtTime(old.gain.value, c.currentTime);
+					old.gain.linearRampToValueAtTime(0, c.currentTime + 0.05);
+					setTimeout(() => old.disconnect(), 400);
+					bgmGain = null;
+				}
+				duckFrom = 0;
+				ensureBgmGain(c);
+				nextBeatTime = audioTimeOf(0); // BGM の拍0＝startTime
+				// カウントイン：拍 -lead … -1 に「タン」、拍0 に「ドン（GO）」。同じ beatIndex 式で置く
+				if (!muted) {
+					for (let i = lead; i >= 1; i--) tickAt(c, audioTimeOf(-i * SPB));
+					accentAt(c, audioTimeOf(0));
+				}
+				musicTimer = setInterval(bgmScheduler, 25);
+				bgmScheduler();
+			} catch {
+				if (musicTimer) {
+					clearInterval(musicTimer);
+					musicTimer = null;
+				}
+				transport = { ...transport, startTime: perfNow() + START_DELAY + lead * SPB, clock: 'performance' };
 			}
-			duckFrom = 0;
-			ensureBgmGain(c);
-			nextBeatTime = audioTimeOf(0); // BGM の拍0＝startTime
-			// カウントイン：拍 -lead … -1 に「タン」、拍0 に「ドン（GO）」。同じ beatIndex 式で置く
-			if (!muted) {
-				for (let i = lead; i >= 1; i--) tickAt(c, audioTimeOf(-i * SPB));
-				accentAt(c, audioTimeOf(0));
-			}
-			musicTimer = setInterval(bgmScheduler, 25);
-			bgmScheduler();
 			return transport;
 		},
 		getTransport() {
@@ -542,7 +600,13 @@ export function createAudio(): GameAudio {
 		},
 		now() {
 			if (!transport) return 0;
-			if (transport.clock === 'audio' && ctx) return ctx.currentTime - transport.startTime;
+			if (transport.clock === 'audio' && ctx) {
+				if (audioClockAlive(ctx)) {
+					lastTransportT = ctx.currentTime - transport.startTime;
+					return lastTransportT;
+				}
+				fallbackToPerformance(); // 音の時計が止まった：ゲームは止めずに performance 時計で続ける
+			}
 			return perfNow() - transport.startTime;
 		},
 		stopMusic() {

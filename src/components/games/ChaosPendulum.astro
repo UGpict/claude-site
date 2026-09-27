@@ -351,7 +351,8 @@
 							if (serial !== gameSerial) return;
 							if (resultPanel) {
 								resultPanel.hidden = false;
-								resultPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+								// smooth にしない：iOS はスクロール中のタップを「スクロール停止」として扱い click が出ないため
+								resultPanel.scrollIntoView({ behavior: 'auto', block: 'center' });
 							}
 							if (isNewBest) audio.best();
 						}, RESULT_DELAY_MS);
@@ -383,30 +384,40 @@
 			let gameStarted = false;
 			let starting = false;
 			let startToken = 0;
+			/**
+			 * 盤面（HUD〜判定メッセージ）が画面からはみ出していたら全体が見える位置へ。ゲーム開始の「後」に呼ぶ。
+			 * サイトのヘッダーは sticky なので、その高さぶん下げて HUD が隠れないようにする。
+			 * behavior は 'auto'（スマホで smooth スクロール中のタップが握りつぶされる・開始処理と競合するのを避ける）。
+			 */
+			const revealGame = () => {
+				const game = root.querySelector<HTMLElement>('.cp-game');
+				if (!game) return;
+				const headerH = document.querySelector('body > header')?.getBoundingClientRect().height ?? 0;
+				const r = game.getBoundingClientRect();
+				if (r.top < headerH || r.bottom > window.innerHeight) {
+					const room = window.innerHeight - headerH;
+					const offset = r.height <= room ? headerH + (room - r.height) / 2 : headerH + 4;
+					window.scrollTo({ top: window.scrollY + r.top - offset, behavior: 'auto' });
+				}
+			};
 			const startGame = async (retry = false) => {
-				if (starting) return; // resume 待ち中の連打を無視
+				if (starting) return; // 開始処理中の連打は無視（1タップ = 1スタート）
 				starting = true;
 				const token = ++startToken;
+				// タップした瞬間に反応が分かるように、結果パネルは待たずに隠す
+				if (retry && resultPanel) resultPanel.hidden = true;
 				try {
-					// ユーザー操作の同期部分で resume を要求し、解決（running）を待ってから拍0を決める
+					// ユーザー操作の同期部分で resume を要求する。startTransport はどの状態でも有限時間で resolve し、
+					// 音の時計が使えなければ performance 時計で返す（ここで止まらない）。念のため例外も握る。
 					await audio.startTransport(COUNTIN_BEATS, SONG);
+				} catch {
+					/* 音なしでもゲームは始める（audio.now() は performance 時計で進む） */
 				} finally {
 					starting = false;
 				}
 				if (token !== startToken) return;
 				handle.start({ difficulty: currentDifficulty, retry }); // gameTime<0 のカウントインから開始
-				// 盤面（HUD〜判定メッセージ）が画面からはみ出していたら、カウントイン中に全体が見える位置へ。
-				// サイトのヘッダーは sticky なので、その高さぶん下げて HUD が隠れないようにする。
-				const game = root.querySelector<HTMLElement>('.cp-game');
-				if (game && !retry) {
-					const headerH = document.querySelector('body > header')?.getBoundingClientRect().height ?? 0;
-					const r = game.getBoundingClientRect();
-					if (r.top < headerH || r.bottom > window.innerHeight) {
-						const room = window.innerHeight - headerH;
-						const offset = r.height <= room ? headerH + (room - r.height) / 2 : headerH + 4;
-						window.scrollTo({ top: window.scrollY + r.top - offset, behavior: 'smooth' });
-					}
-				}
+				requestAnimationFrame(revealGame); // スクロールはゲーム開始の後に分離
 				gameStarted = true;
 				if (startOverlay) startOverlay.hidden = true;
 				rankDifficulty = currentDifficulty;
@@ -432,9 +443,15 @@
 			);
 
 			// --- 「もう一回」：カウントインから再戦（ボタン or スペース/Enter） ---
-			againBtn?.addEventListener('click', () => {
-				void startGame(true);
-				root.querySelector('[data-cp-canvas]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			// click のみ（touch と二重登録しない）。開始処理中はボタンを無効にして 1タップ = 1スタート。
+			againBtn?.addEventListener('click', async () => {
+				if (againBtn.disabled) return;
+				againBtn.disabled = true;
+				try {
+					await startGame(true);
+				} finally {
+					againBtn.disabled = false;
+				}
 			});
 			window.addEventListener('keydown', (e) => {
 				if (e.code !== 'Space' && e.code !== 'Enter') return;
