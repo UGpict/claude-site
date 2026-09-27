@@ -51,6 +51,18 @@ spec: [../specs/chaos-beat.md](../specs/chaos-beat.md) を満たす作り方。�
 - エンジンが `curSeq/seqIdx` を持ち、`nextPattern()` がシーケンスを順番に消化 → 尽きたら `pickSequence()` で別のを選ぶ
   （直前と同じ id は避ける）。序盤 `hits<6` は EASY のみ。`newTarget()` は random ではなく `nextPattern()` を使う。
 
+### 共通トランスポート時計（最重要の同期基盤）
+- **全部の時計を1本に統一**：`transportStart`（拍0の audio 時刻）を基準に、BGM・cue・アプローチリング・`hitAt`・エンジンの
+  `gameTime` をすべて `transportStart + beat×SPB` から導く。以前は BGM が `currentTime+0.1`、譜面が `gameTime`(rAF累積) の
+  別クロックで約0.36秒位相ズレしていた。
+- 実装：`audio.startTransport(leadBeats)` が `transportStart=currentTime+leadBeats×SPB` を張り、BGMスケジューラを拍0から開始。
+  `audio.now()=currentTime-transportStart` を **エンジンの `options.now` に注入**し、`gameTime=now()` にする（rAF累積をやめる）。
+  → `ctx.currentTime = transportStart + gameTime` が常に成立し、cue（`currentTime+offset`）と BGM（`transportStart+beat×SPB`）が
+  サンプル精度で一致する。物理は固定タイムステップのまま（dt は now() 差分）。
+- **TAP TO START**：`autostart:false` で初期は idle（静止プレビュー）。START クリック/スペースで `startTransport(4)` →
+  4拍カウントイン（タン・タン・タン＋GO、画面に 3・2・1）→ 拍0で `state='playing'`＋最初の的。ここで AudioContext を resume
+  するので初回の同期ズレ・Autoplay 問題も解消。もう一回/難易度変更も同じ startGame（transport 張り直し）を通す。
+
 ### 持続BGM（audio.ts の先読みスケジューラ）
 - `startMusic/stopMusic/setMusicLevel(0..3)/setFever` を追加。BGM は専用の `bgmGain` 経由（cue/judgment と別系統・控えめ音量）。
 - スケジューラ：`setInterval(25ms)` で `nextBeatTime < currentTime+0.12` を満たす拍を先読み予約（rAF/​setTimeout をタイミング基準にしない）。

@@ -30,6 +30,14 @@
 		<div class="cp-timebar" aria-hidden="true"><i data-cp-time></i></div>
 		<div class="cp-stage">
 			<canvas data-cp-canvas aria-label="二重振り子のゲーム画面"></canvas>
+			<div class="cp-start" data-cp-start>
+				<div class="cp-start-inner">
+					<p class="cp-start-title">CHAOS BEAT</p>
+					<p class="cp-start-sub">音を聞いてタイミングを狙え</p>
+					<button type="button" class="cp-start-btn" data-cp-start-btn>▶ 音ありでスタート</button>
+					<p class="cp-start-hint">スペースキーでもスタート</p>
+				</div>
+			</div>
 		</div>
 		<footer class="cp-footer">
 			<p data-cp-msg aria-live="polite">
@@ -132,6 +140,8 @@
 		const timeEl = q('[data-cp-time]');
 		const msg = q('[data-cp-msg]');
 		const muteBtn = q<HTMLButtonElement>('[data-cp-mute]');
+		const startOverlay = q('[data-cp-start]');
+		const startBtn = q<HTMLButtonElement>('[data-cp-start-btn]');
 		const resultPanel = q('[data-cp-result]');
 		const finalEl = q('[data-cp-final]');
 		const finalComboEl = q('[data-cp-final-combo]');
@@ -246,13 +256,14 @@
 				canvas,
 				elements: { score: scoreEl, combo: comboEl, time: timeEl, msg },
 				difficulty: currentDifficulty,
+				now: () => audio.now(), // 共通トランスポート時計（BGM/cue と同じ原点）
+				autostart: false, // TAP TO START を待つ
 				onEvent(name: GameEventName, payload: GameEventPayloads[GameEventName]) {
 					trackGameEvent(name, (payload as Record<string, unknown>) ?? {});
 
 					if (name === 'game_start') {
 						submitted = false;
 						if (resultPanel) resultPanel.hidden = true;
-						audio.startMusic(); // 持続BGM開始（拍頭から drum のみ）
 					}
 
 					if (name === 'hit') {
@@ -327,7 +338,20 @@
 				},
 			});
 
-			// --- 難易度の切り替え（選ぶと最初から＋その難易度のランキング表示） ---
+			// --- 開始/リトライ：カウントイン付きで transport を張り直してから開始（ユーザー操作で resume） ---
+			const COUNTIN_BEATS = 4;
+			let gameStarted = false;
+			const startGame = () => {
+				audio.startTransport(COUNTIN_BEATS); // ここで AudioContext を resume ＋ 拍0を確定
+				handle.setDifficulty(currentDifficulty); // 選択中の難易度でカウントインから開始
+				gameStarted = true;
+				if (startOverlay) startOverlay.hidden = true;
+				rankDifficulty = currentDifficulty;
+				setRankDiffTab(currentDifficulty);
+			};
+			startBtn?.addEventListener('click', startGame);
+
+			// --- 難易度の切り替え ---
 			diffBtns.forEach((btn) =>
 				btn.addEventListener('click', () => {
 					const level = (btn.dataset.diff as Difficulty) ?? 'normal';
@@ -335,24 +359,25 @@
 					currentDifficulty = level;
 					diffBtns.forEach((b) => b.classList.toggle('active', b === btn));
 					trackGameEvent('difficulty_change', { difficulty: level });
-					handle.setDifficulty(level);
 					rankDifficulty = level;
 					setRankDiffTab(level);
 					loadRanking(currentPeriod);
+					if (gameStarted) startGame(); // 開始済みなら新難易度でやり直し
 				}),
 			);
 
-			// --- 「もう一回」：即リトライ（ボタン or スペース/Enter） ---
-			const retry = () => {
-				handle.restart();
+			// --- 「もう一回」：カウントインから再戦（ボタン or スペース/Enter） ---
+			againBtn?.addEventListener('click', () => {
+				startGame();
 				root.querySelector('[data-cp-canvas]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-			};
-			againBtn?.addEventListener('click', retry);
+			});
 			window.addEventListener('keydown', (e) => {
-				// 結果パネル表示中だけ、スペース/Enter で即リトライ
-				if ((e.code === 'Space' || e.code === 'Enter') && resultPanel && !resultPanel.hidden) {
+				if (e.code !== 'Space' && e.code !== 'Enter') return;
+				// スタート前、または結果パネル表示中は、スペース/Enter で開始・再戦
+				const canStart = !gameStarted || (resultPanel && !resultPanel.hidden);
+				if (canStart) {
 					e.preventDefault();
-					retry();
+					startGame();
 				}
 			});
 
@@ -534,6 +559,56 @@
 		display: block;
 		cursor: pointer;
 		touch-action: manipulation;
+	}
+	/* TAP TO START オーバーレイ */
+	.cp-start {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: rgba(20, 26, 22, 0.72);
+		z-index: 2;
+	}
+	.cp-start[hidden] {
+		display: none;
+	}
+	.cp-start-inner {
+		text-align: center;
+		color: var(--chalk);
+		padding: 1rem;
+	}
+	.cp-start-title {
+		font-size: clamp(1.6rem, 6vw, 2.4rem);
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		margin: 0 0 0.3em;
+	}
+	.cp-start-sub {
+		font-size: 0.95rem;
+		opacity: 0.85;
+		margin: 0 0 1.2em;
+	}
+	.cp-start-btn {
+		font: inherit;
+		font-weight: 800;
+		font-size: 1.15rem;
+		background: var(--yellow);
+		color: var(--board-deep);
+		border: none;
+		border-radius: 999px;
+		padding: 14px 40px;
+		cursor: pointer;
+		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+	}
+	.cp-start-btn:focus-visible {
+		outline: 3px solid #ffffff;
+		outline-offset: 3px;
+	}
+	.cp-start-hint {
+		font-size: 0.8rem;
+		opacity: 0.7;
+		margin: 0.9em 0 0;
 	}
 
 	.cp-footer {

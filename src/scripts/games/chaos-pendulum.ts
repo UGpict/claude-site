@@ -174,6 +174,10 @@ export interface InitGameOptions {
 	canvas: HTMLCanvasElement;
 	elements: GameElements;
 	difficulty?: Difficulty;
+	/** 共通トランスポート時計（秒）。省略時は performance.now 基準。拍0で 0・カウントイン中は負。 */
+	now?: () => number;
+	/** false なら初期化時に自動開始しない（TAP TO START を待つ）。既定 true。 */
+	autostart?: boolean;
 	onEvent?: <K extends GameEventName>(name: K, payload: GameEventPayloads[K]) => void;
 }
 
@@ -181,7 +185,7 @@ export interface GameHandle {
 	destroy(): void;
 	/** 難易度を切り替えて最初から遊び直す */
 	setDifficulty(level: Difficulty): void;
-	/** 同じ難易度のまま最初から（即リトライ） */
+	/** カウントインから開始／即リトライ（transport は呼び出し側で張り直す） */
 	restart(): void;
 }
 
@@ -206,6 +210,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 	let preset: DifficultyPreset = DIFFICULTY_PRESETS[options.difficulty ?? 'normal'];
 	let TARGET_R = preset.targetR;
+	// 共通トランスポート時計（BGM/cue と同じ原点）。全部これで gameTime を測る。
+	const clock = options.now ?? (() => performance.now() / 1000);
+	let started = options.autostart !== false;
+	let lastClock = 0;
 
 	const cv = options.canvas;
 	const ctx = cv.getContext('2d');
@@ -269,7 +277,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 	let s: Vec; // [θ1, θ2, ω1, ω2]
 	let trail: [number, number][] = [];
 	let target: Target;
-	let state: 'playing' | 'slowmo' | 'over' = 'playing';
+	let state: 'idle' | 'countin' | 'playing' | 'slowmo' | 'over' = 'idle';
 	let gameTime = 0; // 経過（実秒）
 	let slowmoT = 0;
 	let acc = 0; // 固定タイムステップ用の時間アキュムレータ
@@ -447,7 +455,9 @@ export function initGame(options: InitGameOptions): GameHandle {
 	function newGame() {
 		s = [sign() * rand(preset.a1[0], preset.a1[1]), sign() * rand(preset.a2[0], preset.a2[1]), 0, 0];
 		trail = [];
-		gameTime = 0;
+		started = true;
+		lastClock = clock();
+		gameTime = lastClock; // transport 基準（カウントイン中は負・拍0で 0）
 		slowmoT = 0;
 		acc = 0;
 		score = 0;
@@ -468,17 +478,23 @@ export function initGame(options: InitGameOptions): GameHandle {
 		milestoneLabel = '';
 		milestoneT = 0;
 		particles = [];
-		state = 'playing';
-		newTarget();
+		// gameTime<0 ならカウントイン、そうでなければ即プレイ（最初の的を出す）。
+		if (gameTime < 0) {
+			state = 'countin';
+			$msg.textContent = 'タン・タン・タン… で GO！';
+		} else {
+			state = 'playing';
+			newTarget();
+			$msg.textContent = '拍に合わせて、先端を黄色い丸で叩け！';
+		}
 		updateHUD();
-		$msg.textContent = '拍に合わせて、先端を黄色い丸で叩け！';
 		emit('game_start', undefined);
 	}
 
 	function updateHUD() {
 		$score.textContent = String(score);
 		$combo.textContent = String(combo);
-		$time.style.width = Math.max(0, 1 - gameTime / GAME_TIME) * 100 + '%';
+		$time.style.width = Math.max(0, Math.min(1, 1 - gameTime / GAME_TIME)) * 100 + '%';
 	}
 
 	function startFever() {
@@ -662,8 +678,22 @@ export function initGame(options: InitGameOptions): GameHandle {
 		ctx!.stroke();
 		ctx!.setLineDash([]);
 
+		// カウントイン中は数字（3・2・1）を大きく出す
+		if (state === 'countin') {
+			const n = Math.ceil(-gameTime / BEAT);
+			if (n >= 1 && n <= 3) {
+				ctx!.fillStyle = col.yellow;
+				ctx!.font = `700 ${Math.round(Math.min(W, H) * 0.18)}px "Klee One", sans-serif`;
+				ctx!.textAlign = 'center';
+				ctx!.textBaseline = 'middle';
+				ctx!.fillText(String(n), cx, cy);
+				ctx!.textAlign = 'start';
+				ctx!.textBaseline = 'alphabetic';
+			}
+		}
+
 		// ターゲット＋アプローチリング（入力拍に向けて外側の輪が縮んで重なる＝押す瞬間が目で分かる）
-		if (state !== 'over') {
+		if (state === 'playing' || state === 'slowmo') {
 			const [tx, ty] = P(target.x, target.y);
 			const remain = target.expireAt - gameTime;
 			const baseR = target.r * scale;
@@ -819,19 +849,23 @@ export function initGame(options: InitGameOptions): GameHandle {
 	}
 
 	// --- ループ ---
-	let last = performance.now();
 	let rafId = 0;
-	function loop(now: number) {
-		const dt = Math.min((now - last) / 1000, 1 / 30);
-		last = now;
+	function loop() {
+		if (!started) {
+			if (W) draw(); // TAP TO START 待ち：静止した振り子だけ描く
+			rafId = requestAnimationFrame(loop);
+			return;
+		}
+		// 時計は共通トランスポート（audio）。dt はその差分。
+		const t = clock();
+		const dt = Math.min(Math.max(0, t - lastClock), 1 / 30);
+		lastClock = t;
+		gameTime = t;
 
-		if (state === 'playing' || state === 'slowmo') {
-			// 【リズム整合】的が生きている間の timeScale は必ず 1。
-			// フィーバー速度・アシスト・鬼speed で物理を伸縮させると「拍の時刻に先端が到達」が
-			// ズレて音と合わなくなるため、速度変更は入れない（スロー演出は的の無い hit 直後だけ）。
+		if (state === 'countin' || state === 'playing' || state === 'slowmo') {
+			// 【リズム整合】的が生きている間の timeScale は必ず 1（速度変更なし）。
+			// 固定タイムステップ積分で軌道が毎回同じ離散列になり、予測と完全一致する。
 			const ts = state === 'slowmo' ? SLOWMO_SCALE : 1;
-			// 固定タイムステップで積分（timeScale は「1フレームで進めるステップ数」を変えるだけ）。
-			// こうすると軌道が毎回同じ離散列になり、予測（predictPath）と完全一致する。
 			acc += dt * ts;
 			let steps = 0;
 			while (acc >= FIXED_H && steps < 60) {
@@ -843,26 +877,33 @@ export function initGame(options: InitGameOptions): GameHandle {
 			trail.push([x2, y2]);
 			if (trail.length > 140) trail.shift();
 
-			gameTime += dt; // 30秒は実時間で計る
-
-			// フィーバーの残り時間（速度は変えず、得点2倍＋演出だけ）
-			if (fever) {
-				feverT -= dt;
-				if (feverT <= 0) endFever();
-			}
-
-			if (state === 'slowmo') {
-				slowmoT -= dt;
-				if (slowmoT <= 0) {
+			if (state === 'countin') {
+				// 拍0（gameTime>=0）でゲーム開始（最初の的を出す）
+				if (gameTime >= 0) {
 					state = 'playing';
 					newTarget();
+					resultLabel = 'GO!';
+					popT = 1;
+					$msg.textContent = '拍に合わせて、先端を黄色い丸で叩け！';
 				}
-			} else if (gameTime > target.expireAt) {
-				expireTarget();
+			} else {
+				// フィーバー残り時間（速度は変えず得点2倍＋演出だけ）
+				if (fever) {
+					feverT -= dt;
+					if (feverT <= 0) endFever();
+				}
+				if (state === 'slowmo') {
+					slowmoT -= dt;
+					if (slowmoT <= 0) {
+						state = 'playing';
+						newTarget();
+					}
+				} else if (gameTime > target.expireAt) {
+					expireTarget();
+				}
+				if (gameTime >= GAME_TIME) endGame();
 			}
-
-			$time.style.width = Math.max(0, 1 - gameTime / GAME_TIME) * 100 + '%';
-			if (gameTime >= GAME_TIME) endGame();
+			$time.style.width = Math.max(0, Math.min(1, 1 - gameTime / GAME_TIME)) * 100 + '%';
 		}
 
 		if (flash > 0) flash = Math.max(0, flash - dt * 3);
@@ -885,7 +926,9 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 	resize();
 	emit('game_view', undefined);
-	newGame();
+	// 静止プレビュー用に振り子だけ用意（idle 時に描画される）
+	s = [sign() * rand(preset.a1[0], preset.a1[1]), sign() * rand(preset.a2[0], preset.a2[1]), 0, 0];
+	if (started) newGame(); // autostart:false のときは TAP TO START を待つ
 	rafId = requestAnimationFrame(loop);
 
 	return {

@@ -20,9 +20,11 @@ export interface GameAudio {
 	best(): void;
 	/** ランキング上位入りの祝福音 */
 	rankUp(): void;
-	// --- 持続BGM（拍に同期したループ。コンボで層が増え、MISSで減る） ---
-	/** BGM開始（ゲーム開始時。拍頭からドラムのみ） */
-	startMusic(): void;
+	// --- 共通トランスポート＆持続BGM ---
+	/** カウントイン後に拍0が来るよう transport を張り直し、BGMスケジューラを開始。予告(タン)も鳴らす。 */
+	startTransport(leadBeats: number): void;
+	/** 現在の transport 時刻（秒。拍0で 0、カウントイン中は負）。エンジンの時計に渡す。 */
+	now(): number;
 	/** BGM停止（ゲーム終了時。短くフェードアウト） */
 	stopMusic(): void;
 	/** レイヤーの厚さ（0=drum / 1=+bass / 2=+perc / 3=+melody）。切替は次の拍に自然に反映 */
@@ -123,12 +125,14 @@ export function createAudio(): GameAudio {
 		if (track) pending.push({ osc, startAt: t0 });
 	}
 
-	// --- 持続BGM（拍同期ループ・先読みスケジューラ） ---
+	// --- 共通トランスポート＆持続BGM（拍同期ループ・先読みスケジューラ） ---
+	// transportStart = 拍0（＝ゲームの gameTime=0）の audio 時刻。BGM・cue・エンジンの時計を全部これに揃える。
 	const BGM_BPM = 130;
 	const SPB = 60 / BGM_BPM; // 1拍の秒数（＝エンジンの BEAT と一致）
+	let transportStart = 0;
 	let bgmGain: GainNode | null = null;
 	let musicTimer: ReturnType<typeof setInterval> | null = null;
-	let bgmBeat = 0; // 通し拍カウンタ
+	let bgmBeat = 0; // 通し拍カウンタ（拍0＝transportStart）
 	let nextBeatTime = 0; // 次に予約する拍の audio 時刻
 	let musicLevel = 0; // 0=drum / 1=+bass / 2=+perc / 3=+melody
 	let feverOn = false;
@@ -279,18 +283,27 @@ export function createAudio(): GameAudio {
 			tone(330, 0, 0.28, 'sawtooth', 0.16, 990);
 			tone(660, 0.06, 0.24, 'triangle', 0.14, 1320);
 		},
-		startMusic() {
+		startTransport(leadBeats: number) {
 			const c = ensureCtx();
 			if (!c) return;
+			// 拍0（gameTime=0）を leadBeats 拍だけ先に置く。ここが全時計の原点。
+			transportStart = c.currentTime + Math.max(0.05, leadBeats) * SPB;
 			const gain = ensureBgmGain(c);
 			gain.gain.cancelScheduledValues(c.currentTime);
 			gain.gain.setValueAtTime(muted ? 0 : 0.9, c.currentTime);
 			musicLevel = 0;
 			feverOn = false;
 			bgmBeat = 0;
-			nextBeatTime = c.currentTime + 0.1; // gameTime≈0 の直後に拍頭を置く（エンジンの拍と揃う）
+			nextBeatTime = transportStart; // BGM の拍0＝transportStart
+			// カウントイン予告：拍0の手前で「タン…タン…タン」→ 拍0は accent（GO）
+			const n = Math.max(1, Math.round(leadBeats));
+			for (let i = n; i >= 1; i--) tone(720, transportStart - i * SPB - c.currentTime, 0.05, 'square', 0.1);
+			tone(180, transportStart - c.currentTime, 0.14, 'sine', 0.22, 120);
 			if (musicTimer) clearInterval(musicTimer);
 			musicTimer = setInterval(bgmScheduler, 25);
+		},
+		now() {
+			return ctx ? ctx.currentTime - transportStart : 0;
 		},
 		stopMusic() {
 			if (musicTimer) {

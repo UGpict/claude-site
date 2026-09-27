@@ -58,6 +58,15 @@ spec: [../specs/chaos-beat.md](../specs/chaos-beat.md) / design: [../design/chao
 - [ ] 動く的（ステージ進行でゆっくり移動）
 - [ ] ボーナス的（赤3倍／青+2秒／虹FEVER）
 
+## 共通トランスポート＋TAP TO START（2026-09-27）＝拍の位相を全部揃える
+- [x] ① `transportStart` に BGM・cue・アプローチリング・hitAt・gameTime を統一。`audio.startTransport/now` を追加し
+      エンジン `options.now` に注入（gameTime=now()）。BGMの `currentTime+0.1` 別クロックを撤廃（位相ズレ~0.36s を解消）
+- [x] ② TAP TO START：`autostart:false`＋idleプレビュー→START/スペースで resume＋4拍カウントイン（3・2・1・GO）→拍0で開始。
+      もう一回・難易度変更も startGame（transport張り直し）に統一。初回Autoplay問題も解消
+- [x] ③ cue/BGM音量分離（cueは高め・BGM控えめ、bgmGain別系統）＝予告が埋もれない
+- [ ] ④ 実プレイ20〜30回で判定感・カウントイン長・音量の最終調整（次段）
+- [ ] 曲の作り込み（1小節→4小節 basic/variation/build/climax）は④の後（次段）
+
 ## 譜面シーケンス＋持続BGM（2026-09-27）＝「曲が完成していく」化
 - [x] Part1: `RHYTHM_SEQUENCES`＋`EASY_SEQUENCES`。`nextPattern()` でシーケンスを順番消化・直前と同じ回避・序盤は易しいのみ。random 廃止
 - [x] Part2: audio に持続BGMスケジューラ（先読み25ms / lookahead0.12s / bgmGain 別系統）
