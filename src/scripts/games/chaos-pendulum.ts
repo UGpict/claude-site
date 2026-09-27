@@ -84,6 +84,28 @@ export const RHYTHM_PATTERNS: RhythmPattern[] = [
 		hitBeat: 3,
 	},
 ];
+const PATTERN_BY_ID: Record<string, RhythmPattern> = Object.fromEntries(
+	RHYTHM_PATTERNS.map((p) => [p.id, p]),
+);
+
+/** 譜面シーケンス。pattern を順番に消化する（完全ランダムをやめ「繰り返し→崩し」で覚えやすく）。 */
+export interface RhythmSequence {
+	id: string;
+	patterns: string[];
+}
+// やさしい（A/B中心・裏拍なし）と、全体（C/D入り）を分ける。序盤はやさしい方だけ使う。
+export const EASY_SEQUENCES: RhythmSequence[] = [
+	{ id: 'e1', patterns: ['A', 'A', 'B', 'A'] },
+	{ id: 'e2', patterns: ['A', 'A', 'A', 'B'] },
+	{ id: 'e3', patterns: ['A', 'B', 'A', 'B'] },
+];
+export const RHYTHM_SEQUENCES: RhythmSequence[] = [
+	...EASY_SEQUENCES,
+	{ id: 's1', patterns: ['A', 'A', 'C', 'A'] },
+	{ id: 's2', patterns: ['A', 'B', 'A', 'D'] },
+	{ id: 's3', patterns: ['B', 'A', 'C', 'A'] },
+	{ id: 's4', patterns: ['A', 'C', 'B', 'D'] },
+];
 
 /** 難易度。カオス（激しい挙動）は全段維持し、差は主に的の大きさ（鬼だけ速度UP）。 */
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'oni';
@@ -259,6 +281,28 @@ export function initGame(options: InitGameOptions): GameHandle {
 	let perfectStreak = 0;
 	let fever = false;
 	let feverT = 0;
+	// 譜面シーケンス（1つを順番に消化 → 別のを選ぶ。直前と同じは選ばない。序盤はやさしい方だけ）
+	let curSeq: RhythmSequence | null = null;
+	let seqIdx = 0;
+	let lastSeqId = '';
+	function pickSequence(): RhythmSequence {
+		const pool = hits < 6 ? EASY_SEQUENCES : RHYTHM_SEQUENCES;
+		let pick = pool[(Math.random() * pool.length) | 0];
+		let guard = 0;
+		while (pool.length > 1 && pick.id === lastSeqId && guard++ < 8) {
+			pick = pool[(Math.random() * pool.length) | 0];
+		}
+		lastSeqId = pick.id;
+		return pick;
+	}
+	function nextPattern(): RhythmPattern {
+		if (!curSeq || seqIdx >= curSeq.patterns.length) {
+			curSeq = pickSequence();
+			seqIdx = 0;
+		}
+		const pid = curSeq.patterns[seqIdx++];
+		return PATTERN_BY_ID[pid] ?? RHYTHM_PATTERNS[0];
+	}
 
 	// 演出（表示のみ・物理/スコアに干渉しない）
 	let flash = 0;
@@ -372,8 +416,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 		const path = predictPath();
 		const maxT = path.length * PRED_DT;
 
-		// パターンを選び、パターン先頭を「次の拍」に合わせる（beat grid と同期）。
-		const pat = RHYTHM_PATTERNS[(Math.random() * RHYTHM_PATTERNS.length) | 0];
+		// パターンは譜面シーケンスから順番に取り、先頭を「次の拍」に合わせる（beat grid と同期）。
+		const pat = nextPattern();
 		const nextBeatIn = BEAT - (gameTime % BEAT); // 次の拍まで（秒）
 		const patternStart = gameTime + nextBeatIn; // パターン先頭の時刻（拍の頭）
 		let hitAt = patternStart + pat.hitBeat * BEAT; // 入力すべき時刻
@@ -414,6 +458,9 @@ export function initGame(options: InitGameOptions): GameHandle {
 		perfectStreak = 0;
 		fever = false;
 		feverT = 0;
+		curSeq = null;
+		seqIdx = 0;
+		lastSeqId = '';
 		flash = 0;
 		popT = 0;
 		resultLabel = '';
@@ -483,9 +530,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 			if (!scoring) endFever();
 		}
 		const mult = comboMult(combo);
-		// コンボ節目（倍率が上がる瞬間）の演出
+		// コンボ節目（倍率が上がる＝BGMの層が増える瞬間）の演出
 		if (scoring && (combo === 3 || combo === 5 || combo === 10)) {
-			milestoneLabel = `${combo} COMBO  ×${mult}!`;
+			const layer = combo === 3 ? ' ♪BASS' : combo === 5 ? ' ♪HAT' : ' ♪MELODY';
+			milestoneLabel = `${combo} COMBO ×${mult}!${layer}`;
 			milestoneT = 1;
 		}
 		const add = scoring ? Math.round(pts * mult * (fever ? FEVER_MULT : 1)) : 0;

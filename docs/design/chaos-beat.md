@@ -46,6 +46,20 @@ spec: [../specs/chaos-beat.md](../specs/chaos-beat.md) を満たす作り方。�
   「hitAt(拍)の時刻に先端がターゲットへ来る」がズレ、音（ドン）と合わなくなる。slowmo(0.15) は hit 直後（的の無い間）だけ。
 - 30秒判定は実 dt で計る。
 
+### 譜面シーケンス（覚えやすさ）
+- `RhythmSequence { id, patterns:string[] }`。`EASY_SEQUENCES`（A/B中心）と全体 `RHYTHM_SEQUENCES`。
+- エンジンが `curSeq/seqIdx` を持ち、`nextPattern()` がシーケンスを順番に消化 → 尽きたら `pickSequence()` で別のを選ぶ
+  （直前と同じ id は避ける）。序盤 `hits<6` は EASY のみ。`newTarget()` は random ではなく `nextPattern()` を使う。
+
+### 持続BGM（audio.ts の先読みスケジューラ）
+- `startMusic/stopMusic/setMusicLevel(0..3)/setFever` を追加。BGM は専用の `bgmGain` 経由（cue/judgment と別系統・控えめ音量）。
+- スケジューラ：`setInterval(25ms)` で `nextBeatTime < currentTime+0.12` を満たす拍を先読み予約（rAF/​setTimeout をタイミング基準にしない）。
+  1拍ごとに `scheduleBgmBeat(beat, time)` が **その瞬間の musicLevel/feverOn を読む** → レイヤー切替が自然に拍へ同期。
+- レイヤー：drum(kick 0,2＋noise 1,3) / bass(level≥1) / hihat 8分(level≥2) / melody モチーフ(level≥3) / fever lead(feverOn)。
+- 位相合わせ：`startMusic` を game_start（gameTime≈0）で呼び `nextBeatTime=currentTime+0.1`。gameTime と currentTime は同じ実時間なので、cue（gameTime基準）と BGM（currentTime基準）は一定オフセットで揃う。
+- コンポーネント：game_start→startMusic / hit→setMusicLevel(comboで0..3) / fever_start・end→setFever / game_over→stopMusic(0.3s フェード)。
+- judgment からコンボ一発層は撤去（BGMが担当）。
+
 ### リズム（音でタイミングを教える）
 - `RHYTHM_PATTERN`（id/lengthBeats/cues[{beat,sound}]/hitBeat）をデータ駆動で保持（`RHYTHM_PATTERNS`）。
 - `newTarget()`：パターン先頭=次の拍。hitAt=次の拍+hitBeat×BEAT。timeUntilHit から `predictPath` の idx を引いて的位置に。

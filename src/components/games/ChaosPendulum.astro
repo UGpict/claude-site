@@ -240,7 +240,7 @@
 				perfectCount: number;
 			} | null = null;
 			let submitted = false;
-			let feverActive = false;
+			const musicLevelOf = (combo: number) => (combo >= 10 ? 3 : combo >= 5 ? 2 : combo >= 3 ? 1 : 0);
 
 			const handle = initGame({
 				canvas,
@@ -251,13 +251,14 @@
 
 					if (name === 'game_start') {
 						submitted = false;
-						feverActive = false;
 						if (resultPanel) resultPanel.hidden = true;
+						audio.startMusic(); // 持続BGM開始（拍頭から drum のみ）
 					}
 
 					if (name === 'hit') {
 						const p = payload as GameEventPayloads['hit'];
-						audio.judgment(p.kind, p.combo, feverActive);
+						audio.judgment(p.kind);
+						audio.setMusicLevel(musicLevelOf(p.combo)); // コンボで層が増減（MISSでcombo0→drumだけ）
 					}
 
 					if (name === 'rhythm_pattern') {
@@ -266,16 +267,17 @@
 					}
 
 					if (name === 'fever_start') {
-						feverActive = true;
+						audio.setFever(true);
 						audio.fever();
 					}
 
 					if (name === 'fever_end') {
-						feverActive = false;
+						audio.setFever(false);
 					}
 
 					if (name === 'game_over') {
 						const g = payload as GameEventPayloads['game_over'];
+						audio.stopMusic(); // BGMを短くフェードアウト
 						// 難易度は「プレイした時点のもの」を固定（この後タブを触っても送信は不変）
 						lastResult = {
 							difficulty: currentDifficulty,

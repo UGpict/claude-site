@@ -58,6 +58,15 @@ spec: [../specs/chaos-beat.md](../specs/chaos-beat.md) / design: [../design/chao
 - [ ] 動く的（ステージ進行でゆっくり移動）
 - [ ] ボーナス的（赤3倍／青+2秒／虹FEVER）
 
+## 譜面シーケンス＋持続BGM（2026-09-27）＝「曲が完成していく」化
+- [x] Part1: `RHYTHM_SEQUENCES`＋`EASY_SEQUENCES`。`nextPattern()` でシーケンスを順番消化・直前と同じ回避・序盤は易しいのみ。random 廃止
+- [x] Part2: audio に持続BGMスケジューラ（先読み25ms / lookahead0.12s / bgmGain 別系統）
+- [x] レイヤー：drum(常時) / +bass(combo3) / +hihat(combo5) / +melody(combo10) / +lead(FEVER)。切替は拍に同期
+- [x] MISS で combo0→次の拍から drum だけに自然減。game_over で 0.3s フェードアウト。retry で拍頭から再開
+- [x] judgment のコンボ一発層は撤去（役割分担：judgment=SE / scheduler=BGM）。cue(ドン)は低音BGMと分離して埋もれさせない
+- [x] 節目ポップに ♪BASS/♪HAT/♪MELODY を表示（層追加を視覚でも）
+- [ ] （残）初回ゲームのみ AudioContext アンロック前開始で頭出しズレの可能性（retry以降は正確）。必要なら[TAP TO START]
+
 ## リズム入力システム（2026-09-27）＝「音を聞いて押す」化
 - [x] `RHYTHM_PATTERN` データ構造＋初期4パターン（A/B/C/D、タン・タン・ドン系＋裏拍）
 - [x] ターゲット生成をパターンの入力拍(hitBeat)に量子化。hitAt=次の拍+hitBeat×BEAT の予測軌道点へ
