@@ -3,7 +3,9 @@
 
 type DiffKey = 'easy' | 'normal' | 'hard' | 'oni';
 // CHAOS BEAT はスコア基準が変わったので旧キー(cp:best:*)とは別名にする。
-const bestKey = (difficulty: DiffKey) => `cb:best:${difficulty}`;
+// さらに曲の尺（60秒1曲版）ごとに分ける。30秒版の自己ベスト(cb:best:*)とは比較できないので読まない。
+const SONG_KEY = '60';
+const bestKey = (difficulty: DiffKey) => `cb:best:${SONG_KEY}:${difficulty}`;
 
 export interface PersonalBest {
 	bestScore: number;

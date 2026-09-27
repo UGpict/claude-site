@@ -12,6 +12,7 @@
 				<div class="cp-stats">
 					<span>SCORE <b data-cp-score>0</b></span>
 					<span>COMBO <b data-cp-combo>0</b></span>
+					<span class="cp-timetext">TIME <b data-cp-timetext>60</b></span>
 				</div>
 				<button type="button" class="cp-mute" data-cp-mute aria-pressed="false" title="効果音のオン/オフ">
 					🔊 音オン
@@ -46,7 +47,7 @@
 		</footer>
 	</div>
 
-	<!-- 結果パネル（30秒終了後に表示） -->
+	<!-- 結果パネル（1曲60秒の終了後に表示） -->
 	<section class="cp-result" data-cp-result hidden aria-live="polite">
 		<div class="cp-result-head">
 			<div class="cp-score-block">
@@ -123,6 +124,7 @@
 	import { trackGameEvent } from '../../scripts/games/analytics';
 	import { createAudio } from '../../scripts/games/audio';
 	import { COUNTIN_BEATS } from '../../scripts/games/beat-grid';
+	import { DEFAULT_SONG as SONG } from '../../scripts/games/song';
 	import { updateBest } from '../../scripts/games/storage';
 	import {
 		getRanking,
@@ -139,6 +141,7 @@
 		const scoreEl = q('[data-cp-score]');
 		const comboEl = q('[data-cp-combo]');
 		const timeEl = q('[data-cp-time]');
+		const timeTextEl = q('[data-cp-timetext]');
 		const msg = q('[data-cp-msg]');
 		const muteBtn = q<HTMLButtonElement>('[data-cp-mute]');
 		const startOverlay = q('[data-cp-start]');
@@ -251,11 +254,14 @@
 				perfectCount: number;
 			} | null = null;
 			let submitted = false;
+			let gameSerial = 0; // game_start ごとに増やす（遅延表示の取り消し用）
+			const RESULT_DELAY_MS = 1300;
 			const musicLevelOf = (combo: number) => (combo >= 10 ? 3 : combo >= 5 ? 2 : combo >= 3 ? 1 : 0);
 
 			const handle = initGame({
 				canvas,
-				elements: { score: scoreEl, combo: comboEl, time: timeEl, msg },
+				elements: { score: scoreEl, combo: comboEl, time: timeEl, timeText: timeTextEl, msg },
+				song: SONG, // 60秒・5セクション（audio にも同じ曲を渡す＝同じ beat grid でアレンジが切り替わる）
 				difficulty: currentDifficulty,
 				now: () => audio.now(), // 共通トランスポート時計（BGM/cue と同じ原点）
 				autostart: false, // TAP TO START を待つ
@@ -267,7 +273,15 @@
 
 					if (name === 'game_start') {
 						submitted = false;
+						gameSerial++;
 						if (resultPanel) resultPanel.hidden = true;
+						root.classList.remove('is-final');
+					}
+
+					if (name === 'section_change') {
+						const p = payload as GameEventPayloads['section_change'];
+						// FINAL は残り時間表示・バーを強調（キャンバス側は 5→1 カウント＋枠の明滅）
+						root.classList.toggle('is-final', p.section === 'final');
 					}
 
 					if (name === 'hit') {
@@ -314,13 +328,19 @@
 						if (submitStatus) submitStatus.textContent = '';
 						if (submitBtn) submitBtn.disabled = false;
 						submitted = false;
-						if (resultPanel) {
-							resultPanel.hidden = false;
-							resultPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-						}
+						root.classList.remove('is-final');
+						// FINISH! と終止音を聞かせてから結果パネル（その間に次のゲームが始まったら出さない）
+						const serial = gameSerial;
+						window.setTimeout(() => {
+							if (serial !== gameSerial) return;
+							if (resultPanel) {
+								resultPanel.hidden = false;
+								resultPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+							}
+							if (isNewBest) audio.best();
+						}, RESULT_DELAY_MS);
 
 						if (isNewBest) {
-							window.setTimeout(() => audio.best(), 320);
 							trackGameEvent('personal_best', { score: g.score });
 						}
 
@@ -353,7 +373,7 @@
 				const token = ++startToken;
 				try {
 					// ユーザー操作の同期部分で resume を要求し、解決（running）を待ってから拍0を決める
-					await audio.startTransport(COUNTIN_BEATS);
+					await audio.startTransport(COUNTIN_BEATS, SONG);
 				} finally {
 					starting = false;
 				}
@@ -560,6 +580,19 @@
 		width: 100%;
 		background: var(--yellow);
 		transition: width 0.1s linear;
+	}
+	.cp-timetext b {
+		display: inline-block;
+		min-width: 2ch;
+		text-align: right;
+	}
+	/* FINAL（最後のセクション）：残り時間を強調 */
+	.is-final .cp-timebar i {
+		background: var(--pink);
+	}
+	.is-final .cp-timetext b {
+		color: var(--pink);
+		font-weight: 800;
 	}
 
 	.cp-stage {

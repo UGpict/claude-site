@@ -6,8 +6,9 @@
 // 共通トランスポート：startTransport() が「拍0の時刻 startTime」を1つだけ決め、
 // BGM の拍頭・cue（タン/ドン）・エンジンの gameTime（now()）を全部 startTime + beatTime(beatIndex) で揃える。
 
-import { BPM, SPB } from './beat-grid';
-import type { CueSound, HitKind } from './chaos-pendulum';
+import { BPM, SPB, beatTime } from './beat-grid';
+import type { HitKind } from './chaos-pendulum';
+import { DEFAULT_SONG, sectionIndexAt, sectionStart, type CueSound, type SongDefinition } from './song';
 
 const MUTE_KEY = 'cp:muted';
 
@@ -46,14 +47,17 @@ export interface GameAudio {
 	 * （startTime = now + START_DELAY + leadBeats×SPB）→ ③ BGMスケジューラを拍0から開始＋カウントインを予約。
 	 * 解決後にエンジンを開始すること（初回も retry も同じ経路）。
 	 */
-	startTransport(leadBeats: number): Promise<AudioTransport>;
+	startTransport(leadBeats: number, song?: SongDefinition): Promise<AudioTransport>;
 	/** 現在の transport（未開始なら null） */
 	getTransport(): AudioTransport | null;
 	/** 現在の transport 時刻（秒。拍0で 0、カウントイン中は負）。エンジンの時計に渡す。 */
 	now(): number;
 	/** BGM停止（ゲーム終了時。短くフェードアウト） */
 	stopMusic(): void;
-	/** レイヤーの厚さ（0=drum / 1=+bass / 2=+perc / 3=+melody）。切替は次の拍に自然に反映 */
+	/**
+	 * コンボで解放される層（0=なし / 1=+bass / 2=+hihat / 3=+melody）。切替は次の拍に自然に反映。
+	 * セクションの基本アレンジ（曲の進行）は transport と曲データから audio が拍ごとに決めるので別指示は不要。
+	 */
 	setMusicLevel(level: number): void;
 	/** FEVER レイヤーの ON/OFF */
 	setFever(active: boolean): void;
@@ -174,7 +178,8 @@ export function createAudio(): GameAudio {
 	let musicTimer: ReturnType<typeof setInterval> | null = null;
 	let bgmBeat = 0; // 通し拍カウンタ（拍0＝transport.startTime）
 	let nextBeatTime = 0; // 次に予約する拍の audio 時刻
-	let musicLevel = 0; // 0=drum / 1=+bass / 2=+perc / 3=+melody
+	let musicLevel = 0; // コンボ層 0=なし / 1=+bass / 2=+hihat / 3=+melody
+	let song: SongDefinition = DEFAULT_SONG; // 今の transport で鳴らす曲（セクション構成・尺）
 	let feverOn = false;
 
 	const musicVol = () => (muted ? 0 : BGM_LEVEL);
@@ -257,36 +262,114 @@ export function createAudio(): GameAudio {
 		src.start(at);
 		src.stop(at + dur);
 	}
-	// 1拍分のBGMを予約。レイヤーは「その拍を予約する瞬間の musicLevel/feverOn」を読むので、切替は拍に同期する。
+	// 1拍分のBGMを予約。2層構造：
+	//   ① セクションの基本アレンジ（曲の進行。拍の transport 時刻 → 曲データの section から決まる。コンボ無関係）
+	//   ② コンボ層（musicLevel/feverOn。その拍を予約する瞬間の値を読むので切替は拍に同期）
+	// CLIMAX でも combo 0 なら melody は鳴らさない（②は①に左右されない）。
+	const BAR = 4 * SPB;
+	// 伴奏の進行（Dm → B♭ → C → A）。pad と、pad のあるセクションの bass ルートに使う
+	const CHORDS = [
+		[293.66, 349.23, 440.0],
+		[233.08, 293.66, 349.23],
+		[261.63, 329.63, 392.0],
+		[220.0, 277.18, 329.63],
+	];
+	const MOTIFS: Record<'main' | 'variation' | 'finale', number[][]> = {
+		main: [[587.33, 0, 659.25, 783.99]], // D5 - E5 G5
+		variation: [
+			[587.33, 0, 659.25, 783.99],
+			[880.0, 783.99, 659.25, 587.33], // 下降の応答
+		],
+		finale: [[587.33, 739.99, 880.0, 1174.66]], // D F# A D：長調へ持ち上げて締める
+	};
 	function scheduleBgmBeat(beat: number, time: number): void {
 		const c = ctx;
 		if (!c || !bgmGain) return;
 		const dest = bgmGain;
+		const tt = beatTime(beat); // この拍の transport 時刻（cue/hitAt と同じ式）
+		const secIdx = sectionIndexAt(song, tt);
+		const arr = song.sections[secIdx].arrangement;
 		const b = ((beat % 4) + 4) % 4; // 小節内の拍 0..3
-		// Layer1 Drum：キック(0,2)＋スネア風(1,3)
-		if (b === 0 || b === 2) bgmTone(c, dest, 52, time, 0.16, 'sine', 0.5, 30);
-		if (b === 1 || b === 3) bgmNoise(c, dest, time, 0.08, 1800, 0.09);
-		// Layer2 Bass（level>=1）：D2/D2/A1
+		const bar = Math.floor(beat / 4);
+		const chord = CHORDS[((bar % 4) + 4) % 4];
+
+		// --- ① セクションの基本アレンジ ---
+		// セクション頭のクラッシュ（小節頭に丸めた境界＝section_change と同じ拍）
+		if (arr.crash && secIdx > 0 && Math.abs(tt - sectionStart(song, secIdx)) < 1e-6) {
+			bgmNoise(c, dest, time, 0.9, 4500, 0.08);
+		}
+		// ドラム
+		const kick = arr.drums === 'four' ? true : b === 0 || b === 2;
+		if (kick) bgmTone(c, dest, 52, time, 0.16, 'sine', 0.5, 30);
+		if (arr.drums === 'sparse') {
+			if (b === 3) bgmNoise(c, dest, time, 0.05, 3000, 0.05); // 音数少なめ：4拍目に軽いリムだけ
+		} else if (b === 1 || b === 3) {
+			bgmNoise(c, dest, time, 0.08, 1800, 0.09); // スネア
+		}
+		if (arr.drums === 'drive' || arr.drums === 'four') {
+			bgmNoise(c, dest, time + SPB / 2, 0.025, 9000, 0.03); // 裏の8分シェイカー（密度UP）
+		}
+		// 次セクションへのフィル：最後の1小節を16分スネアでクレッシェンド
+		if (arr.fill && secIdx < song.sections.length - 1) {
+			const next = sectionStart(song, secIdx + 1);
+			if (tt >= next - BAR - 1e-6) {
+				const prog = (tt - (next - BAR)) / BAR; // 0→0.75
+				for (let k = 0; k < 4; k++) bgmNoise(c, dest, time + (k * SPB) / 4, 0.05, 1500, 0.025 + 0.06 * (prog + k / 16));
+			}
+		}
+		// 伴奏パッド（小節頭で和音をのばす）
+		if (arr.pad && b === 0) {
+			for (const f of chord) bgmTone(c, dest, f, time, BAR * 0.95, 'triangle', 0.025);
+		}
+		// FINAL の締めモチーフ（基本アレンジとして小さく。コンボ melody とは別）
+		if (arr.motif === 'finale') {
+			const f = MOTIFS.finale[0][b];
+			bgmTone(c, dest, f * 2, time, 0.2, 'sine', 0.035);
+		}
+
+		// --- ② コンボ層 ---
+		// bass（level>=1）：pad のあるセクションは和音のルート、それ以外は D2/D2/A1
 		if (musicLevel >= 1) {
-			const bass = b === 0 ? 73.42 : b === 2 ? 73.42 : b === 3 ? 55 : 0;
+			const root = chord[0] / 4;
+			const bass = arr.pad
+				? [root, 0, root, root * 1.5][b]
+				: b === 0 || b === 2
+					? 73.42
+					: b === 3
+						? 55
+						: 0;
 			if (bass) bgmTone(c, dest, bass, time, 0.22, 'triangle', 0.16);
 		}
-		// Layer3 Percussion（level>=2）：8分でハイハット
+		// hihat（level>=2）：8分
 		if (musicLevel >= 2) {
 			bgmNoise(c, dest, time, 0.03, 7000, 0.05);
 			bgmNoise(c, dest, time + SPB / 2, 0.03, 7000, 0.035);
 		}
-		// Layer4 Melody（level>=3）：D5 - E5 G5 の簡単なモチーフ
+		// melody（level>=3）：セクションのモチーフ（main / variation / finale）と音量
 		if (musicLevel >= 3) {
-			const mel = [587.33, 0, 659.25, 783.99][b];
-			if (mel) bgmTone(c, dest, mel, time, 0.18, 'triangle', 0.1);
+			const bars = MOTIFS[arr.motif];
+			const mel = bars[((bar % bars.length) + bars.length) % bars.length][b];
+			if (mel) bgmTone(c, dest, mel, time, 0.18, 'triangle', arr.melodyGain);
 		}
-		// Layer5 FEVER：高音リード＋オープンハット
+		// FEVER：高音リード＋オープンハット
 		if (feverOn) {
 			const lead = [1174.66, 1174.66, 1567.98, 1174.66][b];
 			bgmTone(c, dest, lead, time, 0.14, 'sawtooth', 0.075);
 			bgmNoise(c, dest, time + SPB / 2, 0.05, 6000, 0.045);
 		}
+	}
+	/** 曲の終止（最終拍＝transport 時刻 song.duration）。BGM バスを通さず鳴らす（game_over のフェードで切れない） */
+	function scheduleFinish(time: number): void {
+		const c = ctx;
+		if (!c || muted) return;
+		const g = c.createGain();
+		g.gain.value = 0.9;
+		g.connect(c.destination);
+		bgmTone(c, g, 52, time, 0.4, 'sine', 0.55, 28);
+		bgmNoise(c, g, time, 1.4, 4000, 0.09);
+		for (const f of [293.66, 369.99, 440.0, 587.33]) bgmTone(c, g, f, time, 1.6, 'triangle', 0.08); // D major
+		bgmTone(c, g, 1174.66, time + 0.02, 1.2, 'sine', 0.05);
+		setTimeout(() => g.disconnect(), (time - c.currentTime + 2) * 1000);
 	}
 	function bgmScheduler(): void {
 		const c = ctx;
@@ -294,6 +377,13 @@ export function createAudio(): GameAudio {
 		// currentTime + 0.12 秒先まで予約（fps に依存しない）
 		// 拍 n の時刻は常に startTime + n×SPB（加算の誤差を溜めない＝cue/エンジンと同じ式）
 		while (nextBeatTime < c.currentTime + 0.12) {
+			if (beatTime(bgmBeat) >= song.duration - 1e-6) {
+				// 曲の最終拍：ループではなく終止音を鳴らしてスケジューラを止める
+				scheduleFinish(nextBeatTime);
+				if (musicTimer) clearInterval(musicTimer);
+				musicTimer = null;
+				return;
+			}
 			scheduleBgmBeat(bgmBeat, nextBeatTime);
 			bgmBeat++;
 			nextBeatTime = audioTimeOf(bgmBeat * SPB);
@@ -353,7 +443,8 @@ export function createAudio(): GameAudio {
 			tone(330, 0, 0.28, 'sawtooth', 0.16, 990);
 			tone(660, 0.06, 0.24, 'triangle', 0.14, 1320);
 		},
-		async startTransport(leadBeats: number) {
+		async startTransport(leadBeats: number, songDef: SongDefinition = DEFAULT_SONG) {
+			song = songDef;
 			// ユーザー操作の同期部分で ctx を作り resume を要求する（iOS Safari はジェスチャー内が必須）
 			const c = ensureCtx();
 			if (musicTimer) {

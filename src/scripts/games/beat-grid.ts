@@ -7,7 +7,7 @@
 export const BPM = 130;
 /** 1拍の秒数（Seconds Per Beat） */
 export const SPB = 60 / BPM;
-/** TAP TO START 後のカウントイン拍数（ゲームの30秒には含めない） */
+/** TAP TO START 後のカウントイン拍数（ゲーム本編の尺には含めない） */
 export const COUNTIN_BEATS = 4;
 
 /** 拍番号（小数可＝裏拍）→ transport 時刻（秒） */

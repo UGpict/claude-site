@@ -1,7 +1,7 @@
 // CHAOS BEAT — ゲームエンジン（旧「カオス振り子ストップ」を作り替え）
 //
 // 【重要】物理計算・RK4 数値積分（deriv/rk4/tips）は単一HTML版から変更しない。
-// 変えるのはゲーム体験（30秒連続・的の寿命・判定・コンボ・スロー・BPM脈動）だけ。
+// 変えるのはゲーム体験（1曲60秒のセクション進行・的の寿命・判定・コンボ・スロー・BPM脈動）だけ。
 // 物理そのものを変える場合は明示的な指示が必要。
 //
 // spec: docs/specs/chaos-beat.md / design: docs/design/chaos-beat.md
@@ -12,12 +12,27 @@
 // 拍の時刻は beat-grid.ts の beatTime(beatIndex) だけで決め、BGM・cue・hitAt・アプローチリングが同じ拍を見る。
 
 import { SPB, beatPhase, beatTime, nextBeatIndex } from './beat-grid';
+import {
+	DEFAULT_SONG,
+	PATTERN_BY_ID,
+	RHYTHM_PATTERNS,
+	SEQUENCE_BY_ID,
+	sectionIndexAt,
+	sectionStart,
+	type CueSound,
+	type GameSection,
+	type RhythmPattern,
+	type RhythmSequence,
+	type SectionId,
+	type SongDefinition,
+} from './song';
 
 export type GameEventName =
 	| 'game_view'
 	| 'game_start'
 	| 'hit'
 	| 'rhythm_pattern'
+	| 'section_change'
 	| 'fever_start'
 	| 'fever_end'
 	| 'game_over'
@@ -26,91 +41,8 @@ export type GameEventName =
 /** 判定の種類。得点対象は perfect/great/good のみ（near/miss は 0 点）。 */
 export type HitKind = 'perfect' | 'great' | 'good' | 'near' | 'miss';
 
-/** リズム予告の音種（Web Audio 側で鳴らし分ける） */
-export type CueSound = 'tick' | 'accent';
-
-/** リズムパターン。予告音（cue）の並びと「入力すべき拍(hitBeat)」を持つ。データ駆動で増やせる。 */
-export interface RhythmPattern {
-	id: string;
-	/** パターンの長さ（拍） */
-	lengthBeats: number;
-	/** 予告音：パターン先頭からの拍位置（小数=裏拍/細分化）と音種 */
-	cues: { beat: number; sound: CueSound }[];
-	/** 入力すべき拍（パターン先頭からの拍位置）。ここに先端がターゲットへ来る */
-	hitBeat: number;
-}
-
-// 初期パターン。極端に複雑にしない（2〜3拍先＋裏拍程度）。
-export const RHYTHM_PATTERNS: RhythmPattern[] = [
-	// タン タン タン ドン（4拍目で入力）
-	{
-		id: 'A',
-		lengthBeats: 4,
-		cues: [
-			{ beat: 0, sound: 'tick' },
-			{ beat: 1, sound: 'tick' },
-			{ beat: 2, sound: 'tick' },
-			{ beat: 3, sound: 'accent' },
-		],
-		hitBeat: 3,
-	},
-	// タン タン 休 ドン
-	{
-		id: 'B',
-		lengthBeats: 4,
-		cues: [
-			{ beat: 0, sound: 'tick' },
-			{ beat: 1, sound: 'tick' },
-			{ beat: 3, sound: 'accent' },
-		],
-		hitBeat: 3,
-	},
-	// タン ・タタ・ ドン（裏拍入り、2.5拍目で入力）
-	{
-		id: 'C',
-		lengthBeats: 3,
-		cues: [
-			{ beat: 0, sound: 'tick' },
-			{ beat: 1, sound: 'tick' },
-			{ beat: 1.5, sound: 'tick' },
-			{ beat: 2.5, sound: 'accent' },
-		],
-		hitBeat: 2.5,
-	},
-	// タン 休 タン ドン
-	{
-		id: 'D',
-		lengthBeats: 4,
-		cues: [
-			{ beat: 0, sound: 'tick' },
-			{ beat: 2, sound: 'tick' },
-			{ beat: 3, sound: 'accent' },
-		],
-		hitBeat: 3,
-	},
-];
-const PATTERN_BY_ID: Record<string, RhythmPattern> = Object.fromEntries(
-	RHYTHM_PATTERNS.map((p) => [p.id, p]),
-);
-
-/** 譜面シーケンス。pattern を順番に消化する（完全ランダムをやめ「繰り返し→崩し」で覚えやすく）。 */
-export interface RhythmSequence {
-	id: string;
-	patterns: string[];
-}
-// やさしい（A/B中心・裏拍なし）と、全体（C/D入り）を分ける。序盤はやさしい方だけ使う。
-export const EASY_SEQUENCES: RhythmSequence[] = [
-	{ id: 'e1', patterns: ['A', 'A', 'B', 'A'] },
-	{ id: 'e2', patterns: ['A', 'A', 'A', 'B'] },
-	{ id: 'e3', patterns: ['A', 'B', 'A', 'B'] },
-];
-export const RHYTHM_SEQUENCES: RhythmSequence[] = [
-	...EASY_SEQUENCES,
-	{ id: 's1', patterns: ['A', 'A', 'C', 'A'] },
-	{ id: 's2', patterns: ['A', 'B', 'A', 'D'] },
-	{ id: 's3', patterns: ['B', 'A', 'C', 'A'] },
-	{ id: 's4', patterns: ['A', 'C', 'B', 'D'] },
-];
+// 譜面（パターン・シーケンス）と曲構成（セクション）は song.ts（audio と共有するデータ）。
+export type { CueSound, RhythmPattern, RhythmSequence, GameSection, SectionId, SongDefinition } from './song';
 
 /** 難易度。カオス（激しい挙動）は全段維持。差は的の大きさ・初期条件・譜面（物理の速度は全段同じ＝timeScale 1）。 */
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'oni';
@@ -166,6 +98,14 @@ export interface GameEventPayloads {
 		hitTime: number;
 		cues: { beat: number; time: number; sound: CueSound }[];
 	};
+	/** 曲のセクションが変わった（小節頭。INTRO は拍0で通知） */
+	section_change: {
+		section: SectionId;
+		/** 経過秒（transport 時刻＝拍0からの秒。小節頭に丸めた境界） */
+		elapsed: number;
+		/** 0..4 の盛り上がり度 */
+		musicIntensity: number;
+	};
 	fever_start: undefined;
 	fever_end: undefined;
 	/** 1ゲーム分の集計（実機調整用）。hits = 全判定数（寿命切れ MISS を含む） */
@@ -196,6 +136,8 @@ export interface GameElements {
 	combo: HTMLElement;
 	/** 残り時間バー（width % を設定する内側要素） */
 	time: HTMLElement;
+	/** 残り秒数の表示先（任意） */
+	timeText?: HTMLElement | null;
 	/** 判定の詳細（+240 / あと6px！ など）の表示先 */
 	msg: HTMLElement;
 }
@@ -211,6 +153,8 @@ export interface InitGameOptions {
 	now?: () => number;
 	/** false なら初期化時に自動開始しない（TAP TO START で start() を待つ）。既定 true。 */
 	autostart?: boolean;
+	/** 曲（尺とセクション）。既定は 60 秒の DEFAULT_SONG。audio にも同じものを渡すこと */
+	song?: SongDefinition;
 	onEvent?: <K extends GameEventName>(name: K, payload: GameEventPayloads[K]) => void;
 }
 
@@ -227,7 +171,15 @@ type Vec = number[];
 
 export function initGame(options: InitGameOptions): GameHandle {
 	// --- ルール定数 ---
-	const GAME_TIME = 30; // 1ゲームの尺（秒・固定）
+	// 1ゲームの尺とセクションは曲データから（GAME_DURATION を直書きしない＝将来 30/90 秒モードに広げられる）
+	const song: SongDefinition = options.song ?? DEFAULT_SONG;
+	const duration = song.duration;
+	const finalIdx = song.sections.length - 1;
+	// 最後のセクション（FINAL）を5カウントに等分（60秒版は10拍＝2拍ごとに 5→1。最終拍＝終止）
+	const FINAL_COUNT = 5;
+	const finalStart = sectionStart(song, finalIdx);
+	const countStep = (duration - finalStart) / FINAL_COUNT;
+	const LAST_HIT_MARGIN = SPB; // 最後の入力拍は終止拍の1拍以上前（終止の拍で押させない）
 	const BEAT = SPB; // 1拍の秒数（beat-grid と共通の BPM）
 	const SLOWMO_TIME = 0.2; // 叩いた後のスロー時間（実秒）
 	const SLOWMO_SCALE = 0.15; // スロー中の物理倍率
@@ -255,6 +207,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 	const $score = options.elements.score;
 	const $combo = options.elements.combo;
 	const $time = options.elements.time;
+	const $timeText = options.elements.timeText ?? null;
 	const $msg = options.elements.msg;
 
 	const emit = <K extends GameEventName>(name: K, payload: GameEventPayloads[K]) => {
@@ -312,8 +265,11 @@ export function initGame(options: InitGameOptions): GameHandle {
 	}
 	let s: Vec; // [θ1, θ2, ω1, ω2]
 	let trail: [number, number][] = [];
-	let target: Target;
+	let target: Target | null = null; // 曲の終わり（最後の入力拍の後）は的なし
 	let state: 'idle' | 'countin' | 'playing' | 'slowmo' | 'over' = 'idle';
+	let sectionIdx = -1; // 通知済みのセクション（-1=未開始）
+	let sectionFlashT = 0; // セクション名の表示（1秒フェード）
+	let finishT = 0; // FINISH! 表示
 	let gameTime = 0; // 経過（実秒）
 	let slowmoT = 0;
 	let acc = 0; // 固定タイムステップ用の時間アキュムレータ
@@ -331,12 +287,14 @@ export function initGame(options: InitGameOptions): GameHandle {
 	let perfectStreak = 0;
 	let fever = false;
 	let feverT = 0;
-	// 譜面シーケンス（1つを順番に消化 → 別のを選ぶ。直前と同じは選ばない。序盤はやさしい方だけ）
+	// 譜面シーケンス：今のセクションの sequencePool から1つ選び順番に消化 → 別のを選ぶ（直前と同じは避ける）。
+	// セクションが変わってプール外になったシーケンスは途中でも切り上げ、新セクションの譜面に替える。
 	let curSeq: RhythmSequence | null = null;
 	let seqIdx = 0;
 	let lastSeqId = '';
-	function pickSequence(): RhythmSequence {
-		const pool = hits < 6 ? EASY_SEQUENCES : RHYTHM_SEQUENCES;
+	function pickSequence(sec: GameSection): RhythmSequence {
+		const pool = sec.sequencePool.map((id) => SEQUENCE_BY_ID[id]).filter(Boolean);
+		if (!pool.length) return SEQUENCE_BY_ID.e1;
 		let pick = pool[(Math.random() * pool.length) | 0];
 		let guard = 0;
 		while (pool.length > 1 && pick.id === lastSeqId && guard++ < 8) {
@@ -345,9 +303,9 @@ export function initGame(options: InitGameOptions): GameHandle {
 		lastSeqId = pick.id;
 		return pick;
 	}
-	function nextPattern(): RhythmPattern {
-		if (!curSeq || seqIdx >= curSeq.patterns.length) {
-			curSeq = pickSequence();
+	function nextPattern(sec: GameSection): RhythmPattern {
+		if (!curSeq || seqIdx >= curSeq.patterns.length || !sec.sequencePool.includes(curSeq.id)) {
+			curSeq = pickSequence(sec);
 			seqIdx = 0;
 		}
 		const pid = curSeq.patterns[seqIdx++];
@@ -467,13 +425,32 @@ export function initGame(options: InitGameOptions): GameHandle {
 		const path = predictPath();
 		const maxT = path.length * PRED_DT;
 
-		// パターンは譜面シーケンスから順番に取り、先頭を「次の拍頭」の拍番号に合わせる（beat grid と同期）。
+		// パターンは「パターン先頭の拍」が属するセクションの譜面から順番に取り、先頭を次の拍頭に合わせる（beat grid と同期）。
 		// 以降、cue・hitAt・リングはすべてこの拍番号から beatTime() で求める（=BGMの拍頭と同じ式）。
-		const pat = nextPattern();
-		let startBeat = nextBeatIndex(gameTime);
-		// 予測範囲を超えない・最低限の反応猶予を確保（ずらすときはパターンごと拍単位でずらす＝ドンと hitAt が離れない）
-		while (startBeat > 0 && beatTime(startBeat + pat.hitBeat) - gameTime > maxT) startBeat--;
-		while (beatTime(startBeat + pat.hitBeat) - gameTime < 0.5) startBeat++;
+		const firstBeat = nextBeatIndex(gameTime);
+		const sec = song.sections[sectionIndexAt(song, beatTime(firstBeat))];
+		const place = (p: RhythmPattern) => {
+			let sb = firstBeat;
+			// 予測範囲を超えない・最低限の反応猶予を確保（ずらすときはパターンごと拍単位＝ドンと hitAt が離れない）
+			while (sb > 0 && beatTime(sb + p.hitBeat) - gameTime > maxT) sb--;
+			while (beatTime(sb + p.hitBeat) - gameTime < 0.5) sb++;
+			return sb;
+		};
+		const lastHitTime = duration - LAST_HIT_MARGIN;
+		let pat = nextPattern(sec);
+		let startBeat = place(pat);
+		if (beatTime(startBeat + pat.hitBeat) > lastHitTime) {
+			// 曲の終わりに収まらない：入力拍が一番遅い「収まるパターン」に差し替え。無ければ的なし（終止を待つ）
+			const fit = [...RHYTHM_PATTERNS]
+				.sort((x, y) => y.hitBeat - x.hitBeat)
+				.find((p) => beatTime(place(p) + p.hitBeat) <= lastHitTime);
+			if (!fit) {
+				target = null;
+				return;
+			}
+			pat = fit;
+			startBeat = place(pat);
+		}
 		const hitBeat = startBeat + pat.hitBeat;
 		const hitAt = beatTime(hitBeat); // 入力すべき時刻（transport 時刻）
 
@@ -484,7 +461,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		target = {
 			x: tx,
 			y: ty,
-			r: TARGET_R,
+			r: TARGET_R * sec.targetScale, // セクションで的の大きさを少し変える（INTRO は大きめ）
 			bornAt: gameTime,
 			hitBeat,
 			hitAt,
@@ -522,6 +499,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 		curSeq = null;
 		seqIdx = 0;
 		lastSeqId = '';
+		target = null;
+		sectionIdx = -1;
+		sectionFlashT = 0;
+		finishT = 0;
 		flash = 0;
 		popT = 0;
 		resultLabel = '';
@@ -540,12 +521,32 @@ export function initGame(options: InitGameOptions): GameHandle {
 		}
 		updateHUD();
 		emit('game_start', undefined);
+		if (state === 'playing') checkSection();
 	}
 
+	/** セクション境界（小節頭）を越えたら section_change を通知（UI・計測用。BGM は audio が同じ曲データから拍単位で切替） */
+	function checkSection() {
+		const idx = sectionIndexAt(song, Math.max(0, gameTime));
+		if (idx === sectionIdx) return;
+		sectionIdx = idx;
+		const sec = song.sections[idx];
+		sectionFlashT = 1;
+		emit('section_change', {
+			section: sec.id,
+			elapsed: Math.round(sectionStart(song, idx) * 1000) / 1000,
+			musicIntensity: sec.musicIntensity,
+		});
+	}
+
+	function updateTime() {
+		const played = Math.max(0, gameTime);
+		$time.style.width = Math.max(0, Math.min(1, 1 - played / duration)) * 100 + '%';
+		if ($timeText) $timeText.textContent = String(Math.max(0, Math.ceil(duration - played - 1e-6)));
+	}
 	function updateHUD() {
 		$score.textContent = String(score);
 		$combo.textContent = String(combo);
-		$time.style.width = Math.max(0, Math.min(1, 1 - gameTime / GAME_TIME)) * 100 + '%';
+		updateTime();
 	}
 
 	function startFever() {
@@ -562,6 +563,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 	/** プレイヤーが叩いた（state==='playing' のときだけ呼ばれる） */
 	function hit() {
+		if (!target) return;
 		const [, , x2, y2] = tips(s);
 		const d = Math.hypot(x2 - target.x, y2 - target.y);
 		const R = target.r;
@@ -655,6 +657,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 	/** 寿命切れ（見逃し）。スローは挟まず即次。 */
 	function expireTarget() {
+		if (!target) return;
 		combo = 0;
 		perfectStreak = 0;
 		endFever();
@@ -685,7 +688,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 	function endGame() {
 		state = 'over';
 		resultLabel = '';
-		$msg.textContent = `TIME UP！ ${score}点・最大${maxCombo}コンボ`;
+		target = null;
+		finishT = 1; // 曲の終止：FINISH! を大きく（終止音は audio が最終拍に鳴らす）
+		updateTime();
+		$msg.textContent = `FINISH！ ${score}点・最大${maxCombo}コンボ`;
 		emit('game_over', {
 			score,
 			maxCombo,
@@ -703,7 +709,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 	// --- 入力 ---
 	function act() {
-		if (state !== 'playing') return; // slowmo/over 中はロック
+		if (state !== 'playing' || !target) return; // slowmo/over 中・曲の終わり（的なし）はロック
 		hit();
 	}
 	const onActClick = () => act();
@@ -763,8 +769,30 @@ export function initGame(options: InitGameOptions): GameHandle {
 			}
 		}
 
+		// FINAL：最後のセクションは 5→1 のカウントを背景に薄く大きく（拍に同期して切り替わり、最終拍＝終止で 0）
+		// ＋黄色い枠が拍で明滅。振り子や的の邪魔をしないよう最背面・低い不透明度。
+		const inFinal = (state === 'playing' || state === 'slowmo') && sectionIdx === finalIdx;
+		if (inFinal) {
+			const remain = duration - gameTime;
+			const n = Math.max(1, Math.min(FINAL_COUNT, Math.ceil(remain / countStep - 1e-6)));
+			const stepPhase = 1 - (remain / countStep - (n - 1)); // 0→1（各カウントの頭で 0）
+			const pop = Math.max(0, 1 - stepPhase * 2.5);
+			ctx!.save();
+			ctx!.globalAlpha = 0.13 + 0.12 * pop;
+			ctx!.fillStyle = col.yellow;
+			ctx!.font = `700 ${Math.round(Math.min(W, H) * 0.5 * (1 + 0.08 * pop))}px "Klee One", sans-serif`;
+			ctx!.textAlign = 'center';
+			ctx!.textBaseline = 'middle';
+			ctx!.fillText(String(n), cx, cy);
+			ctx!.globalAlpha = 0.25 + 0.35 * beatPulse();
+			ctx!.strokeStyle = col.yellow;
+			ctx!.lineWidth = 6;
+			ctx!.strokeRect(3, 3, W - 6, H - 6);
+			ctx!.restore();
+		}
+
 		// ターゲット＋アプローチリング（入力拍に向けて外側の輪が縮んで重なる＝押す瞬間が目で分かる）
-		if (state === 'playing' || state === 'slowmo') {
+		if ((state === 'playing' || state === 'slowmo') && target) {
 			const [tx, ty] = P(target.x, target.y);
 			const remain = target.expireAt - gameTime;
 			const baseR = target.r * scale;
@@ -838,7 +866,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		ctx!.fill();
 
 		// スロー中は距離線（叩いた的との差）
-		if (state === 'slowmo' && lastHit && lastHit.kind !== 'miss') {
+		if (state === 'slowmo' && target && lastHit && lastHit.kind !== 'miss') {
 			const [tx, ty] = P(target.x, target.y);
 			ctx!.strokeStyle = col.blue;
 			ctx!.lineWidth = 2;
@@ -917,6 +945,33 @@ export function initGame(options: InitGameOptions): GameHandle {
 			ctx!.fillText(resultLabel, cx, Math.max(H * 0.16, cy - scale * 1.7));
 			ctx!.restore();
 		}
+
+		// セクション名（小節頭で一瞬。下端に小さく出して1秒でフェード）
+		if (sectionFlashT > 0 && sectionIdx >= 0 && state !== 'over') {
+			const sec = song.sections[sectionIdx];
+			const isFinal = sectionIdx === finalIdx;
+			ctx!.save();
+			ctx!.globalAlpha = Math.min(1, sectionFlashT * 1.5);
+			ctx!.fillStyle = isFinal ? col.yellow : col.chalk;
+			ctx!.font = `700 ${Math.round(Math.min(W, H) * (isFinal ? 0.07 : 0.05))}px "Klee One", sans-serif`;
+			ctx!.textAlign = 'center';
+			ctx!.textBaseline = 'middle';
+			ctx!.fillText(isFinal ? `${sec.label} ${FINAL_COUNT}` : sec.label, cx, H * 0.9);
+			ctx!.restore();
+		}
+
+		// 曲の終わり：FINISH!（ポップして残る）
+		if (state === 'over' && finishT >= 0 && started) {
+			const pop = 1 + 0.5 * finishT;
+			ctx!.save();
+			ctx!.globalAlpha = 0.95;
+			ctx!.fillStyle = col.yellow;
+			ctx!.font = `700 ${Math.round(Math.min(W, H) * 0.14 * pop)}px "Klee One", sans-serif`;
+			ctx!.textAlign = 'center';
+			ctx!.textBaseline = 'middle';
+			ctx!.fillText('FINISH!', cx, cy);
+			ctx!.restore();
+		}
 	}
 
 	// --- ループ ---
@@ -971,17 +1026,20 @@ export function initGame(options: InitGameOptions): GameHandle {
 						state = 'playing';
 						newTarget();
 					}
-				} else if (gameTime > target.expireAt) {
+				} else if (target && gameTime > target.expireAt) {
 					expireTarget();
 				}
-				if (gameTime >= GAME_TIME) endGame();
+				if (gameTime >= duration) endGame();
+				else checkSection();
 			}
-			$time.style.width = Math.max(0, Math.min(1, 1 - gameTime / GAME_TIME)) * 100 + '%';
+			updateTime();
 		}
 
 		if (flash > 0) flash = Math.max(0, flash - dt * 3);
 		if (popT > 0) popT = Math.max(0, popT - dt * 2.4);
 		if (milestoneT > 0) milestoneT = Math.max(0, milestoneT - dt * 1.3);
+		if (sectionFlashT > 0) sectionFlashT = Math.max(0, sectionFlashT - dt);
+		if (finishT > 0) finishT = Math.max(0, finishT - dt * 2);
 		if (particles.length) {
 			for (const p of particles) {
 				p.life += dt;

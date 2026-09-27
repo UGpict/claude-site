@@ -4,6 +4,9 @@ spec: [../specs/chaos-beat.md](../specs/chaos-beat.md) を満たす作り方（�
 廃止済みの案は spec 末尾「廃止済み仕様」を参照。この文書には現行の設計だけを書く。
 
 ## モジュール境界
+- `src/scripts/games/song.ts`：**曲データ**（エンジンと audio が共有）。`RHYTHM_PATTERNS`（A〜G）、シーケンス群
+  （EASY/STANDARD/BUILD/CLIMAX/FINAL）、`GameSection`／`SongDefinition`、`GAME_DURATION=60`、`SONG_60`（=DEFAULT_SONG）、
+  `sectionStart(song, i)`（小節頭に丸めた境界）、`sectionIndexAt(song, t)`。DOM・AudioContext に依存しない。
 - `src/scripts/games/beat-grid.ts`：**拍の唯一の定義**。`BPM=130` / `SPB` / `COUNTIN_BEATS=4` /
   `beatTime(beatIndex)` / `nextBeatIndex(t)` / `beatPhase(t)`。DOM・AudioContext に依存しない。
 - `src/scripts/games/chaos-pendulum.ts`：純粋エンジン。物理（deriv/rk4/tips）は不変。
@@ -45,13 +48,17 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
 
 ## エンジンの状態機械
 - 状態：`idle`（TAP TO START 待ち・静止プレビュー）/ `countin`（gameTime<0）/ `playing` / `slowmo`（判定スロー）/ `over`。
-- `GAME_TIME = 30`（transport 時刻で計る。カウントインは含まない）。
+- 尺は `song.duration`（既定 60 秒。transport 時刻で計る。カウントインは含まない）。エンジンは `options.song` を受け取り、
+  `GAME_TIME` の直書きはしない。
+- セクション：毎フレーム `sectionIndexAt(song, gameTime)` を見て、変わったら `section_change` を emit（INTRO は拍0で1回）。
+- ターゲットは `Target | null`。曲末で最後の入力拍が `duration − 1拍` に収まらないときは、入力拍が一番遅い「収まるパターン」に差し替え、
+  それも無ければ `null`（入力ロック、終止を待つ）。
 - ターゲット：常に1つ `{ x, y, r, bornAt, hitBeat, hitAt, expireAt = hitAt + 1.2拍 }`。
   `gameTime > expireAt` で寿命切れ MISS（combo=0・0点・`expired:true`）→ 即 `newTarget()`（slowmo なし）。
 - **入力ロック**：`act()` の先頭で `if (state !== 'playing') return;`。
 - 叩く：距離 d → kind → GOOD以上なら combo+1 → 倍率再計算 → `score += round(pts × mult × (fever?2:1))`。
   `hit` を emit → `slowmo`（0.2秒）→ `newTarget()` → `playing`。
-- 30秒経過で `over`、集計つき `game_over` を emit。
+- `gameTime ≥ duration` で `over`、FINISH! を描画し、集計つき `game_over` を emit。
 
 ### 固定タイムステップ（予測一致のための不変条件）
 - 物理は **FIXED_H = 1/300 秒** 固定（`acc += dt × timeScale`、`while (acc ≥ FIXED_H) rk4(s, FIXED_H)`）。
@@ -64,18 +71,32 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
 - 的が生きている `playing` 中は **timeScale = 1**。`slowmo`（0.15）は叩いた直後の的が無い間だけ。
 - 難易度・FEVER で物理速度は変えない。
 
-### 譜面
-- `RhythmPattern { id, lengthBeats, cues[{beat, sound}], hitBeat }`（A〜D）。
-- `RhythmSequence { id, patterns }`。`nextPattern()` がシーケンスを順番に消化 → 尽きたら `pickSequence()`（直前と同じ id を避ける）。
-  `hits < 6` は `EASY_SEQUENCES`（A/B）のみ。
+### 譜面とセクション
+- `RhythmPattern { id, lengthBeats, cues[{beat, sound}], hitBeat }`（A〜G。song.ts）。
+- `RhythmSequence { id, patterns }`。`nextPattern(section)` がシーケンスを順番に消化 → 尽きたら、または
+  **セクションが変わって今のシーケンスがプール外になったら** `pickSequence(section)`（直前と同じ id を避ける）。
+- パターンを選ぶセクションは「パターン先頭の拍（次の拍頭）」の時刻で決める。的の半径は `targetR × section.targetScale`。
+- `GameSection { id, label, start, end, sequencePool, musicIntensity, targetScale, arrangement }`。
+  `start/end` は設計値の秒で、実境界は `round(start / 1小節) × 1小節`（BGM・イベント・譜面が同じ小節頭で切り替わる）。
+  プール内の重複（例：BUILD に BUILD_SEQUENCES を2回）は選ばれやすさの重み。
+- FINAL の 5→1 カウント：`countStep = (duration − finalStart) / 5`（60秒版は 2拍）、`n = ceil((duration − gameTime) / countStep)`。
 - 予測範囲外（>2.6秒）・反応猶予不足（<0.5秒）のときは **パターンごと拍単位でずらす**（hitAt だけをずらさない＝ドンと hitAt が離れない）。
 
 ## 音（audio.ts）
 - **transport**：上記。`startTransport` は前ゲームの BGM バス（`bgmGain`）を 50ms でフェードして切り離し、新しいバスで拍0から始める。
   未再生の cue も取り消す（前ゲームの残響が新しい拍に混ざらない）。
-- **BGM スケジューラ**：`setInterval(25ms)` で `nextBeatTime < currentTime + 0.12` の拍を先読み予約。1拍ごとに
-  **その瞬間の musicLevel/feverOn を読む** → 層の切替が拍頭に同期。
-  層：drum（kick 0,2＋noise 1,3）/ bass（level≥1）/ hihat 8分（level≥2）/ melody（level≥3）/ lead（FEVER）。
+- **BGM スケジューラ**：`setInterval(25ms)` で `nextBeatTime < currentTime + 0.12` の拍を先読み予約。
+  `startTransport(leadBeats, song)` で曲を受け取り、拍 n ごとに **2層**で組み立てる：
+  1. **セクションの基本アレンジ**：`sectionIndexAt(song, beatTime(n))` の `arrangement` から。エンジンのイベントを待たず
+     同じ曲データ・同じ beat grid で決めるので、`section_change` と BGM の切替は同じ小節頭になる。
+     - drums：`sparse`（kick 0,2＋4拍目リム）/ `basic`（kick 0,2＋snare 1,3）/ `drive`（＋裏8分シェイカー）/ `four`（4つ打ち＋snare＋シェイカー）
+     - `crash`：セクション頭にクラッシュ ／ `fill`：次セクション直前の1小節に16分スネアのクレッシェンド
+     - `pad`：小節頭に和音（Dm–B♭–C–A）／ FINAL の締めモチーフ（D–F♯–A–D、小音量）
+  2. **コンボ層**（その拍を予約する瞬間の musicLevel/feverOn）：bass（level≥1。pad のあるセクションは和音ルート）/
+     hihat 8分（level≥2）/ melody（level≥3。`arrangement.motif` = main / variation（2小節の問いと答え）/ finale、
+     音量 `arrangement.melodyGain`）/ lead（FEVER）。
+- **終止**：`beatTime(n) ≥ song.duration` の拍（60秒版は拍130）でループをやめ、`scheduleFinish()`（キック＋クラッシュ＋Dメジャー和音）を
+  BGM バスを通さず予約してスケジューラを止める（game_over の `stopMusic()` フェードで終止音が切れない）。
 - `musicLevel` はコンポーネントが hit ごとに `combo ≥10→3 / ≥5→2 / ≥3→1 / それ以外 0` で設定。
 - **音量**：BGM マスター `BGM_LEVEL = 0.5`（cue・判定SE は destination 直結）。ドン = 180Hz sine 0.3＋90Hz triangle 0.16、
   タン = 720Hz square 0.1。
@@ -87,19 +108,24 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
 ## イベント（onEvent）
 - `game_view` / `game_start` / `game_retry`（retry 時のみ、game_start の前）
 - `rhythm_pattern`：`{ patternId, hitBeat, hitTime, cues: [{ beat, time, sound }] }`（時刻は transport 時刻）
+- `section_change`：`{ section, elapsed, musicIntensity }`（elapsed は小節頭に丸めた境界の transport 秒）
 - `hit`：`{ kind, pts, score, combo, comboMult, maxCombo, distancePx, nearMissPx, timingOffsetMs, expired }`
 - `fever_start` / `fever_end`
 - `game_over`：`{ score, maxCombo, hits, perfectCount, greatCount, goodCount, nearCount, missCount, expiredCount,
   averageAbsTimingOffsetMs, averageTimingOffsetMs }`（平均は押した判定のみ。寿命切れは除外）
 - コンポーネントが GA4（`trackGameEvent`）へ橋渡し。`game_start / game_over / game_retry` には `difficulty` を付ける。
+  `section_change` で FINAL のとき `.is-final`（残り秒数・時間バーをピンク強調）。`game_over` から `RESULT_DELAY_MS=1300` 後に
+  結果パネル（その間に次のゲームが始まったら出さない）。
 
 ## 判定しきい値
 - `R = targetR`（難易度別）。d ≤ 0.35R perfect / ≤0.7R great / ≤R good / ≤1.25R near / それ超 miss。
 - NEAR は `timingOffsetMs = round((gameTime − hitAt) × 1000)` で「◯秒早い/遅い」を表示。
 
 ## データ（D1）
-- `max_combo INTEGER NOT NULL DEFAULT 0`（migration 0003）。`score`=30秒合計、`perfect_count`、`rounds`=総ヒット数。
+- `max_combo INTEGER NOT NULL DEFAULT 0`（migration 0003）。`score`=1曲（60秒）合計、`perfect_count`、`rounds`=総ヒット数。
 - ランキング並び：`ORDER BY score DESC, max_combo DESC, created_at ASC`（難易度別・期間別）。
+- `scores.ts` の `MAX_SCORE = 40000`（60秒版。1ヒット最大400点×最悪ケース約85個≒34,000 に余裕）。`MAX_HITS = 200` は据え置き。
+- 60秒版への切替で既存行（30秒版）は比較不能。初期化はオーナーが手動（plan の手順）。migration では消さない。
 
 ## 失敗時の挙動
 - 音が出せない環境：`clock='performance'` で無音進行（視覚の脈動・リングで遊べる）。
