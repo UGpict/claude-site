@@ -200,6 +200,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 	let popT = 0;
 	let resultLabel = '';
 	let lastHit: { d: number; kind: HitKind } | null = null;
+	let milestoneLabel = ''; // コンボ節目の演出（×1.2! など）
+	let milestoneT = 0;
 
 	interface Particle {
 		x: number;
@@ -288,7 +290,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 	function predictPath(): [number, number][] {
 		let sim = s.slice();
 		const path: [number, number][] = [];
-		const totalSteps = Math.round(1.4 / FIXED_H);
+		const totalSteps = Math.round(2.0 / FIXED_H); // ビート量子化で最大~1.8秒先まで使うので広めに
 		for (let i = 1; i <= totalSteps; i++) {
 			sim = rk4(sim, FIXED_H);
 			if (i % PRED_SAMPLE === 0) {
@@ -299,16 +301,20 @@ export function initGame(options: InitGameOptions): GameHandle {
 		return path;
 	}
 
-	// 的は「ランダムな位置」ではなく「これから先端が通る軌道上」に置く（＝必ず通過して狙える）。
+	// 的は「これから先端が通る軌道上」かつ「次の拍で通過する位置」に置く。
+	// = リズム×カオス。プレイヤーは「ドン…ドン…今！」で拍に乗って押せる。
 	function newTarget() {
 		const path = predictPath();
-		const minF = Math.round(0.5 / PRED_DT); // 反応の猶予（0.5秒先以降）
-		const maxF = path.length - 1;
-		const idx = minF >= maxF ? maxF : minF + Math.floor(Math.random() * (maxF - minF));
+		const maxT = path.length * PRED_DT;
+		const nextBeatIn = BEAT - (gameTime % BEAT); // 次の拍まで
+		const extra = 1 + Math.floor(Math.random() * 3); // さらに 1〜3 拍先
+		let arrival = nextBeatIn + extra * BEAT;
+		if (arrival < 0.45) arrival += BEAT; // 最低限の反応猶予
+		if (arrival > maxT) arrival = maxT; // 予測範囲に収める
+		const idx = Math.min(path.length - 1, Math.max(0, Math.round(arrival / PRED_DT) - 1));
 		const [tx, ty] = path[idx] ?? [tips(s)[2], tips(s)[3]];
-		// 先端が到達するのは約 idx*PRED_DT 秒後（通常速度時）。そこ＋猶予0.9秒で見逃し扱いにする。
-		const arrival = idx * PRED_DT;
-		target = { x: tx, y: ty, r: TARGET_R, bornAt: gameTime, expireAt: gameTime + arrival + 0.9 };
+		// 到達（＝拍）＋約1.2拍で見逃し扱いにしてテンポを保つ
+		target = { x: tx, y: ty, r: TARGET_R, bornAt: gameTime, expireAt: gameTime + arrival + BEAT * 1.2 };
 	}
 
 	function newGame() {
@@ -330,6 +336,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 		popT = 0;
 		resultLabel = '';
 		lastHit = null;
+		milestoneLabel = '';
+		milestoneT = 0;
 		particles = [];
 		state = 'playing';
 		newTarget();
@@ -356,6 +364,33 @@ export function initGame(options: InitGameOptions): GameHandle {
 		emit('fever_end', undefined);
 	}
 
+	// 叩いた瞬間、先端が的に最も近づく時刻のズレ（秒）を返す。正=まだ来ていない（早い）／負=通り過ぎた（遅い）。
+	function timingError(): number {
+		const steps = Math.round(0.45 / FIXED_H);
+		let best = Infinity,
+			bestT = 0;
+		const consider = (sim: Vec, t: number) => {
+			const [, , x, y] = tips(sim);
+			const dd = Math.hypot(x - target.x, y - target.y);
+			if (dd < best) {
+				best = dd;
+				bestT = t;
+			}
+		};
+		consider(s, 0);
+		let sim = s.slice();
+		for (let i = 1; i <= steps; i++) {
+			sim = rk4(sim, FIXED_H);
+			consider(sim, i * FIXED_H);
+		}
+		sim = s.slice();
+		for (let i = 1; i <= steps; i++) {
+			sim = rk4(sim, -FIXED_H);
+			consider(sim, -i * FIXED_H);
+		}
+		return bestT;
+	}
+
 	/** プレイヤーが叩いた（state==='playing' のときだけ呼ばれる） */
 	function hit() {
 		const [, , x2, y2] = tips(s);
@@ -367,11 +402,14 @@ export function initGame(options: InitGameOptions): GameHandle {
 		else if (d <= R) kind = 'good';
 		else if (d <= 1.25 * R) kind = 'near';
 		else kind = 'miss';
-		// 内部の距離スコア（分析用）。得点になるのは GOOD 以上だけ。
-		const pts =
-			d <= R
-				? 100 - Math.round((d / R) * 20)
-				: Math.round(Math.max(0, 70 * (1 - (d - R) / 0.9)));
+		// 中央を狙う意味を強くするため、判定ごとに点差を広げる（内部100点満点は維持）。
+		const nd = d / R;
+		let pts: number;
+		if (kind === 'perfect') pts = Math.round(90 + 10 * (1 - nd / 0.35)); // 90〜100
+		else if (kind === 'great') pts = Math.round(70 + 20 * (1 - (nd - 0.35) / 0.35)); // 70〜90
+		else if (kind === 'good') pts = Math.round(40 + 30 * (1 - (nd - 0.7) / 0.3)); // 40〜70
+		else pts = 0;
+		pts = Math.max(0, Math.min(100, pts));
 
 		const scoring = kind === 'perfect' || kind === 'great' || kind === 'good';
 		// 順序：判定 → GOOD以上ならコンボ+1 → 倍率再計算 → 今回分を加算
@@ -390,12 +428,17 @@ export function initGame(options: InitGameOptions): GameHandle {
 			if (!scoring) endFever();
 		}
 		const mult = comboMult(combo);
+		// コンボ節目（倍率が上がる瞬間）の演出
+		if (scoring && (combo === 3 || combo === 5 || combo === 10)) {
+			milestoneLabel = `${combo} COMBO  ×${mult}!`;
+			milestoneT = 1;
+		}
 		const add = scoring ? Math.round(pts * mult * (fever ? FEVER_MULT : 1)) : 0;
 		score += add;
 		hits++;
 		if (kind === 'perfect') perfectCount++;
 
-		const nearMissPx = !scoring ? Math.round((d - R) * scale) : 0;
+		const nearMissPx = kind === 'near' ? Math.round((d - R) * scale) : 0;
 		lastHit = { d, kind };
 		resultLabel = LABEL[kind];
 		popT = 1;
@@ -408,8 +451,12 @@ export function initGame(options: InitGameOptions): GameHandle {
 				burst(gx, gy, true);
 			}
 			$msg.textContent = mult > 1 ? `+${add}（×${mult}）` : `+${add}`;
+		} else if (kind === 'near') {
+			// 惜しい：距離ではなくタイミングのズレを見せる（「もう一回」を誘発）
+			const t = timingError();
+			$msg.textContent = `${Math.abs(t).toFixed(2)}秒${t >= 0 ? '早い' : '遅い'}！`;
 		} else {
-			$msg.textContent = `あと ${nearMissPx}px！`;
+			$msg.textContent = 'MISS';
 		}
 		updateHUD();
 		emit('hit', {
@@ -612,6 +659,22 @@ export function initGame(options: InitGameOptions): GameHandle {
 				ctx!.fillStyle = col.pink;
 				ctx!.font = `600 ${Math.round(Math.min(W, H) * 0.07)}px "Klee One", sans-serif`;
 				ctx!.fillText(`${combo} COMBO`, cx, H * 0.05);
+				// 次の倍率まであと1回のときだけ緊張感を出す
+				const next = combo < 3 ? 3 : combo < 5 ? 5 : combo < 10 ? 10 : 0;
+				const nextMult = next === 3 ? 1.2 : next === 5 ? 1.5 : next === 10 ? 2.0 : 0;
+				if (next && next - combo === 1) {
+					ctx!.fillStyle = col.yellow;
+					ctx!.font = `600 ${Math.round(Math.min(W, H) * 0.038)}px "Klee One", sans-serif`;
+					ctx!.fillText(`あと1回で ×${nextMult}`, cx, H * 0.05 + Math.min(W, H) * 0.08);
+				}
+			}
+			// コンボ節目のポップ（中央上）
+			if (milestoneT > 0 && milestoneLabel) {
+				ctx!.globalAlpha = Math.min(1, milestoneT * 1.4);
+				ctx!.fillStyle = col.yellow;
+				ctx!.font = `600 ${Math.round(Math.min(W, H) * 0.06 * (1 + (1 - milestoneT) * 0.3))}px "Klee One", sans-serif`;
+				ctx!.fillText(milestoneLabel, cx, H * 0.2);
+				ctx!.globalAlpha = 1;
 			}
 			ctx!.textAlign = 'start';
 			ctx!.textBaseline = 'alphabetic';
@@ -696,6 +759,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 		if (flash > 0) flash = Math.max(0, flash - dt * 3);
 		if (popT > 0) popT = Math.max(0, popT - dt * 2.4);
+		if (milestoneT > 0) milestoneT = Math.max(0, milestoneT - dt * 1.3);
 		if (particles.length) {
 			for (const p of particles) {
 				p.life += dt;

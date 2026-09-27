@@ -56,10 +56,13 @@
 			<span class="cp-newbest" data-cp-newbest hidden>NEW BEST!</span>
 		</div>
 
-		<p class="cp-choice-head">30秒終了！ この結果をどうする？</p>
+		<div class="cp-again">
+			<button type="button" class="cp-again-btn" data-cp-again>もう一回！</button>
+			<span class="cp-retry-hint">スペースキーでも、もう一回</span>
+		</div>
 
 		<div class="cp-submit">
-			<label class="cp-nick-label" for="cp-nick">ニックネーム（任意・未入力は「名無し」）</label>
+			<p class="cp-submit-head">スコアをランキングに残す（任意）</p>
 			<div class="cp-submit-row">
 				<input
 					id="cp-nick"
@@ -72,11 +75,6 @@
 				<button type="button" class="cp-submit-btn" data-cp-submit>ランキングに入れる</button>
 			</div>
 			<p class="cp-submit-status" data-cp-submit-status aria-live="polite"></p>
-		</div>
-
-		<div class="cp-again">
-			<span class="cp-or">または</span>
-			<button type="button" class="cp-again-btn" data-cp-again>もう一回</button>
 		</div>
 	</section>
 
@@ -235,6 +233,7 @@
 
 			// --- 登録用の状態 ---
 			let lastResult: {
+				difficulty: Difficulty;
 				score: number;
 				maxCombo: number;
 				hits: number;
@@ -270,7 +269,9 @@
 
 					if (name === 'game_over') {
 						const g = payload as GameEventPayloads['game_over'];
+						// 難易度は「プレイした時点のもの」を固定（この後タブを触っても送信は不変）
 						lastResult = {
+							difficulty: currentDifficulty,
 							score: g.score,
 							maxCombo: g.maxCombo,
 							hits: g.hits,
@@ -332,10 +333,18 @@
 				}),
 			);
 
-			// --- 「もう一回」：即リトライ ---
-			againBtn?.addEventListener('click', () => {
+			// --- 「もう一回」：即リトライ（ボタン or スペース/Enter） ---
+			const retry = () => {
 				handle.restart();
 				root.querySelector('[data-cp-canvas]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			};
+			againBtn?.addEventListener('click', retry);
+			window.addEventListener('keydown', (e) => {
+				// 結果パネル表示中だけ、スペース/Enter で即リトライ
+				if ((e.code === 'Space' || e.code === 'Enter') && resultPanel && !resultPanel.hidden) {
+					e.preventDefault();
+					retry();
+				}
 			});
 
 			// --- ランキング登録（希望したときだけ・自動送信しない） ---
@@ -346,11 +355,8 @@
 				if (submitStatus) submitStatus.textContent = '登録中…';
 				trackGameEvent('ranking_submit', { score: lastResult.score });
 				try {
-					const res = await submitScore({
-						nickname,
-						difficulty: currentDifficulty,
-						...lastResult,
-					});
+					// difficulty は lastResult に固定済み（プレイ時の難易度で送る）
+					const res = await submitScore({ nickname, ...lastResult });
 					submitted = true;
 					if (submitStatus) submitStatus.textContent = `今日 ${res.rank}位`;
 					trackGameEvent('ranking_submit_success', { score: lastResult.score, rank: res.rank });
@@ -588,20 +594,16 @@
 		}
 	}
 
-	.cp-choice-head {
-		margin: 1.1rem 0 0.6rem;
-		font-weight: 700;
-		font-size: 1rem;
-		color: #333333;
-	}
+	/* ランキング登録は副導線（リトライの下・控えめ） */
 	.cp-submit {
-		margin-top: 0.4rem;
+		margin-top: 1.3rem;
+		padding-top: 1rem;
+		border-top: 1px solid rgb(var(--gray-light));
 	}
-	.cp-nick-label {
-		display: block;
+	.cp-submit-head {
+		margin: 0 0 0.5rem;
 		font-size: 0.85rem;
 		color: rgb(var(--gray));
-		margin-bottom: 0.4rem;
 	}
 	.cp-submit-row {
 		display: flex;
@@ -639,36 +641,36 @@
 		color: #333333;
 	}
 
+	/* もう一回：結果画面の主ボタン（大きく・アクセント色） */
 	.cp-again {
-		margin-top: 1.1rem;
-		padding-top: 1rem;
-		border-top: 1px solid rgb(var(--gray-light));
+		margin-top: 1.2rem;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 0.6rem;
+		gap: 0.5rem;
 	}
-	.cp-or {
-		font-size: 0.85rem;
+	.cp-retry-hint {
+		font-size: 0.8rem;
 		color: rgb(var(--gray));
 	}
 	.cp-again-btn {
 		font: inherit;
-		font-weight: 700;
-		font-size: 1.05rem;
-		background: #2f3e37;
-		color: #ece8dc;
+		font-weight: 800;
+		font-size: 1.25rem;
+		background: var(--accent);
+		color: #ffffff;
 		border: none;
 		border-radius: 999px;
-		padding: 12px 40px;
+		padding: 15px 64px;
 		cursor: pointer;
+		box-shadow: 0 6px 18px rgba(0, 13, 138, 0.22);
 		transition:
 			transform 0.12s ease,
 			box-shadow 0.12s ease;
 	}
 	.cp-again-btn:hover {
 		transform: translateY(-2px);
-		box-shadow: 0 6px 18px rgba(47, 62, 55, 0.28);
+		box-shadow: 0 10px 26px rgba(0, 13, 138, 0.3);
 	}
 	.cp-again-btn:focus-visible {
 		outline: 3px solid var(--accent);
