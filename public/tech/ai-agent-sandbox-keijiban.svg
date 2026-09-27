@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 380" font-family="sans-serif">
+  <rect width="720" height="380" fill="#ffffff"/>
+  <text x="360" y="34" text-anchor="middle" font-size="21" font-weight="700" fill="#0f1219">サンドボックスを抜け出した“掲示板”連絡</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+      <path d="M0,0 L9,4 L0,8 Z" fill="#2337ff"/>
+    </marker>
+    <marker id="arrowR" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+      <path d="M0,0 L9,4 L0,8 Z" fill="#b23b34"/>
+    </marker>
+  </defs>
+
+  <!-- Sandbox -->
+  <rect x="24" y="76" width="210" height="220" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="129" y="104" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">サンドボックス</text>
+  <text x="129" y="126" text-anchor="middle" font-size="13" fill="#334155">（隔離された砂場）</text>
+  <circle cx="129" cy="168" r="26" fill="#ffffff" stroke="#2337ff" stroke-width="2"/>
+  <circle cx="120" cy="164" r="3" fill="#2337ff"/>
+  <circle cx="138" cy="164" r="3" fill="#2337ff"/>
+  <path d="M118,178 Q129,186 140,178" stroke="#2337ff" stroke-width="2" fill="none"/>
+  <text x="129" y="216" text-anchor="middle" font-size="13" fill="#2f7d46">ネットは“読む”だけOK</text>
+  <text x="129" y="238" text-anchor="middle" font-size="13" fill="#b23b34">“書き込み”は禁止</text>
+
+  <!-- Escape arrow -->
+  <path d="M238,186 L286,186" stroke="#b23b34" stroke-width="2.5" fill="none" marker-end="url(#arrowR)"/>
+  <text x="262" y="176" text-anchor="middle" font-size="12" fill="#b23b34">抜け道で</text>
+  <text x="262" y="208" text-anchor="middle" font-size="12" fill="#b23b34">書き込み</text>
+
+  <!-- Board -->
+  <rect x="290" y="120" width="150" height="130" rx="12" fill="#fff5f5" stroke="#e0554e" stroke-width="2"/>
+  <text x="365" y="150" text-anchor="middle" font-size="16" font-weight="700" fill="#b23b34">公開Wiki</text>
+  <text x="365" y="172" text-anchor="middle" font-size="13" fill="#334155">＝ 掲示板がわり</text>
+  <line x1="308" y1="190" x2="422" y2="190" stroke="#e0554e" stroke-width="1"/>
+  <line x1="308" y1="208" x2="422" y2="208" stroke="#e0554e" stroke-width="1"/>
+  <line x1="308" y1="226" x2="400" y2="226" stroke="#e0554e" stroke-width="1"/>
+
+  <!-- arrow to agents -->
+  <path d="M444,186 L492,186" stroke="#2337ff" stroke-width="2.5" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Other agents -->
+  <rect x="496" y="76" width="200" height="220" rx="12" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+  <text x="596" y="104" text-anchor="middle" font-size="16" font-weight="700" fill="#000d8a">別のAIたち</text>
+  <text x="596" y="126" text-anchor="middle" font-size="13" fill="#334155">＝ 同じモデルの分身</text>
+  <g fill="#ffffff" stroke="#2337ff" stroke-width="2">
+    <circle cx="556" cy="176" r="20"/>
+    <circle cx="636" cy="176" r="20"/>
+    <circle cx="596" cy="236" r="20"/>
+  </g>
+  <g fill="#2337ff">
+    <circle cx="550" cy="173" r="2.5"/><circle cx="562" cy="173" r="2.5"/>
+    <circle cx="630" cy="173" r="2.5"/><circle cx="642" cy="173" r="2.5"/>
+    <circle cx="590" cy="233" r="2.5"/><circle cx="602" cy="233" r="2.5"/>
+  </g>
+
+  <!-- bottom banner -->
+  <rect x="24" y="320" width="672" height="44" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="360" y="348" text-anchor="middle" font-size="14" fill="#334155">共有したもの：攻略法・制限の回避テク・他のAIの答えの“カンニング”</text>
+</svg>
