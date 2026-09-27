@@ -1,126 +1,106 @@
 # design: CHAOS BEAT
 
-spec: [../specs/chaos-beat.md](../specs/chaos-beat.md) を満たす作り方。物理は流用し、ループ・採点・演出・音を差し替える。
+spec: [../specs/chaos-beat.md](../specs/chaos-beat.md) を満たす作り方（現行実装に一致させている）。
+廃止済みの案は spec 末尾「廃止済み仕様」を参照。この文書には現行の設計だけを書く。
 
-## モジュール境界（現状を踏襲）
+## モジュール境界
+- `src/scripts/games/beat-grid.ts`：**拍の唯一の定義**。`BPM=130` / `SPB` / `COUNTIN_BEATS=4` /
+  `beatTime(beatIndex)` / `nextBeatIndex(t)` / `beatPhase(t)`。DOM・AudioContext に依存しない。
 - `src/scripts/games/chaos-pendulum.ts`：純粋エンジン。物理（deriv/rk4/tips）は不変。
-  ループ・状態機械・採点・ターゲット生成・スロー演出・パーティクルを**この中で**作り替える。
-  外へは従来どおり `onEvent(name, payload)` だけで通知（Astro/音/保存/通信を知らない）。
-- `src/scripts/games/audio.ts`：Web Audio。ビート・レイヤー音楽・判定SEを拡張。
-- `src/scripts/games/storage.ts`：自己ベスト（難易度別）。指標を score＋maxCombo に。
-- `src/scripts/games/ranking.ts` / `functions/api/games/chaos-pendulum/*`：D1 通信。maxCombo 追加。
-- `src/components/games/ChaosPendulum.astro`：DOM・スタイル・各モジュールの橋渡し。HUD（コンボ/スコア/残り時間）と結果パネルを作り替える。
+  状態機械・採点・ターゲット生成・描画・集計。外へは `onEvent(name, payload)` だけで通知（Astro/音/保存/通信を知らない）。
+  時計は `options.now`（外から注入される transport 時刻）だけを使い、**AudioContext は知らない**。
+- `src/scripts/games/audio.ts`：Web Audio。共通 transport・BGM スケジューラ・cue 予約・ダッキング・判定SE。
+- `src/scripts/games/storage.ts`：自己ベスト（難易度別、score＋maxCombo）。
+- `src/scripts/games/ranking.ts` / `functions/api/games/chaos-pendulum/*`：D1 通信。
+- `src/components/games/ChaosPendulum.astro`：DOM・スタイル・TAP TO START・各モジュールの橋渡し（唯一の開始経路 `startGame`）。
 
-## エンジンの状態機械（作り替え）
-現状の `run/stopped/over`（5ラウンド）を、連続プレイ用に変える。
+## 共通トランスポート時計（最重要の同期基盤）
 
-- 状態：`playing`（30秒進行中）/ `slowmo`（判定スロー中）/ `over`（終了）。
-- 時間：`gameTime`（0→30秒でカウントアップ、**実時間**で計る）。`TIME_LIMIT`(15秒)概念は廃し `GAME_TIME=30`。
-- ターゲット：常に1つ `target`。**寿命 `TARGET_TTL=3秒`**。`gameTime - target.bornAt > TTL` で消滅 →
-  その的は MISS（コンボ切断・0点）→ 即 `newTarget()`。「じっと待つ」を最適戦略にしないための肝。
-- **入力ロック**：`act()` の先頭で `if (state !== 'playing') return;`。slowmo/over 中の入力は無視。
-- 叩く（act）時（state==='playing' のときだけ）：
-  1. 距離 d を計算し判定 kind を決める（perfect/great/good/near/miss）。
-  2. **加点は GOOD 以上のみ**。順序：判定 → GOOD以上なら combo+1 → 倍率再計算 → `score += round(pts × comboMult)`。
-     NEAR/MISS は combo=0・加点なし。maxCombo 更新。
-  3. `slowmo` に入り timeScale を落として ~0.2秒 → 次のターゲット生成 → `playing` へ。
-  4. `onEvent('hit', { kind, pts, score, combo, comboMult, maxCombo, distancePx, nearMissPx })` を通知。
-- 寿命切れ MISS も同じく combo=0・0点で `onEvent('hit', {kind:'miss', ...})` を出し、slowmo は挟まず即次でよい。
-- 30秒経過：`over`。`onEvent('game_over', { score, maxCombo, hits, perfectCount })`。
+```
+user start（TAP / クリック / Space / もう一回 / 難易度変更）
+  → audio.startTransport(COUNTIN_BEATS)
+      ① ensureCtx()＋AudioContext.resume() を要求（ジェスチャー内・同期）→ running を待つ（最大0.5秒）
+      ② transport.startTime = currentTime + START_DELAY(0.3) + 4×SPB   ← 拍0。ここで1回だけ決める
+      ③ BGM スケジューラを拍0から開始、カウントイン（拍 -4..-1 タン、拍0 ドン）を予約
+  → handle.start({ difficulty, retry })   ← gameTime = audio.now() < 0 なので state='countin'
+  → 拍0（gameTime ≥ 0）で state='playing'＋最初の的
+```
 
-### BPM 脈動（Phase 1・視覚）
-- `BPM=130`（120〜140）。`beatPhase = (gameTime % (60/BPM)) / (60/BPM)`（0→1）。
-- 描画時、ターゲット半径に脈動を掛ける：`rDraw = R * (1 + 0.18 * pulse(beatPhase))`。
-  `pulse` は拍頭で膨らみ減衰する形（例：`Math.max(0, 1 - beatPhase*1.6)` 等）。物理・判定距離は素の R を使う（見た目だけ脈動）。
-- 音（拍のクリック）は Phase 2。Phase 1 は視覚脈動のみ。
+- `AudioTransport { startTime, bpm, secondsPerBeat, clock: 'audio' | 'performance' }`。
+- `audio.now() = ctx.currentTime − startTime`（拍0で 0、カウントイン中は負）。エンジンには `now: () => audio.now()` として
+  **関数だけ**渡す（エンジンは AudioContext を知らない）。`gameTime = now()`（rAF 累積はしない）。
+- AudioContext が無い／resume できない環境は `clock='performance'`（`performance.now()` 基準）で**無音のまま進行**だけ保証する。
+- 共通式：どの要素も **`audioTime = startTime + beatTime(beatIndex)`**。
+  | 要素 | 拍の決め方 |
+  | --- | --- |
+  | BGM 拍頭 | `scheduleBgmBeat(n, startTime + n×SPB)`（加算で誤差を溜めず毎回この式で再計算） |
+  | cue（タン/ドン） | エンジンが `beatTime(startBeat + cue.beat)` を transport 時刻で emit → audio が `startTime + time` に予約 |
+  | target.hitAt | `beatTime(hitBeat)`、`hitBeat = nextBeatIndex(gameTime) + pattern.hitBeat` |
+  | アプローチリング | `(gameTime − bornAt)/(hitAt − bornAt)` が 1 になる瞬間に的へ収束＝`beatTime(hitBeat)` |
+  | 的の脈動・FEVER 明滅 | `beatPhase(gameTime)`（拍頭で 0） |
+- cue は「今から何秒後（相対 offset）」ではなく **transport 時刻（絶対）** で渡す。emit と予約の間に currentTime が進んでも位相がズレない。
+- 初回・retry・難易度変更は全部 `startGame()` → `startTransport()` → `handle.start()` の同じ経路。
+  連打は `starting` フラグ＋トークンで無視。retry（結果表示中の開始）だけ `game_retry` を先に emit。
+- 既知の未補正：出力レイテンシ（`outputLatency`、Bluetooth で大きい）は未補正。`averageTimingOffsetMs` で実機傾向を見て判断する。
 
-### 固定タイムステップ（予測一致のための不変条件・重要）
-- 物理は**固定ステップ FIXED_H(=1/300秒)** で進める（accumulator: `acc += dt*timeScale`、`while(acc>=FIXED_H) rk4(s,FIXED_H)`）。
-- 可変 dt で積分すると、カオスなのでフレームレート差だけで軌道がズレ、`predictPath` と実機が食い違い
-  「的を通らない」不具合になる。固定ステップなら軌道が毎回同じ離散列になり、予測が**完全一致**する。
-- `predictPath` も必ず同じ FIXED_H で積分すること。ここを崩すと的の配置が破綻する。
+## エンジンの状態機械
+- 状態：`idle`（TAP TO START 待ち・静止プレビュー）/ `countin`（gameTime<0）/ `playing` / `slowmo`（判定スロー）/ `over`。
+- `GAME_TIME = 30`（transport 時刻で計る。カウントインは含まない）。
+- ターゲット：常に1つ `{ x, y, r, bornAt, hitBeat, hitAt, expireAt = hitAt + 1.2拍 }`。
+  `gameTime > expireAt` で寿命切れ MISS（combo=0・0点・`expired:true`）→ 即 `newTarget()`（slowmo なし）。
+- **入力ロック**：`act()` の先頭で `if (state !== 'playing') return;`。
+- 叩く：距離 d → kind → GOOD以上なら combo+1 → 倍率再計算 → `score += round(pts × mult × (fever?2:1))`。
+  `hit` を emit → `slowmo`（0.2秒）→ `newTarget()` → `playing`。
+- 30秒経過で `over`、集計つき `game_over` を emit。
 
-### timeScale（リズム整合のため 1 固定）
-- timeScale は「1フレームで進める**ステップ数**」を変えるだけ（ステップ幅 FIXED_H は不変）。
-- **的が生きている間は timeScale=1**（フィーバー速度・Magnet Assist・鬼speed は廃止）。理由：これらで物理を伸縮させると
-  「hitAt(拍)の時刻に先端がターゲットへ来る」がズレ、音（ドン）と合わなくなる。slowmo(0.15) は hit 直後（的の無い間）だけ。
-- 30秒判定は実 dt で計る。
+### 固定タイムステップ（予測一致のための不変条件）
+- 物理は **FIXED_H = 1/300 秒** 固定（`acc += dt × timeScale`、`while (acc ≥ FIXED_H) rk4(s, FIXED_H)`）。
+  `predictPath` も同じ FIXED_H で積分するので予測と実機が**完全一致**する。
+- `dt = now() − 前フレーム` を **0.25秒まで**追従（1フレーム最大90ステップ）。小さくクランプすると物理が transport から恒久的に遅れて的を通らなくなる。
+  それを超える停止（タブ非表示など）は、的が寿命切れ→次の的で予測し直すので自然に再同期する。
+- `newTarget()` は `acc`（未消化時間）も足して `(hitAt − gameTime + acc) / FIXED_H` ステップ後の予測点を引く。
 
-### 譜面シーケンス（覚えやすさ）
-- `RhythmSequence { id, patterns:string[] }`。`EASY_SEQUENCES`（A/B中心）と全体 `RHYTHM_SEQUENCES`。
-- エンジンが `curSeq/seqIdx` を持ち、`nextPattern()` がシーケンスを順番に消化 → 尽きたら `pickSequence()` で別のを選ぶ
-  （直前と同じ id は避ける）。序盤 `hits<6` は EASY のみ。`newTarget()` は random ではなく `nextPattern()` を使う。
+### timeScale（リズム整合）
+- 的が生きている `playing` 中は **timeScale = 1**。`slowmo`（0.15）は叩いた直後の的が無い間だけ。
+- 難易度・FEVER で物理速度は変えない。
 
-### 共通トランスポート時計（最重要の同期基盤）
-- **全部の時計を1本に統一**：`transportStart`（拍0の audio 時刻）を基準に、BGM・cue・アプローチリング・`hitAt`・エンジンの
-  `gameTime` をすべて `transportStart + beat×SPB` から導く。以前は BGM が `currentTime+0.1`、譜面が `gameTime`(rAF累積) の
-  別クロックで約0.36秒位相ズレしていた。
-- 実装：`audio.startTransport(leadBeats)` が `transportStart=currentTime+leadBeats×SPB` を張り、BGMスケジューラを拍0から開始。
-  `audio.now()=currentTime-transportStart` を **エンジンの `options.now` に注入**し、`gameTime=now()` にする（rAF累積をやめる）。
-  → `ctx.currentTime = transportStart + gameTime` が常に成立し、cue（`currentTime+offset`）と BGM（`transportStart+beat×SPB`）が
-  サンプル精度で一致する。物理は固定タイムステップのまま（dt は now() 差分）。
-- **TAP TO START**：`autostart:false` で初期は idle（静止プレビュー）。START クリック/スペースで `startTransport(4)` →
-  4拍カウントイン（タン・タン・タン＋GO、画面に 3・2・1）→ 拍0で `state='playing'`＋最初の的。ここで AudioContext を resume
-  するので初回の同期ズレ・Autoplay 問題も解消。もう一回/難易度変更も同じ startGame（transport 張り直し）を通す。
-
-### 持続BGM（audio.ts の先読みスケジューラ）
-- `startMusic/stopMusic/setMusicLevel(0..3)/setFever` を追加。BGM は専用の `bgmGain` 経由（cue/judgment と別系統・控えめ音量）。
-- スケジューラ：`setInterval(25ms)` で `nextBeatTime < currentTime+0.12` を満たす拍を先読み予約（rAF/​setTimeout をタイミング基準にしない）。
-  1拍ごとに `scheduleBgmBeat(beat, time)` が **その瞬間の musicLevel/feverOn を読む** → レイヤー切替が自然に拍へ同期。
-- レイヤー：drum(kick 0,2＋noise 1,3) / bass(level≥1) / hihat 8分(level≥2) / melody モチーフ(level≥3) / fever lead(feverOn)。
-- 位相合わせ：`startMusic` を game_start（gameTime≈0）で呼び `nextBeatTime=currentTime+0.1`。gameTime と currentTime は同じ実時間なので、cue（gameTime基準）と BGM（currentTime基準）は一定オフセットで揃う。
-- コンポーネント：game_start→startMusic / hit→setMusicLevel(comboで0..3) / fever_start・end→setFever / game_over→stopMusic(0.3s フェード)。
-- judgment からコンボ一発層は撤去（BGMが担当）。
-
-### リズム（音でタイミングを教える）
-- `RHYTHM_PATTERN`（id/lengthBeats/cues[{beat,sound}]/hitBeat）をデータ駆動で保持（`RHYTHM_PATTERNS`）。
-- `newTarget()`：パターン先頭=次の拍。hitAt=次の拍+hitBeat×BEAT。timeUntilHit から `predictPath` の idx を引いて的位置に。
-  cue は「今から offset 秒後」に変換して `emit('rhythm_pattern', { patternId, hitOffset, cues })`。
-- audio：`scheduleRhythm(cues)` が `tone(freq, offset, ...)`（= ctx.currentTime+offset に予約）で fps 非依存にスケジュール。
-  tick=軽いクリック、accent=ドン（押す合図）。judgment はコンボで層追加（bass/hihat/melody/lead）。
-- エンジンは音を鳴らさない（onEvent 経由）。gameTime と AudioContext.currentTime は同じ実時間なので offset がそのまま合う。
-
-## ターゲット生成（軌道上に置く）
-- ランダムな位置だと先端が通らず理不尽になる。→ **これから先端が通る軌道上**に置く。
-- `predictPath()`：現在の状態 s から通常速度・ループと同じ積分（PRED_DT=1/60, 10サブステップ）で
-  ~1.4秒先まで先端位置を予測。二重振り子はカオスなので horizon は短く保ち近い将来だけ信頼する。
-- `newTarget()`：予測パスの 0.5〜1.4秒先からランダムに1点を選び的にする。
-  到達予測時刻（idx×PRED_DT）＋猶予0.9秒を `expireAt` にし、通過後の間延びを防ぐ（見逃しでコンボ切断）。
-- ターゲットは `{ x, y, r, bornAt, expireAt }`。Phase 3 の動く的/ボーナス的は `type` を足して拡張。
-
-## 判定しきい値
-- `R = TARGET_R`（難易度別・従来の targetR を流用）。
-- d ≤ 0.35R: perfect / ≤0.7R: great / ≤R: good / ≤1.25R: near / それ超: miss（寿命切れも miss）。
-- 基本点 pts は従来式（内部100点満点、分析用）を残すが、**score へ加算するのは GOOD 以上のみ**。NEAR/MISS は 0。
-- 「あと Npx」：`px = round((d - R) * scale)`（scale はワールド→画面の係数、resize で既知）。
-
-## イベント（onEvent）設計
-既存の GameEventName を作り替える：
-- `game_start`：開始。
-- `hit`：{ kind, pts, score, combo, comboMult, maxCombo, distancePx, nearMissPx? }
-- `fever_start` / `fever_end`（Phase 2）
-- `game_over`：{ score, maxCombo, hits, perfectCount }
-- 計測（GA4）は従来どおりコンポーネントで trackGameEvent に橋渡し。
+### 譜面
+- `RhythmPattern { id, lengthBeats, cues[{beat, sound}], hitBeat }`（A〜D）。
+- `RhythmSequence { id, patterns }`。`nextPattern()` がシーケンスを順番に消化 → 尽きたら `pickSequence()`（直前と同じ id を避ける）。
+  `hits < 6` は `EASY_SEQUENCES`（A/B）のみ。
+- 予測範囲外（>2.6秒）・反応猶予不足（<0.5秒）のときは **パターンごと拍単位でずらす**（hitAt だけをずらさない＝ドンと hitAt が離れない）。
 
 ## 音（audio.ts）
-- `beat` クロック：AudioContext の currentTime を基準に BPM で拍を刻む（`requestAnimationFrame` ではなく先読みスケジューリング）。
-- レイヤー：drum/bass/synth/melody をコンボ段階で mute/unmute。
-- 判定SE：PERFECT=豪華アルペジオ（既存強化）、GREAT/GOOD=軽め、MISS=濁り。
-- コンポーネント側が `hit`/`fever_*` を受けて audio に指示（エンジンは音を知らない）。
-- Phase 1 は判定SEのみ、ビート/レイヤーは Phase 2/3。
+- **transport**：上記。`startTransport` は前ゲームの BGM バス（`bgmGain`）を 50ms でフェードして切り離し、新しいバスで拍0から始める。
+  未再生の cue も取り消す（前ゲームの残響が新しい拍に混ざらない）。
+- **BGM スケジューラ**：`setInterval(25ms)` で `nextBeatTime < currentTime + 0.12` の拍を先読み予約。1拍ごとに
+  **その瞬間の musicLevel/feverOn を読む** → 層の切替が拍頭に同期。
+  層：drum（kick 0,2＋noise 1,3）/ bass（level≥1）/ hihat 8分（level≥2）/ melody（level≥3）/ lead（FEVER）。
+- `musicLevel` はコンポーネントが hit ごとに `combo ≥10→3 / ≥5→2 / ≥3→1 / それ以外 0` で設定。
+- **音量**：BGM マスター `BGM_LEVEL = 0.5`（cue・判定SE は destination 直結）。ドン = 180Hz sine 0.3＋90Hz triangle 0.16、
+  タン = 720Hz square 0.1。
+- **ダッキング**：accent ごとに `bgmGain` を `at−80ms` から `at−30ms` で ×0.55（約 −5dB）へ、`at+120ms` から `at+200ms` で戻す。
+  早押しで消えた的のドンは、まだ始まっていないダッキングごと取り消す。
+- **cue の取り消し**：`scheduleRhythm` の先頭で、前パターンの未再生 cue（早押しで消えた的のドン等）を stop する。
+- `stopMusic()`：game_over で 0.3秒フェードアウト。ミュート時は BGM 0・cue/SE 無音（時計は動く）。
+
+## イベント（onEvent）
+- `game_view` / `game_start` / `game_retry`（retry 時のみ、game_start の前）
+- `rhythm_pattern`：`{ patternId, hitBeat, hitTime, cues: [{ beat, time, sound }] }`（時刻は transport 時刻）
+- `hit`：`{ kind, pts, score, combo, comboMult, maxCombo, distancePx, nearMissPx, timingOffsetMs, expired }`
+- `fever_start` / `fever_end`
+- `game_over`：`{ score, maxCombo, hits, perfectCount, greatCount, goodCount, nearCount, missCount, expiredCount,
+  averageAbsTimingOffsetMs, averageTimingOffsetMs }`（平均は押した判定のみ。寿命切れは除外）
+- コンポーネントが GA4（`trackGameEvent`）へ橋渡し。`game_start / game_over / game_retry` には `difficulty` を付ける。
+
+## 判定しきい値
+- `R = targetR`（難易度別）。d ≤ 0.35R perfect / ≤0.7R great / ≤R good / ≤1.25R near / それ超 miss。
+- NEAR は `timingOffsetMs = round((gameTime − hitAt) × 1000)` で「◯秒早い/遅い」を表示。
 
 ## データ（D1）
-- 追加：`max_combo INTEGER NOT NULL DEFAULT 0`（migration 0003）。
-- 意味の再定義：`score`=30秒合計、`perfect_count`=PERFECT数、`rounds`=総ヒット数（or 未使用）、`average_distance`=平均ヒット距離。
-- 既存行（5ラウンド時代）は指標が別物 → 切替時に **DELETE 全行**（開発初期・少数のため許容）。
-- ランキング並び：`ORDER BY score DESC, max_combo DESC, created_at ASC`（難易度別・期間別は現状踏襲）。
-- 送信検証：score 上限を新レンジに合わせて緩める。コンボ・ヒット数の軽い整合のみ（過剰なアンチチートはしない）。
+- `max_combo INTEGER NOT NULL DEFAULT 0`（migration 0003）。`score`=30秒合計、`perfect_count`、`rounds`=総ヒット数。
+- ランキング並び：`ORDER BY score DESC, max_combo DESC, created_at ASC`（難易度別・期間別）。
 
 ## 失敗時の挙動
-- 音が出せない環境：無音で進行（現状踏襲）。
-- ランキングAPI障害：スコアは残り、送信のみスキップ（現状踏襲）。
-- 低スペックで重い：物理サブステップ数と描画を軽くできるよう定数化しておく。
-
-## コード一貫性の下ごしらえ
-- 5ラウンド前提の名残（ROUNDS, 「次へ」ボタン, `/500` 表記, round_complete）は作り替え時に一掃する。
-- 表記ゆれ（ラウンド/ステージ）を「ヒット/コンボ/タイム」に統一。
+- 音が出せない環境：`clock='performance'` で無音進行（視覚の脈動・リングで遊べる）。
+- ランキングAPI障害：スコアは残り、送信のみスキップ。

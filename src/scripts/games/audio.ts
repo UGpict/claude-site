@@ -2,18 +2,38 @@
 // ゲームエンジン（chaos-pendulum.ts）はこのモジュールに依存しない。
 // AudioContext はブラウザの Autoplay 制限に配慮し、最初のユーザー操作後に開始する。
 // ミュート状態は localStorage に保持する。
+//
+// 共通トランスポート：startTransport() が「拍0の時刻 startTime」を1つだけ決め、
+// BGM の拍頭・cue（タン/ドン）・エンジンの gameTime（now()）を全部 startTime + beatTime(beatIndex) で揃える。
 
+import { BPM, SPB } from './beat-grid';
 import type { CueSound, HitKind } from './chaos-pendulum';
 
 const MUTE_KEY = 'cp:muted';
+
+/** 共通トランスポート。startTime（拍0）を原点に、拍 n は startTime + n×secondsPerBeat。 */
+export interface AudioTransport {
+	/** 拍0（＝gameTime 0）の時刻。clock='audio' なら AudioContext.currentTime 基準、'performance' なら performance.now()/1000 基準 */
+	startTime: number;
+	bpm: number;
+	secondsPerBeat: number;
+	/** 時計の実体。AudioContext が動かない環境では performance 時計で進行だけ保証する（無音） */
+	clock: 'audio' | 'performance';
+}
+
+/** cue の予約単位。time は transport 時刻（秒・拍0=0）＝ beatTime(beatIndex) */
+export interface ScheduledCue {
+	time: number;
+	sound: CueSound;
+}
 
 export interface GameAudio {
 	/** 叩いた瞬間のごく短いクリック音 */
 	stopClick(): void;
 	/** 判定音（PERFECT/GREAT/GOOD/near/miss のフィードバックのみ。BGMレイヤーは別担当） */
 	judgment(kind: HitKind): void;
-	/** リズム予告（タン・タン・ドン）を AudioContext.currentTime で先読みスケジュール（fps非依存） */
-	scheduleRhythm(cues: { offset: number; sound: CueSound }[]): void;
+	/** リズム予告（タン・タン・ドン）を transport 時刻で先読み予約（startTime + time。fps非依存）。accent 前後は BGM をダッキング */
+	scheduleRhythm(cues: ScheduledCue[]): void;
 	/** CHAOS FEVER 突入の上昇音 */
 	fever(): void;
 	/** 自己ベスト更新の特別な音 */
@@ -21,8 +41,14 @@ export interface GameAudio {
 	/** ランキング上位入りの祝福音 */
 	rankUp(): void;
 	// --- 共通トランスポート＆持続BGM ---
-	/** カウントイン後に拍0が来るよう transport を張り直し、BGMスケジューラを開始。予告(タン)も鳴らす。 */
-	startTransport(leadBeats: number): void;
+	/**
+	 * ユーザー操作の中で呼ぶ。① AudioContext.resume() を待つ → ② 拍0の時刻を決める
+	 * （startTime = now + START_DELAY + leadBeats×SPB）→ ③ BGMスケジューラを拍0から開始＋カウントインを予約。
+	 * 解決後にエンジンを開始すること（初回も retry も同じ経路）。
+	 */
+	startTransport(leadBeats: number): Promise<AudioTransport>;
+	/** 現在の transport（未開始なら null） */
+	getTransport(): AudioTransport | null;
 	/** 現在の transport 時刻（秒。拍0で 0、カウントイン中は負）。エンジンの時計に渡す。 */
 	now(): number;
 	/** BGM停止（ゲーム終了時。短くフェードアウト） */
@@ -54,6 +80,7 @@ function writeMuted(muted: boolean): void {
 export function createAudio(): GameAudio {
 	let ctx: AudioContext | null = null;
 	let muted = readMuted();
+	const perfNow = () => performance.now() / 1000;
 
 	const AC: typeof AudioContext | undefined =
 		typeof window !== 'undefined'
@@ -97,7 +124,7 @@ export function createAudio(): GameAudio {
 		pending = [];
 	}
 
-	/** 単音。freq→freqTo へスイープ可。start は ctx.currentTime からの相対秒。track=true で取消対象に追跡。 */
+	/** 単音。start は ctx.currentTime からの相対秒（即時の SE 用）。 */
 	function tone(
 		freq: number,
 		start: number,
@@ -105,11 +132,22 @@ export function createAudio(): GameAudio {
 		type: OscillatorType,
 		gain: number,
 		freqTo?: number,
-		track = false,
 	): void {
 		const c = ensureCtx();
 		if (!c || muted) return;
-		const t0 = c.currentTime + start;
+		toneAt(c, freq, c.currentTime + start, dur, type, gain, freqTo);
+	}
+	/** 単音を AudioContext の絶対時刻 t0 に予約。freq→freqTo へスイープ可。track=true で取消対象に追跡。 */
+	function toneAt(
+		c: AudioContext,
+		freq: number,
+		t0: number,
+		dur: number,
+		type: OscillatorType,
+		gain: number,
+		freqTo?: number,
+		track = false,
+	): void {
 		const osc = c.createOscillator();
 		const g = c.createGain();
 		osc.type = type;
@@ -126,24 +164,58 @@ export function createAudio(): GameAudio {
 	}
 
 	// --- 共通トランスポート＆持続BGM（拍同期ループ・先読みスケジューラ） ---
-	// transportStart = 拍0（＝ゲームの gameTime=0）の audio 時刻。BGM・cue・エンジンの時計を全部これに揃える。
-	const BGM_BPM = 130;
-	const SPB = 60 / BGM_BPM; // 1拍の秒数（＝エンジンの BEAT と一致）
-	let transportStart = 0;
+	// transport.startTime = 拍0（＝ゲームの gameTime=0）の時刻。BGM・cue・エンジンの時計を全部これに揃える。
+	const START_DELAY = 0.3; // resume 直後の頭切れを避ける余白（秒）。カウントインの前に置く
+	const BGM_LEVEL = 0.5; // BGM のマスター音量。cue（ドン）より明確に小さく
+	const DUCK = 0.55; // accent 前後の BGM 倍率（約 -5dB）
+	let transport: AudioTransport | null = null;
 	let bgmGain: GainNode | null = null;
+	let duckFrom = 0; // 予約済みダッキングが始まる audio 時刻（まだ始まっていなければ取り消せる）
 	let musicTimer: ReturnType<typeof setInterval> | null = null;
-	let bgmBeat = 0; // 通し拍カウンタ（拍0＝transportStart）
+	let bgmBeat = 0; // 通し拍カウンタ（拍0＝transport.startTime）
 	let nextBeatTime = 0; // 次に予約する拍の audio 時刻
 	let musicLevel = 0; // 0=drum / 1=+bass / 2=+perc / 3=+melody
 	let feverOn = false;
 
+	const musicVol = () => (muted ? 0 : BGM_LEVEL);
 	function ensureBgmGain(c: AudioContext): GainNode {
 		if (!bgmGain) {
 			bgmGain = c.createGain();
-			bgmGain.gain.value = muted ? 0 : 0.9;
+			bgmGain.gain.value = musicVol();
 			bgmGain.connect(c.destination);
 		}
 		return bgmGain;
+	}
+	/** 共通時計：拍番号 → AudioContext の絶対時刻 */
+	const audioTimeOf = (transportTime: number) => (transport ? transport.startTime + transportTime : 0);
+
+	/** accent（ドン）の -80ms〜+120ms だけ BGM を下げる（cue を最優先で聞かせる） */
+	function duckAt(c: AudioContext, at: number): void {
+		if (!bgmGain || muted) return;
+		const g = bgmGain.gain;
+		const t0 = Math.max(c.currentTime, at - 0.08);
+		g.setValueAtTime(BGM_LEVEL, t0);
+		g.linearRampToValueAtTime(BGM_LEVEL * DUCK, Math.max(t0 + 0.01, at - 0.03));
+		g.setValueAtTime(BGM_LEVEL * DUCK, at + 0.12);
+		g.linearRampToValueAtTime(BGM_LEVEL, at + 0.2);
+		duckFrom = t0;
+	}
+	/** まだ始まっていないダッキングを取り消す（早押しで消えた的のドン用。進行中のものは自然に戻す） */
+	function clearPendingDuck(c: AudioContext): void {
+		if (!bgmGain || duckFrom <= c.currentTime) return;
+		bgmGain.gain.cancelScheduledValues(c.currentTime);
+		bgmGain.gain.setValueAtTime(musicVol(), c.currentTime);
+		duckFrom = 0;
+	}
+	/** ドン（ここで押す合図）。低く太い音。BGM より明確に大きく、前後をダッキング。 */
+	function accentAt(c: AudioContext, at: number): void {
+		toneAt(c, 180, at, 0.14, 'sine', 0.3, 120, true);
+		toneAt(c, 90, at, 0.16, 'triangle', 0.16, undefined, true);
+		duckAt(c, at);
+	}
+	/** タン（予告クリック） */
+	function tickAt(c: AudioContext, at: number): void {
+		toneAt(c, 720, at, 0.05, 'square', 0.1, undefined, true);
 	}
 	// BGM 用の単音（bgmGain 経由。cue/judgment より控えめにして予告を埋もれさせない）
 	function bgmTone(
@@ -217,13 +289,14 @@ export function createAudio(): GameAudio {
 		}
 	}
 	function bgmScheduler(): void {
-		const c = ensureCtx();
-		if (!c) return;
+		const c = ctx;
+		if (!c || !transport || transport.clock !== 'audio') return;
 		// currentTime + 0.12 秒先まで予約（fps に依存しない）
+		// 拍 n の時刻は常に startTime + n×SPB（加算の誤差を溜めない＝cue/エンジンと同じ式）
 		while (nextBeatTime < c.currentTime + 0.12) {
 			scheduleBgmBeat(bgmBeat, nextBeatTime);
-			nextBeatTime += SPB;
 			bgmBeat++;
+			nextBeatTime = audioTimeOf(bgmBeat * SPB);
 		}
 	}
 
@@ -263,19 +336,16 @@ export function createAudio(): GameAudio {
 			}
 		},
 		scheduleRhythm(cues) {
-			// tone() は ctx.currentTime + start に予約するので、offset を渡すだけで fps 非依存に先読みできる。
-			const c = ensureCtx();
-			if (!c || muted) return;
+			// cue.time は transport 時刻（=beatTime(beatIndex)）。BGM の拍と同じ startTime + time に予約する。
+			const c = ctx;
+			if (!c || muted || !transport || transport.clock !== 'audio') return;
 			clearPendingCues(c); // 前パターンの未再生の予告（早押しで消えた的のドン等）を取り消す
+			clearPendingDuck(c);
 			for (const cue of cues) {
-				if (cue.sound === 'accent') {
-					// ドン：ここで押す合図。低く太い音＋クリック。
-					tone(180, cue.offset, 0.14, 'sine', 0.22, 120, true);
-					tone(90, cue.offset, 0.16, 'triangle', 0.13, undefined, true);
-				} else {
-					// タン：軽い予告クリック。
-					tone(720, cue.offset, 0.05, 'square', 0.08, undefined, true);
-				}
+				const at = audioTimeOf(cue.time);
+				if (at < c.currentTime - 0.005) continue; // 既に過ぎた cue は鳴らさない
+				if (cue.sound === 'accent') accentAt(c, at);
+				else tickAt(c, at);
 			}
 		},
 		fever() {
@@ -283,27 +353,68 @@ export function createAudio(): GameAudio {
 			tone(330, 0, 0.28, 'sawtooth', 0.16, 990);
 			tone(660, 0.06, 0.24, 'triangle', 0.14, 1320);
 		},
-		startTransport(leadBeats: number) {
+		async startTransport(leadBeats: number) {
+			// ユーザー操作の同期部分で ctx を作り resume を要求する（iOS Safari はジェスチャー内が必須）
 			const c = ensureCtx();
-			if (!c) return;
-			// 拍0（gameTime=0）を leadBeats 拍だけ先に置く。ここが全時計の原点。
-			transportStart = c.currentTime + Math.max(0.05, leadBeats) * SPB;
-			const gain = ensureBgmGain(c);
-			gain.gain.cancelScheduledValues(c.currentTime);
-			gain.gain.setValueAtTime(muted ? 0 : 0.9, c.currentTime);
+			if (musicTimer) {
+				clearInterval(musicTimer);
+				musicTimer = null;
+			}
+			// ① resume を待つ（最大0.5秒）。動かない環境は performance 時計で無音進行
+			let running = false;
+			if (c) {
+				if (c.state !== 'running') {
+					try {
+						await Promise.race([c.resume(), new Promise((r) => setTimeout(r, 500))]);
+					} catch {
+						/* resume 失敗は無音扱い */
+					}
+				}
+				running = c.state === 'running';
+			}
+			const lead = Math.max(0, Math.round(leadBeats));
+			const base = running && c ? c.currentTime : perfNow();
+			// ② 拍0（gameTime=0）の時刻をここで1回だけ決める。全時計の原点。
+			transport = {
+				startTime: base + START_DELAY + lead * SPB,
+				bpm: BPM,
+				secondsPerBeat: SPB,
+				clock: running ? 'audio' : 'performance',
+			};
 			musicLevel = 0;
 			feverOn = false;
 			bgmBeat = 0;
-			nextBeatTime = transportStart; // BGM の拍0＝transportStart
-			// カウントイン予告：拍0の手前で「タン…タン…タン」→ 拍0は accent（GO）
-			const n = Math.max(1, Math.round(leadBeats));
-			for (let i = n; i >= 1; i--) tone(720, transportStart - i * SPB - c.currentTime, 0.05, 'square', 0.1);
-			tone(180, transportStart - c.currentTime, 0.14, 'sine', 0.22, 120);
-			if (musicTimer) clearInterval(musicTimer);
+			if (!running || !c) return transport;
+
+			// ③ 前ゲームの残響（予約済みの拍・cue）を切り、新しい BGM バスで拍0から開始
+			clearPendingCues(c);
+			if (bgmGain) {
+				const old = bgmGain;
+				old.gain.cancelScheduledValues(c.currentTime);
+				old.gain.setValueAtTime(old.gain.value, c.currentTime);
+				old.gain.linearRampToValueAtTime(0, c.currentTime + 0.05);
+				setTimeout(() => old.disconnect(), 400);
+				bgmGain = null;
+			}
+			duckFrom = 0;
+			ensureBgmGain(c);
+			nextBeatTime = audioTimeOf(0); // BGM の拍0＝startTime
+			// カウントイン：拍 -lead … -1 に「タン」、拍0 に「ドン（GO）」。同じ beatIndex 式で置く
+			if (!muted) {
+				for (let i = lead; i >= 1; i--) tickAt(c, audioTimeOf(-i * SPB));
+				accentAt(c, audioTimeOf(0));
+			}
 			musicTimer = setInterval(bgmScheduler, 25);
+			bgmScheduler();
+			return transport;
+		},
+		getTransport() {
+			return transport;
 		},
 		now() {
-			return ctx ? ctx.currentTime - transportStart : 0;
+			if (!transport) return 0;
+			if (transport.clock === 'audio' && ctx) return ctx.currentTime - transport.startTime;
+			return perfNow() - transport.startTime;
 		},
 		stopMusic() {
 			if (musicTimer) {
@@ -342,7 +453,8 @@ export function createAudio(): GameAudio {
 			// 再生中のBGMも即座に反映
 			if (bgmGain && ctx) {
 				bgmGain.gain.cancelScheduledValues(ctx.currentTime);
-				bgmGain.gain.setValueAtTime(muted ? 0 : 0.9, ctx.currentTime);
+				bgmGain.gain.setValueAtTime(musicVol(), ctx.currentTime);
+				duckFrom = 0;
 			}
 			return muted;
 		},

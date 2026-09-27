@@ -7,6 +7,11 @@
 // spec: docs/specs/chaos-beat.md / design: docs/design/chaos-beat.md
 // このファイルは Astro / GA4 / 広告 / 音 に依存しない純粋なエンジン。
 // 外へは onEvent(name, payload) だけで通知する（送信先はこのファイルの外で決める）。
+//
+// 時計：gameTime は外から注入される共通トランスポート時計（options.now。拍0=0）。
+// 拍の時刻は beat-grid.ts の beatTime(beatIndex) だけで決め、BGM・cue・hitAt・アプローチリングが同じ拍を見る。
+
+import { SPB, beatPhase, beatTime, nextBeatIndex } from './beat-grid';
 
 export type GameEventName =
 	| 'game_view'
@@ -107,7 +112,7 @@ export const RHYTHM_SEQUENCES: RhythmSequence[] = [
 	{ id: 's4', patterns: ['A', 'C', 'B', 'D'] },
 ];
 
-/** 難易度。カオス（激しい挙動）は全段維持し、差は主に的の大きさ（鬼だけ速度UP）。 */
+/** 難易度。カオス（激しい挙動）は全段維持。差は的の大きさ・初期条件・譜面（物理の速度は全段同じ＝timeScale 1）。 */
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'oni';
 
 interface DifficultyPreset {
@@ -144,18 +149,43 @@ export interface GameEventPayloads {
 		distancePx: number;
 		/** near のときの「あと◯px」。それ以外は 0 */
 		nearMissPx: number;
-		/** 予定入力時刻とのズレ（ms）。負=早押し／正=遅押し */
+		/** 予定入力時刻とのズレ（ms）。負=早押し／正=遅押し。寿命切れ（expired）は 0 */
 		timingOffsetMs: number;
+		/** 寿命切れの MISS（押していない）なら true */
+		expired: boolean;
 	};
-	/** リズム予告のスケジュール。cues/hit の offset は「今から何秒後」（実時間） */
+	/**
+	 * リズム予告のスケジュール。時刻は全部 transport 時刻（秒・拍0=0）＝ beatTime(beatIndex)。
+	 * audio は startTime + time に予約する（「今から何秒後」の相対値は使わない＝位相がズレない）。
+	 */
 	rhythm_pattern: {
 		patternId: string;
-		hitOffset: number;
-		cues: { offset: number; sound: CueSound }[];
+		/** 入力拍の拍番号（小数=裏拍）。target.hitAt = beatTime(hitBeat) */
+		hitBeat: number;
+		/** 入力拍の transport 時刻（= target.hitAt） */
+		hitTime: number;
+		cues: { beat: number; time: number; sound: CueSound }[];
 	};
 	fever_start: undefined;
 	fever_end: undefined;
-	game_over: { score: number; maxCombo: number; hits: number; perfectCount: number };
+	/** 1ゲーム分の集計（実機調整用）。hits = 全判定数（寿命切れ MISS を含む） */
+	game_over: {
+		score: number;
+		maxCombo: number;
+		hits: number;
+		perfectCount: number;
+		greatCount: number;
+		goodCount: number;
+		nearCount: number;
+		/** 押した MISS＋寿命切れ MISS */
+		missCount: number;
+		/** うち寿命切れ（押さなかった）MISS */
+		expiredCount: number;
+		/** 押した判定の |timingOffsetMs| 平均（寿命切れは除く。押していなければ 0） */
+		averageAbsTimingOffsetMs: number;
+		/** 押した判定の timingOffsetMs 平均（符号付き。負=早押し傾向＝遅延補正の目安） */
+		averageTimingOffsetMs: number;
+	};
 	game_retry: undefined;
 }
 
@@ -174,19 +204,23 @@ export interface InitGameOptions {
 	canvas: HTMLCanvasElement;
 	elements: GameElements;
 	difficulty?: Difficulty;
-	/** 共通トランスポート時計（秒）。省略時は performance.now 基準。拍0で 0・カウントイン中は負。 */
+	/**
+	 * 共通トランスポート時計（秒）。拍0で 0・カウントイン中は負。audio.now() を渡す（エンジンは AudioContext を知らない）。
+	 * 省略時は start() 時点から COUNTIN なしの performance.now 基準。
+	 */
 	now?: () => number;
-	/** false なら初期化時に自動開始しない（TAP TO START を待つ）。既定 true。 */
+	/** false なら初期化時に自動開始しない（TAP TO START で start() を待つ）。既定 true。 */
 	autostart?: boolean;
 	onEvent?: <K extends GameEventName>(name: K, payload: GameEventPayloads[K]) => void;
 }
 
 export interface GameHandle {
 	destroy(): void;
-	/** 難易度を切り替えて最初から遊び直す */
-	setDifficulty(level: Difficulty): void;
-	/** カウントインから開始／即リトライ（transport は呼び出し側で張り直す） */
-	restart(): void;
+	/**
+	 * ゲーム開始（初回・retry・難易度変更すべて同じ経路）。呼ぶ前に transport を張り直しておくこと。
+	 * gameTime<0（カウントイン中）なら拍0まで待ってから最初の的を出す。retry=true なら game_retry を先に通知。
+	 */
+	start(opts?: { difficulty?: Difficulty; retry?: boolean }): void;
 }
 
 type Vec = number[];
@@ -194,8 +228,7 @@ type Vec = number[];
 export function initGame(options: InitGameOptions): GameHandle {
 	// --- ルール定数 ---
 	const GAME_TIME = 30; // 1ゲームの尺（秒・固定）
-	const BPM = 130;
-	const BEAT = 60 / BPM;
+	const BEAT = SPB; // 1拍の秒数（beat-grid と共通の BPM）
 	const SLOWMO_TIME = 0.2; // 叩いた後のスロー時間（実秒）
 	const SLOWMO_SCALE = 0.15; // スロー中の物理倍率
 	const FEVER_STREAK = 3; // PERFECT 連続でフィーバー発火
@@ -211,7 +244,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 	let preset: DifficultyPreset = DIFFICULTY_PRESETS[options.difficulty ?? 'normal'];
 	let TARGET_R = preset.targetR;
 	// 共通トランスポート時計（BGM/cue と同じ原点）。全部これで gameTime を測る。
-	const clock = options.now ?? (() => performance.now() / 1000);
+	let perfOrigin = performance.now() / 1000;
+	const clock = options.now ?? (() => performance.now() / 1000 - perfOrigin);
 	let started = options.autostart !== false;
 	let lastClock = 0;
 
@@ -269,7 +303,9 @@ export function initGame(options: InitGameOptions): GameHandle {
 		y: number;
 		r: number;
 		bornAt: number;
-		/** 入力すべき時刻（gameTime）。先端がここでターゲットへ来る＝拍に一致 */
+		/** 入力拍の拍番号（beat grid 上。小数=裏拍） */
+		hitBeat: number;
+		/** 入力すべき時刻（gameTime）= beatTime(hitBeat)。先端がここでターゲットへ来る＝ドン・リング収束と一致 */
 		hitAt: number;
 		/** この時刻を過ぎたら見逃し */
 		expireAt: number;
@@ -286,6 +322,12 @@ export function initGame(options: InitGameOptions): GameHandle {
 	let maxCombo = 0;
 	let hits = 0;
 	let perfectCount = 0;
+	// 実機調整用の集計（判定ロジックには使わない）
+	const counts: Record<HitKind, number> = { perfect: 0, great: 0, good: 0, near: 0, miss: 0 };
+	let expiredCount = 0;
+	let pressCount = 0;
+	let sumAbsOffsetMs = 0;
+	let sumOffsetMs = 0;
 	let perfectStreak = 0;
 	let fever = false;
 	let feverT = 0;
@@ -404,6 +446,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 	const PRED_DT = FIXED_H * PRED_SAMPLE; // 記録点どうしの物理時間間隔
 
 	// これから先端が通る軌道（固定ステップで予測 → 実機と一致）。カオスなので horizon は短め。
+	// path[i] は「今の s から (i+1)×PRED_SAMPLE ステップ後」の先端位置。
 	function predictPath(): [number, number][] {
 		let sim = s.slice();
 		const path: [number, number][] = [];
@@ -424,32 +467,35 @@ export function initGame(options: InitGameOptions): GameHandle {
 		const path = predictPath();
 		const maxT = path.length * PRED_DT;
 
-		// パターンは譜面シーケンスから順番に取り、先頭を「次の拍」に合わせる（beat grid と同期）。
+		// パターンは譜面シーケンスから順番に取り、先頭を「次の拍頭」の拍番号に合わせる（beat grid と同期）。
+		// 以降、cue・hitAt・リングはすべてこの拍番号から beatTime() で求める（=BGMの拍頭と同じ式）。
 		const pat = nextPattern();
-		const nextBeatIn = BEAT - (gameTime % BEAT); // 次の拍まで（秒）
-		const patternStart = gameTime + nextBeatIn; // パターン先頭の時刻（拍の頭）
-		let hitAt = patternStart + pat.hitBeat * BEAT; // 入力すべき時刻
-		// 予測範囲を超えない・最低限の反応猶予を確保
-		while (hitAt - gameTime > maxT) hitAt -= BEAT;
-		while (hitAt - gameTime < 0.5) hitAt += BEAT;
+		let startBeat = nextBeatIndex(gameTime);
+		// 予測範囲を超えない・最低限の反応猶予を確保（ずらすときはパターンごと拍単位でずらす＝ドンと hitAt が離れない）
+		while (startBeat > 0 && beatTime(startBeat + pat.hitBeat) - gameTime > maxT) startBeat--;
+		while (beatTime(startBeat + pat.hitBeat) - gameTime < 0.5) startBeat++;
+		const hitBeat = startBeat + pat.hitBeat;
+		const hitAt = beatTime(hitBeat); // 入力すべき時刻（transport 時刻）
 
-		const timeUntilHit = hitAt - gameTime;
-		const idx = Math.min(path.length - 1, Math.max(0, Math.round(timeUntilHit / PRED_DT) - 1));
+		// 物理の状態 s は gameTime - acc の時点（acc = 未消化の固定ステップ時間）。その分も足して hitAt の点を引く。
+		const steps = (hitAt - gameTime + acc) / FIXED_H;
+		const idx = Math.min(path.length - 1, Math.max(0, Math.round(steps / PRED_SAMPLE) - 1));
 		const [tx, ty] = path[idx] ?? [tips(s)[2], tips(s)[3]];
 		target = {
 			x: tx,
 			y: ty,
 			r: TARGET_R,
 			bornAt: gameTime,
+			hitBeat,
 			hitAt,
 			expireAt: hitAt + BEAT * 1.2, // 入力拍＋約1.2拍で見逃し
 		};
 
-		// 予告音のスケジュール（今から何秒後か）。パターン先頭に満たない cue は捨てる。
+		// 予告音（transport 時刻で渡す）。既に過ぎた cue と入力拍より後の cue は捨てる。
 		const cues = pat.cues
-			.map((c) => ({ offset: patternStart + c.beat * BEAT - gameTime, sound: c.sound }))
-			.filter((c) => c.offset >= 0 && c.offset <= timeUntilHit + 0.05);
-		emit('rhythm_pattern', { patternId: pat.id, hitOffset: timeUntilHit, cues });
+			.map((c) => ({ beat: startBeat + c.beat, time: beatTime(startBeat + c.beat), sound: c.sound }))
+			.filter((c) => c.time >= gameTime && c.beat <= hitBeat);
+		emit('rhythm_pattern', { patternId: pat.id, hitBeat, hitTime: hitAt, cues });
 	}
 
 	function newGame() {
@@ -465,6 +511,11 @@ export function initGame(options: InitGameOptions): GameHandle {
 		maxCombo = 0;
 		hits = 0;
 		perfectCount = 0;
+		(Object.keys(counts) as HitKind[]).forEach((k) => (counts[k] = 0));
+		expiredCount = 0;
+		pressCount = 0;
+		sumAbsOffsetMs = 0;
+		sumOffsetMs = 0;
 		perfectStreak = 0;
 		fever = false;
 		feverT = 0;
@@ -560,6 +611,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 		const nearMissPx = kind === 'near' ? Math.round((d - R) * scale) : 0;
 		// 予定入力時刻（拍）とのズレ。負=早押し／正=遅押し。
 		const timingOffsetMs = Math.round((gameTime - target.hitAt) * 1000);
+		counts[kind]++;
+		pressCount++;
+		sumAbsOffsetMs += Math.abs(timingOffsetMs);
+		sumOffsetMs += timingOffsetMs;
 		lastHit = { d, kind };
 		resultLabel = LABEL[kind];
 		popT = 1;
@@ -590,6 +645,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 			distancePx: Math.round(d * scale),
 			nearMissPx,
 			timingOffsetMs,
+			expired: false,
 		});
 
 		// 叩いたら必ずスロー → 次の的
@@ -603,6 +659,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 		perfectStreak = 0;
 		endFever();
 		hits++;
+		counts.miss++;
+		expiredCount++;
 		resultLabel = 'MISS';
 		popT = 1;
 		flash = 0.4;
@@ -619,6 +677,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 			distancePx: 0,
 			nearMissPx: 0,
 			timingOffsetMs: 0,
+			expired: true,
 		});
 		newTarget();
 	}
@@ -627,7 +686,19 @@ export function initGame(options: InitGameOptions): GameHandle {
 		state = 'over';
 		resultLabel = '';
 		$msg.textContent = `TIME UP！ ${score}点・最大${maxCombo}コンボ`;
-		emit('game_over', { score, maxCombo, hits, perfectCount });
+		emit('game_over', {
+			score,
+			maxCombo,
+			hits,
+			perfectCount,
+			greatCount: counts.great,
+			goodCount: counts.good,
+			nearCount: counts.near,
+			missCount: counts.miss,
+			expiredCount,
+			averageAbsTimingOffsetMs: pressCount ? Math.round(sumAbsOffsetMs / pressCount) : 0,
+			averageTimingOffsetMs: pressCount ? Math.round(sumOffsetMs / pressCount) : 0,
+		});
 	}
 
 	// --- 入力 ---
@@ -651,7 +722,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 	// --- 描画 ---
 	function beatPulse(): number {
-		const phase = (gameTime % BEAT) / BEAT; // 0→1
+		const phase = beatPhase(gameTime); // 0→1（BGM の拍頭で 0）
 		return Math.max(0, 1 - phase * 1.6); // 拍頭で1、すぐ減衰
 	}
 
@@ -698,7 +769,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 			const remain = target.expireAt - gameTime;
 			const baseR = target.r * scale;
 
-			// アプローチリング：bornAt→hitAt で大きな輪が的の大きさへ収束する（重なった時が入力拍）
+			// アプローチリング：bornAt→hitAt で大きな輪が的の大きさへ収束する（重なった時が入力拍＝beatTime(hitBeat)＝ドン）
 			const lead = Math.max(0.001, target.hitAt - target.bornAt);
 			const prog = Math.min(1.3, Math.max(0, (gameTime - target.bornAt) / lead));
 			if (prog < 1.25) {
@@ -857,8 +928,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 			return;
 		}
 		// 時計は共通トランスポート（audio）。dt はその差分。
+		// dt を小さくクランプすると物理が transport から恒久的に遅れて的を通らなくなるので、0.25秒までは追従する
+		// （それ以上＝タブ非表示など。的は寿命切れ→次の的で予測し直すので自然に再同期する）。
 		const t = clock();
-		const dt = Math.min(Math.max(0, t - lastClock), 1 / 30);
+		const dt = Math.min(Math.max(0, t - lastClock), 0.25);
 		lastClock = t;
 		gameTime = t;
 
@@ -868,7 +941,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 			const ts = state === 'slowmo' ? SLOWMO_SCALE : 1;
 			acc += dt * ts;
 			let steps = 0;
-			while (acc >= FIXED_H && steps < 60) {
+			while (acc >= FIXED_H && steps < 90) {
 				s = rk4(s, FIXED_H);
 				acc -= FIXED_H;
 				steps++;
@@ -928,7 +1001,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 	emit('game_view', undefined);
 	// 静止プレビュー用に振り子だけ用意（idle 時に描画される）
 	s = [sign() * rand(preset.a1[0], preset.a1[1]), sign() * rand(preset.a2[0], preset.a2[1]), 0, 0];
-	if (started) newGame(); // autostart:false のときは TAP TO START を待つ
+	if (started) newGame(); // autostart:false のときは TAP TO START で start() を待つ
 	rafId = requestAnimationFrame(loop);
 
 	return {
@@ -938,13 +1011,13 @@ export function initGame(options: InitGameOptions): GameHandle {
 			cv.removeEventListener('pointerdown', onPointerDown);
 			window.removeEventListener('keydown', onKeyDown);
 		},
-		setDifficulty(level: Difficulty) {
-			preset = DIFFICULTY_PRESETS[level];
-			TARGET_R = preset.targetR;
-			newGame();
-		},
-		restart() {
-			emit('game_retry', undefined);
+		start(opts = {}) {
+			if (opts.difficulty) {
+				preset = DIFFICULTY_PRESETS[opts.difficulty];
+				TARGET_R = preset.targetR;
+			}
+			if (!options.now) perfOrigin = performance.now() / 1000;
+			if (opts.retry) emit('game_retry', undefined);
 			newGame();
 		},
 	};

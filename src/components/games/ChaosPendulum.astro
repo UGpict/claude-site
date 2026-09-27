@@ -34,8 +34,8 @@
 				<div class="cp-start-inner">
 					<p class="cp-start-title">CHAOS BEAT</p>
 					<p class="cp-start-sub">音を聞いてタイミングを狙え</p>
-					<button type="button" class="cp-start-btn" data-cp-start-btn>▶ 音ありでスタート</button>
-					<p class="cp-start-hint">スペースキーでもスタート</p>
+					<button type="button" class="cp-start-btn" data-cp-start-btn>▶ TAP TO START</button>
+					<p class="cp-start-hint">タップ / クリック / Space</p>
 				</div>
 			</div>
 		</div>
@@ -122,6 +122,7 @@
 	} from '../../scripts/games/chaos-pendulum';
 	import { trackGameEvent } from '../../scripts/games/analytics';
 	import { createAudio } from '../../scripts/games/audio';
+	import { COUNTIN_BEATS } from '../../scripts/games/beat-grid';
 	import { updateBest } from '../../scripts/games/storage';
 	import {
 		getRanking,
@@ -259,7 +260,10 @@
 				now: () => audio.now(), // 共通トランスポート時計（BGM/cue と同じ原点）
 				autostart: false, // TAP TO START を待つ
 				onEvent(name: GameEventName, payload: GameEventPayloads[GameEventName]) {
-					trackGameEvent(name, (payload as Record<string, unknown>) ?? {});
+					const params = (payload as Record<string, unknown>) ?? {};
+					// ゲーム単位のイベントには難易度を付けて送る（リトライ率・判定分布を難易度別に見るため）
+					const perGame = name === 'game_start' || name === 'game_over' || name === 'game_retry';
+					trackGameEvent(name, perGame ? { ...params, difficulty: currentDifficulty } : params);
 
 					if (name === 'game_start') {
 						submitted = false;
@@ -274,7 +278,7 @@
 
 					if (name === 'rhythm_pattern') {
 						const p = payload as GameEventPayloads['rhythm_pattern'];
-						audio.scheduleRhythm(p.cues);
+						audio.scheduleRhythm(p.cues); // transport 時刻（beatTime）で予約＝BGMの拍頭と同じ式
 					}
 
 					if (name === 'fever_start') {
@@ -338,18 +342,31 @@
 				},
 			});
 
-			// --- 開始/リトライ：カウントイン付きで transport を張り直してから開始（ユーザー操作で resume） ---
-			const COUNTIN_BEATS = 4;
+			// --- 開始/リトライ：初回も retry も難易度変更も、必ずこの1経路を通す ---
+			// user start → AudioContext.resume → transport 決定（拍0）→ BGM scheduler → カウントイン → engine.start
 			let gameStarted = false;
-			const startGame = () => {
-				audio.startTransport(COUNTIN_BEATS); // ここで AudioContext を resume ＋ 拍0を確定
-				handle.setDifficulty(currentDifficulty); // 選択中の難易度でカウントインから開始
+			let starting = false;
+			let startToken = 0;
+			const startGame = async (retry = false) => {
+				if (starting) return; // resume 待ち中の連打を無視
+				starting = true;
+				const token = ++startToken;
+				try {
+					// ユーザー操作の同期部分で resume を要求し、解決（running）を待ってから拍0を決める
+					await audio.startTransport(COUNTIN_BEATS);
+				} finally {
+					starting = false;
+				}
+				if (token !== startToken) return;
+				handle.start({ difficulty: currentDifficulty, retry }); // gameTime<0 のカウントインから開始
 				gameStarted = true;
 				if (startOverlay) startOverlay.hidden = true;
 				rankDifficulty = currentDifficulty;
 				setRankDiffTab(currentDifficulty);
 			};
-			startBtn?.addEventListener('click', startGame);
+			// オーバーレイ全体が TAP TO START（ボタンだけでなくどこを押しても開始）
+			startOverlay?.addEventListener('click', () => void startGame(false));
+			const isResultShown = () => !!resultPanel && !resultPanel.hidden;
 
 			// --- 難易度の切り替え ---
 			diffBtns.forEach((btn) =>
@@ -362,22 +379,22 @@
 					rankDifficulty = level;
 					setRankDiffTab(level);
 					loadRanking(currentPeriod);
-					if (gameStarted) startGame(); // 開始済みなら新難易度でやり直し
+					if (gameStarted) void startGame(false); // 開始済みなら新難易度でやり直し（同じ start 経路）
 				}),
 			);
 
 			// --- 「もう一回」：カウントインから再戦（ボタン or スペース/Enter） ---
 			againBtn?.addEventListener('click', () => {
-				startGame();
+				void startGame(true);
 				root.querySelector('[data-cp-canvas]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 			});
 			window.addEventListener('keydown', (e) => {
 				if (e.code !== 'Space' && e.code !== 'Enter') return;
 				// スタート前、または結果パネル表示中は、スペース/Enter で開始・再戦
-				const canStart = !gameStarted || (resultPanel && !resultPanel.hidden);
-				if (canStart) {
+				const retry = gameStarted && isResultShown();
+				if (!gameStarted || retry) {
 					e.preventDefault();
-					startGame();
+					void startGame(retry);
 				}
 			});
 
@@ -564,6 +581,7 @@
 	.cp-start {
 		position: absolute;
 		inset: 0;
+		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
