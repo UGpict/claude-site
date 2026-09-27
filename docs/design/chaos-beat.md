@@ -40,9 +40,19 @@ spec: [../specs/chaos-beat.md](../specs/chaos-beat.md) を満たす作り方。�
   「的を通らない」不具合になる。固定ステップなら軌道が毎回同じ離散列になり、予測が**完全一致**する。
 - `predictPath` も必ず同じ FIXED_H で積分すること。ここを崩すと的の配置が破綻する。
 
-### timeScale
-- timeScale は「1フレームで進める**ステップ数**」を変えるだけ（ステップ幅 FIXED_H は不変）。だから軌道は変わらず速度だけ変わる。
-- slowmo 中：0.15。Magnet Assist：的付近で 0.6〜0.82（難易度別）。通常：1.0（鬼は 1.3）。30秒判定は実 dt で計る。
+### timeScale（リズム整合のため 1 固定）
+- timeScale は「1フレームで進める**ステップ数**」を変えるだけ（ステップ幅 FIXED_H は不変）。
+- **的が生きている間は timeScale=1**（フィーバー速度・Magnet Assist・鬼speed は廃止）。理由：これらで物理を伸縮させると
+  「hitAt(拍)の時刻に先端がターゲットへ来る」がズレ、音（ドン）と合わなくなる。slowmo(0.15) は hit 直後（的の無い間）だけ。
+- 30秒判定は実 dt で計る。
+
+### リズム（音でタイミングを教える）
+- `RHYTHM_PATTERN`（id/lengthBeats/cues[{beat,sound}]/hitBeat）をデータ駆動で保持（`RHYTHM_PATTERNS`）。
+- `newTarget()`：パターン先頭=次の拍。hitAt=次の拍+hitBeat×BEAT。timeUntilHit から `predictPath` の idx を引いて的位置に。
+  cue は「今から offset 秒後」に変換して `emit('rhythm_pattern', { patternId, hitOffset, cues })`。
+- audio：`scheduleRhythm(cues)` が `tone(freq, offset, ...)`（= ctx.currentTime+offset に予約）で fps 非依存にスケジュール。
+  tick=軽いクリック、accent=ドン（押す合図）。judgment はコンボで層追加（bass/hihat/melody/lead）。
+- エンジンは音を鳴らさない（onEvent 経由）。gameTime と AudioContext.currentTime は同じ実時間なので offset がそのまま合う。
 
 ## ターゲット生成（軌道上に置く）
 - ランダムな位置だと先端が通らず理不尽になる。→ **これから先端が通る軌道上**に置く。

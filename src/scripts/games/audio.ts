@@ -3,17 +3,17 @@
 // AudioContext はブラウザの Autoplay 制限に配慮し、最初のユーザー操作後に開始する。
 // ミュート状態は localStorage に保持する。
 
-import type { HitKind } from './chaos-pendulum';
+import type { CueSound, HitKind } from './chaos-pendulum';
 
 const MUTE_KEY = 'cp:muted';
 
 export interface GameAudio {
 	/** 叩いた瞬間のごく短いクリック音 */
 	stopClick(): void;
-	/** 判定音（perfect / great / good / near / miss） */
-	judgment(kind: HitKind): void;
-	/** 拍のクリック音（accent=小節頭は強め） */
-	beat(accent: boolean): void;
+	/** 判定音（combo が続くほど層が厚く／fever でさらに）。 */
+	judgment(kind: HitKind, combo?: number, fever?: boolean): void;
+	/** リズム予告（タン・タン・ドン）を AudioContext.currentTime で先読みスケジュール（fps非依存） */
+	scheduleRhythm(cues: { offset: number; sound: CueSound }[]): void;
 	/** CHAOS FEVER 突入の上昇音 */
 	fever(): void;
 	/** 自己ベスト更新の特別な音 */
@@ -101,7 +101,15 @@ export function createAudio(): GameAudio {
 			// 短く控えめなクリック（主張しすぎない）
 			tone(1200, 0, 0.04, 'triangle', 0.12);
 		},
-		judgment(kind: HitKind) {
+		judgment(kind: HitKind, combo = 0, fever = false) {
+			// 成功時はコンボが続くほど層を足す（0→kick/3→bass/5→hihat/10→melody/FEVER→lead）。
+			// MISS でコンボが 0 に戻ると層も自然に剥がれる＝「切りたくない」を音で作る。
+			if (kind === 'perfect' || kind === 'great' || kind === 'good') {
+				if (combo >= 3) tone(146, 0, 0.14, 'triangle', 0.1); // bass D3
+				if (combo >= 5) tone(3136, 0.0, 0.03, 'square', 0.05); // hi-hat 風
+				if (combo >= 10) tone(880, 0.02, 0.12, 'triangle', 0.09); // melody 風
+				if (fever) tone(1174, 0.0, 0.16, 'sawtooth', 0.09); // lead
+			}
 			switch (kind) {
 				case 'perfect':
 					// 駆け上がる明るいアルペジオ＋高音のきらめき（最高の祝福音）
@@ -130,10 +138,18 @@ export function createAudio(): GameAudio {
 					break;
 			}
 		},
-		beat(accent: boolean) {
-			// 拍のクリック。小節頭(accent)は少し高く強め。控えめにして邪魔しない。
-			if (accent) tone(660, 0, 0.05, 'square', 0.09);
-			else tone(440, 0, 0.04, 'square', 0.055);
+		scheduleRhythm(cues) {
+			// tone() は ctx.currentTime + start に予約するので、offset を渡すだけで fps 非依存に先読みできる。
+			for (const c of cues) {
+				if (c.sound === 'accent') {
+					// ドン：ここで押す合図。低く太い音＋クリック。
+					tone(180, c.offset, 0.14, 'sine', 0.22, 120);
+					tone(90, c.offset, 0.16, 'triangle', 0.13);
+				} else {
+					// タン：軽い予告クリック。
+					tone(720, c.offset, 0.05, 'square', 0.08);
+				}
+			}
 		},
 		fever() {
 			// 上昇するリザー（フィーバー突入）

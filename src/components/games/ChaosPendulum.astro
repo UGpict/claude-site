@@ -240,6 +240,7 @@
 				perfectCount: number;
 			} | null = null;
 			let submitted = false;
+			let feverActive = false;
 
 			const handle = initGame({
 				canvas,
@@ -250,21 +251,27 @@
 
 					if (name === 'game_start') {
 						submitted = false;
+						feverActive = false;
 						if (resultPanel) resultPanel.hidden = true;
 					}
 
 					if (name === 'hit') {
 						const p = payload as GameEventPayloads['hit'];
-						audio.judgment(p.kind);
+						audio.judgment(p.kind, p.combo, feverActive);
 					}
 
-					if (name === 'beat') {
-						const p = payload as GameEventPayloads['beat'];
-						audio.beat(p.accent);
+					if (name === 'rhythm_pattern') {
+						const p = payload as GameEventPayloads['rhythm_pattern'];
+						audio.scheduleRhythm(p.cues);
 					}
 
 					if (name === 'fever_start') {
+						feverActive = true;
 						audio.fever();
+					}
+
+					if (name === 'fever_end') {
+						feverActive = false;
 					}
 
 					if (name === 'game_over') {

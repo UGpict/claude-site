@@ -58,6 +58,16 @@ spec: [../specs/chaos-beat.md](../specs/chaos-beat.md) / design: [../design/chao
 - [ ] 動く的（ステージ進行でゆっくり移動）
 - [ ] ボーナス的（赤3倍／青+2秒／虹FEVER）
 
+## リズム入力システム（2026-09-27）＝「音を聞いて押す」化
+- [x] `RHYTHM_PATTERN` データ構造＋初期4パターン（A/B/C/D、タン・タン・ドン系＋裏拍）
+- [x] ターゲット生成をパターンの入力拍(hitBeat)に量子化。hitAt=次の拍+hitBeat×BEAT の予測軌道点へ
+- [x] `rhythm_pattern` イベントで cue の offset 配列を渡し、`audio.scheduleRhythm` が AudioContext.currentTime で先読み予約（fps非依存）
+- [x] **リズム整合の不変条件**：的が生きている間 timeScale=1。フィーバー速度×1.3・Magnet Assist・鬼speed を全廃（音とズレるため）
+- [x] アプローチリング（外側から縮む輪が的に重なった瞬間＝入力拍）で視覚同期
+- [x] `timingOffsetMs`（予定入力拍とのズレ）を hit payload に追加。near は「◯秒早い/遅い」に使用
+- [x] コンボで判定SEに層を足す（3=bass/5=hihat/10=melody/FEVER=lead、MISSで剥がれる）＝最小の曲成長
+- [ ] （残）専用BGMループ／さらに凝ったパターン／FEVER超強化（⑨）は次段
+
 ## 外部レビュー反映（2026-09-27）
 - [x] ① ターゲット到達時刻を **BPM に量子化**（次の拍＋1〜3拍先の軌道点に配置）＝リズム×カオス化
 - [x] ② 結果送信の **difficulty 固定バグ修正**（lastResult に難易度を保存し、それで送信）

@@ -12,7 +12,7 @@ export type GameEventName =
 	| 'game_view'
 	| 'game_start'
 	| 'hit'
-	| 'beat'
+	| 'rhythm_pattern'
 	| 'fever_start'
 	| 'fever_end'
 	| 'game_over'
@@ -21,16 +21,76 @@ export type GameEventName =
 /** 判定の種類。得点対象は perfect/great/good のみ（near/miss は 0 点）。 */
 export type HitKind = 'perfect' | 'great' | 'good' | 'near' | 'miss';
 
+/** リズム予告の音種（Web Audio 側で鳴らし分ける） */
+export type CueSound = 'tick' | 'accent';
+
+/** リズムパターン。予告音（cue）の並びと「入力すべき拍(hitBeat)」を持つ。データ駆動で増やせる。 */
+export interface RhythmPattern {
+	id: string;
+	/** パターンの長さ（拍） */
+	lengthBeats: number;
+	/** 予告音：パターン先頭からの拍位置（小数=裏拍/細分化）と音種 */
+	cues: { beat: number; sound: CueSound }[];
+	/** 入力すべき拍（パターン先頭からの拍位置）。ここに先端がターゲットへ来る */
+	hitBeat: number;
+}
+
+// 初期パターン。極端に複雑にしない（2〜3拍先＋裏拍程度）。
+export const RHYTHM_PATTERNS: RhythmPattern[] = [
+	// タン タン タン ドン（4拍目で入力）
+	{
+		id: 'A',
+		lengthBeats: 4,
+		cues: [
+			{ beat: 0, sound: 'tick' },
+			{ beat: 1, sound: 'tick' },
+			{ beat: 2, sound: 'tick' },
+			{ beat: 3, sound: 'accent' },
+		],
+		hitBeat: 3,
+	},
+	// タン タン 休 ドン
+	{
+		id: 'B',
+		lengthBeats: 4,
+		cues: [
+			{ beat: 0, sound: 'tick' },
+			{ beat: 1, sound: 'tick' },
+			{ beat: 3, sound: 'accent' },
+		],
+		hitBeat: 3,
+	},
+	// タン ・タタ・ ドン（裏拍入り、2.5拍目で入力）
+	{
+		id: 'C',
+		lengthBeats: 3,
+		cues: [
+			{ beat: 0, sound: 'tick' },
+			{ beat: 1, sound: 'tick' },
+			{ beat: 1.5, sound: 'tick' },
+			{ beat: 2.5, sound: 'accent' },
+		],
+		hitBeat: 2.5,
+	},
+	// タン 休 タン ドン
+	{
+		id: 'D',
+		lengthBeats: 4,
+		cues: [
+			{ beat: 0, sound: 'tick' },
+			{ beat: 2, sound: 'tick' },
+			{ beat: 3, sound: 'accent' },
+		],
+		hitBeat: 3,
+	},
+];
+
 /** 難易度。カオス（激しい挙動）は全段維持し、差は主に的の大きさ（鬼だけ速度UP）。 */
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'oni';
 
 interface DifficultyPreset {
-	/** 的の半径（大きいほど易しい） */
+	/** 的の半径（大きいほど易しい）。リズム同期のため速度差・アシストは廃止し、差は的の大きさのみ */
 	targetR: number;
-	/** 振り子の速度倍率（鬼だけ速い。timeScale の基準） */
-	speed: number;
-	/** Magnet Assist：的付近での timeScale（1=補助なし。小さいほど易しい） */
-	assist: number;
 	/** θ1 初期角の絶対値レンジ（大きいほど暴れる） */
 	a1: [number, number];
 	/** θ2 初期角の絶対値レンジ */
@@ -40,10 +100,10 @@ interface DifficultyPreset {
 }
 
 export const DIFFICULTY_PRESETS: Record<Difficulty, DifficultyPreset> = {
-	easy: { targetR: 0.55, speed: 1, assist: 0.6, a1: [1.9, 3.0], a2: [1.6, 3.1], dist: [0.5, 1.4] },
-	normal: { targetR: 0.34, speed: 1, assist: 0.82, a1: [1.9, 3.0], a2: [1.5, 3.1], dist: [0.6, 1.6] },
-	hard: { targetR: 0.2, speed: 1, assist: 1, a1: [1.9, 3.0], a2: [1.4, 3.1], dist: [0.7, 1.8] },
-	oni: { targetR: 0.13, speed: 1.3, assist: 1, a1: [2.2, 3.3], a2: [2.0, 3.3], dist: [0.8, 1.9] },
+	easy: { targetR: 0.55, a1: [1.9, 3.0], a2: [1.6, 3.1], dist: [0.5, 1.4] },
+	normal: { targetR: 0.34, a1: [1.9, 3.0], a2: [1.5, 3.1], dist: [0.6, 1.6] },
+	hard: { targetR: 0.2, a1: [1.9, 3.0], a2: [1.4, 3.1], dist: [0.7, 1.8] },
+	oni: { targetR: 0.13, a1: [2.2, 3.3], a2: [2.0, 3.3], dist: [0.8, 1.9] },
 };
 
 export interface GameEventPayloads {
@@ -60,10 +120,17 @@ export interface GameEventPayloads {
 		maxCombo: number;
 		/** 的中心までの距離（画面px換算） */
 		distancePx: number;
-		/** near/miss のときの「あと◯px」。それ以外は 0 */
+		/** near のときの「あと◯px」。それ以外は 0 */
 		nearMissPx: number;
+		/** 予定入力時刻とのズレ（ms）。負=早押し／正=遅押し */
+		timingOffsetMs: number;
 	};
-	beat: { index: number; accent: boolean };
+	/** リズム予告のスケジュール。cues/hit の offset は「今から何秒後」（実時間） */
+	rhythm_pattern: {
+		patternId: string;
+		hitOffset: number;
+		cues: { offset: number; sound: CueSound }[];
+	};
 	fever_start: undefined;
 	fever_end: undefined;
 	game_over: { score: number; maxCombo: number; hits: number; perfectCount: number };
@@ -107,9 +174,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 	const SLOWMO_SCALE = 0.15; // スロー中の物理倍率
 	const FEVER_STREAK = 3; // PERFECT 連続でフィーバー発火
 	const FEVER_TIME = 5; // フィーバー継続（実秒）
-	const FEVER_SPEED = 1.3; // フィーバー中の速度倍率
-	const FEVER_MULT = 2; // フィーバー中の得点倍率
-	const ASSIST_PX = 90; // Magnet Assist が効く的付近の半径（画面px）
+	const FEVER_MULT = 2; // フィーバー中の得点倍率（速度は変えない＝リズム整合のため）
 
 	const g = 9.81,
 		L1 = 1,
@@ -119,7 +184,6 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 	let preset: DifficultyPreset = DIFFICULTY_PRESETS[options.difficulty ?? 'normal'];
 	let TARGET_R = preset.targetR;
-	let baseSpeed = preset.speed;
 
 	const cv = options.canvas;
 	const ctx = cv.getContext('2d');
@@ -175,7 +239,9 @@ export function initGame(options: InitGameOptions): GameHandle {
 		y: number;
 		r: number;
 		bornAt: number;
-		/** この時刻を過ぎたら見逃し（予測到達時刻＋猶予で決める） */
+		/** 入力すべき時刻（gameTime）。先端がここでターゲットへ来る＝拍に一致 */
+		hitAt: number;
+		/** この時刻を過ぎたら見逃し */
 		expireAt: number;
 	}
 	let s: Vec; // [θ1, θ2, ω1, ω2]
@@ -193,7 +259,6 @@ export function initGame(options: InitGameOptions): GameHandle {
 	let perfectStreak = 0;
 	let fever = false;
 	let feverT = 0;
-	let lastBeat = -1;
 
 	// 演出（表示のみ・物理/スコアに干渉しない）
 	let flash = 0;
@@ -290,7 +355,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 	function predictPath(): [number, number][] {
 		let sim = s.slice();
 		const path: [number, number][] = [];
-		const totalSteps = Math.round(2.0 / FIXED_H); // ビート量子化で最大~1.8秒先まで使うので広めに
+		const totalSteps = Math.round(2.6 / FIXED_H); // リズム量子化で最大~2.3秒先まで使うので広めに
 		for (let i = 1; i <= totalSteps; i++) {
 			sim = rk4(sim, FIXED_H);
 			if (i % PRED_SAMPLE === 0) {
@@ -301,20 +366,38 @@ export function initGame(options: InitGameOptions): GameHandle {
 		return path;
 	}
 
-	// 的は「これから先端が通る軌道上」かつ「次の拍で通過する位置」に置く。
-	// = リズム×カオス。プレイヤーは「ドン…ドン…今！」で拍に乗って押せる。
+	// 的は「リズムパターンの入力拍」に対応する未来軌道点へ置く。
+	// = 音（タン・タン・ドン）でタイミングが分かり、振り子を見て微調整すると PERFECT。
 	function newTarget() {
 		const path = predictPath();
 		const maxT = path.length * PRED_DT;
-		const nextBeatIn = BEAT - (gameTime % BEAT); // 次の拍まで
-		const extra = 1 + Math.floor(Math.random() * 3); // さらに 1〜3 拍先
-		let arrival = nextBeatIn + extra * BEAT;
-		if (arrival < 0.45) arrival += BEAT; // 最低限の反応猶予
-		if (arrival > maxT) arrival = maxT; // 予測範囲に収める
-		const idx = Math.min(path.length - 1, Math.max(0, Math.round(arrival / PRED_DT) - 1));
+
+		// パターンを選び、パターン先頭を「次の拍」に合わせる（beat grid と同期）。
+		const pat = RHYTHM_PATTERNS[(Math.random() * RHYTHM_PATTERNS.length) | 0];
+		const nextBeatIn = BEAT - (gameTime % BEAT); // 次の拍まで（秒）
+		const patternStart = gameTime + nextBeatIn; // パターン先頭の時刻（拍の頭）
+		let hitAt = patternStart + pat.hitBeat * BEAT; // 入力すべき時刻
+		// 予測範囲を超えない・最低限の反応猶予を確保
+		while (hitAt - gameTime > maxT) hitAt -= BEAT;
+		while (hitAt - gameTime < 0.5) hitAt += BEAT;
+
+		const timeUntilHit = hitAt - gameTime;
+		const idx = Math.min(path.length - 1, Math.max(0, Math.round(timeUntilHit / PRED_DT) - 1));
 		const [tx, ty] = path[idx] ?? [tips(s)[2], tips(s)[3]];
-		// 到達（＝拍）＋約1.2拍で見逃し扱いにしてテンポを保つ
-		target = { x: tx, y: ty, r: TARGET_R, bornAt: gameTime, expireAt: gameTime + arrival + BEAT * 1.2 };
+		target = {
+			x: tx,
+			y: ty,
+			r: TARGET_R,
+			bornAt: gameTime,
+			hitAt,
+			expireAt: hitAt + BEAT * 1.2, // 入力拍＋約1.2拍で見逃し
+		};
+
+		// 予告音のスケジュール（今から何秒後か）。パターン先頭に満たない cue は捨てる。
+		const cues = pat.cues
+			.map((c) => ({ offset: patternStart + c.beat * BEAT - gameTime, sound: c.sound }))
+			.filter((c) => c.offset >= 0 && c.offset <= timeUntilHit + 0.05);
+		emit('rhythm_pattern', { patternId: pat.id, hitOffset: timeUntilHit, cues });
 	}
 
 	function newGame() {
@@ -331,7 +414,6 @@ export function initGame(options: InitGameOptions): GameHandle {
 		perfectStreak = 0;
 		fever = false;
 		feverT = 0;
-		lastBeat = -1;
 		flash = 0;
 		popT = 0;
 		resultLabel = '';
@@ -362,33 +444,6 @@ export function initGame(options: InitGameOptions): GameHandle {
 		fever = false;
 		feverT = 0;
 		emit('fever_end', undefined);
-	}
-
-	// 叩いた瞬間、先端が的に最も近づく時刻のズレ（秒）を返す。正=まだ来ていない（早い）／負=通り過ぎた（遅い）。
-	function timingError(): number {
-		const steps = Math.round(0.45 / FIXED_H);
-		let best = Infinity,
-			bestT = 0;
-		const consider = (sim: Vec, t: number) => {
-			const [, , x, y] = tips(sim);
-			const dd = Math.hypot(x - target.x, y - target.y);
-			if (dd < best) {
-				best = dd;
-				bestT = t;
-			}
-		};
-		consider(s, 0);
-		let sim = s.slice();
-		for (let i = 1; i <= steps; i++) {
-			sim = rk4(sim, FIXED_H);
-			consider(sim, i * FIXED_H);
-		}
-		sim = s.slice();
-		for (let i = 1; i <= steps; i++) {
-			sim = rk4(sim, -FIXED_H);
-			consider(sim, -i * FIXED_H);
-		}
-		return bestT;
 	}
 
 	/** プレイヤーが叩いた（state==='playing' のときだけ呼ばれる） */
@@ -439,6 +494,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 		if (kind === 'perfect') perfectCount++;
 
 		const nearMissPx = kind === 'near' ? Math.round((d - R) * scale) : 0;
+		// 予定入力時刻（拍）とのズレ。負=早押し／正=遅押し。
+		const timingOffsetMs = Math.round((gameTime - target.hitAt) * 1000);
 		lastHit = { d, kind };
 		resultLabel = LABEL[kind];
 		popT = 1;
@@ -452,9 +509,9 @@ export function initGame(options: InitGameOptions): GameHandle {
 			}
 			$msg.textContent = mult > 1 ? `+${add}（×${mult}）` : `+${add}`;
 		} else if (kind === 'near') {
-			// 惜しい：距離ではなくタイミングのズレを見せる（「もう一回」を誘発）
-			const t = timingError();
-			$msg.textContent = `${Math.abs(t).toFixed(2)}秒${t >= 0 ? '早い' : '遅い'}！`;
+			// 惜しい：距離ではなく拍とのタイミングのズレを見せる（「もう一回」を誘発）
+			const sec = Math.abs(timingOffsetMs) / 1000;
+			$msg.textContent = `${sec.toFixed(2)}秒${timingOffsetMs < 0 ? '早い' : '遅い'}！`;
 		} else {
 			$msg.textContent = 'MISS';
 		}
@@ -468,6 +525,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 			maxCombo,
 			distancePx: Math.round(d * scale),
 			nearMissPx,
+			timingOffsetMs,
 		});
 
 		// 叩いたら必ずスロー → 次の的
@@ -496,6 +554,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 			maxCombo,
 			distancePx: 0,
 			nearMissPx: 0,
+			timingOffsetMs: 0,
 		});
 		newTarget();
 	}
@@ -555,14 +614,31 @@ export function initGame(options: InitGameOptions): GameHandle {
 		ctx!.stroke();
 		ctx!.setLineDash([]);
 
-		// ターゲット（BPM で脈動。残り寿命が短いと薄くなる）
+		// ターゲット＋アプローチリング（入力拍に向けて外側の輪が縮んで重なる＝押す瞬間が目で分かる）
 		if (state !== 'over') {
 			const [tx, ty] = P(target.x, target.y);
 			const remain = target.expireAt - gameTime;
-			const rDraw = target.r * scale * (1 + 0.18 * beatPulse());
-			ctx!.globalAlpha = 0.35 + 0.65 * Math.min(1, remain / 0.5); // 消える直前0.5sだけフェード
+			const baseR = target.r * scale;
+
+			// アプローチリング：bornAt→hitAt で大きな輪が的の大きさへ収束する（重なった時が入力拍）
+			const lead = Math.max(0.001, target.hitAt - target.bornAt);
+			const prog = Math.min(1.3, Math.max(0, (gameTime - target.bornAt) / lead));
+			if (prog < 1.25) {
+				const approachR = baseR * (1 + 2.6 * Math.max(0, 1 - prog));
+				ctx!.globalAlpha = 0.2 + 0.55 * Math.min(1, prog);
+				ctx!.strokeStyle = col.blue;
+				ctx!.lineWidth = 2;
+				ctx!.beginPath();
+				ctx!.arc(tx, ty, approachR, 0, Math.PI * 2);
+				ctx!.stroke();
+			}
+
+			// 的本体（入力拍が近いほど明るく＋拍で脈動）
+			const near = Math.min(1, prog); // 0→1
+			const rDraw = baseR * (1 + 0.18 * beatPulse());
+			ctx!.globalAlpha = (0.4 + 0.6 * near) * Math.min(1, remain / 0.5);
 			ctx!.strokeStyle = col.yellow;
-			ctx!.lineWidth = 2.5 + 1.5 * beatPulse();
+			ctx!.lineWidth = 2.5 + (1.5 + 2 * near) * beatPulse();
 			ctx!.setLineDash([6, 6]);
 			ctx!.beginPath();
 			ctx!.arc(tx, ty, rDraw, 0, Math.PI * 2);
@@ -702,19 +778,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 		last = now;
 
 		if (state === 'playing' || state === 'slowmo') {
-			// timeScale：スロー最優先。通常は 難易度速度×（フィーバー1.3）。
-			// さらに Magnet Assist（的付近でスロー）を掛ける。
-			let ts: number;
-			if (state === 'slowmo') {
-				ts = SLOWMO_SCALE;
-			} else {
-				ts = baseSpeed * (fever ? FEVER_SPEED : 1);
-				if (preset.assist < 1) {
-					const [, , x2, y2] = tips(s);
-					const dPx = Math.hypot(x2 - target.x, y2 - target.y) * scale;
-					if (dPx < ASSIST_PX) ts *= preset.assist;
-				}
-			}
+			// 【リズム整合】的が生きている間の timeScale は必ず 1。
+			// フィーバー速度・アシスト・鬼speed で物理を伸縮させると「拍の時刻に先端が到達」が
+			// ズレて音と合わなくなるため、速度変更は入れない（スロー演出は的の無い hit 直後だけ）。
+			const ts = state === 'slowmo' ? SLOWMO_SCALE : 1;
 			// 固定タイムステップで積分（timeScale は「1フレームで進めるステップ数」を変えるだけ）。
 			// こうすると軌道が毎回同じ離散列になり、予測（predictPath）と完全一致する。
 			acc += dt * ts;
@@ -730,17 +797,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 			gameTime += dt; // 30秒は実時間で計る
 
-			// フィーバーの残り時間
+			// フィーバーの残り時間（速度は変えず、得点2倍＋演出だけ）
 			if (fever) {
 				feverT -= dt;
 				if (feverT <= 0) endFever();
-			}
-
-			// 拍の通知（視覚脈動と同じ gameTime 基準）。4拍ごとにアクセント。
-			const bi = Math.floor(gameTime / BEAT);
-			if (bi !== lastBeat) {
-				lastBeat = bi;
-				emit('beat', { index: bi, accent: bi % 4 === 0 });
 			}
 
 			if (state === 'slowmo') {
@@ -790,7 +850,6 @@ export function initGame(options: InitGameOptions): GameHandle {
 		setDifficulty(level: Difficulty) {
 			preset = DIFFICULTY_PRESETS[level];
 			TARGET_R = preset.targetR;
-			baseSpeed = preset.speed;
 			newGame();
 		},
 		restart() {
