@@ -3,15 +3,15 @@
 // AudioContext はブラウザの Autoplay 制限に配慮し、最初のユーザー操作後に開始する。
 // ミュート状態は localStorage に保持する。
 
-import type { RoundKind } from './chaos-pendulum';
+import type { HitKind } from './chaos-pendulum';
 
 const MUTE_KEY = 'cp:muted';
 
 export interface GameAudio {
-	/** STOP 入力のごく短いクリック音 */
+	/** 叩いた瞬間のごく短いクリック音 */
 	stopClick(): void;
-	/** ラウンド判定音（perfect / nice / miss / timeup） */
-	judgment(kind: RoundKind): void;
+	/** 判定音（perfect / great / good / near / miss） */
+	judgment(kind: HitKind): void;
 	/** 自己ベスト更新の特別な音 */
 	best(): void;
 	/** ランキング上位入りの祝福音 */
@@ -97,28 +97,32 @@ export function createAudio(): GameAudio {
 			// 短く控えめなクリック（主張しすぎない）
 			tone(1200, 0, 0.04, 'triangle', 0.12);
 		},
-		judgment(kind: RoundKind) {
+		judgment(kind: HitKind) {
 			switch (kind) {
 				case 'perfect':
-					// 駆け上がる明るいアルペジオ＋高音のきらめき（達成感を強めた祝福音）
+					// 駆け上がる明るいアルペジオ＋高音のきらめき（最高の祝福音）
 					tone(784, 0, 0.09, 'triangle', 0.2); // G5
 					tone(988, 0.06, 0.09, 'triangle', 0.2); // B5
 					tone(1319, 0.12, 0.11, 'triangle', 0.22); // E6
 					tone(1976, 0.2, 0.2, 'triangle', 0.22); // B6
 					tone(2637, 0.22, 0.16, 'sine', 0.12); // E7 きらめき
 					break;
-				case 'nice':
-					// 気持ちよく上がる2音（PERFECT よりは控えめ）
+				case 'great':
+					// 気持ちよく上がる2音
 					tone(660, 0, 0.1, 'triangle', 0.16); // E5
 					tone(988, 0.08, 0.13, 'triangle', 0.17); // B5
 					break;
-				case 'miss':
-					// 低く少し濁った音（不快すぎない）
-					tone(180, 0, 0.16, 'sawtooth', 0.14, 150);
+				case 'good':
+					// 軽い単音
+					tone(587, 0, 0.1, 'triangle', 0.14); // D5
 					break;
-				case 'timeup':
-					// 乾いた失敗音（下降）
-					tone(220, 0, 0.22, 'square', 0.13, 110);
+				case 'near':
+					// 惜しい（軽く濁る）
+					tone(300, 0, 0.12, 'sawtooth', 0.12, 240);
+					break;
+				case 'miss':
+					// 低く少し濁った失敗音（不快すぎない）
+					tone(180, 0, 0.16, 'sawtooth', 0.14, 150);
 					break;
 			}
 		},

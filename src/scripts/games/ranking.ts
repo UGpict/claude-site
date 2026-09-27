@@ -1,6 +1,5 @@
 // オンラインランキングとの通信（fetch）。
-// ゲームエンジンはこのモジュールに依存しない（API の存在を知らない）。
-// API が落ちていても呼び出し側がフォールバックできるよう、失敗時は例外を投げるだけにする。
+// ゲームエンジンはこのモジュールに依存しない。失敗時は例外を投げるだけにする（呼び出し側がフォールバック）。
 
 import type { Difficulty } from './chaos-pendulum';
 
@@ -10,7 +9,7 @@ export interface RankingEntry {
 	rank: number;
 	nickname: string;
 	score: number;
-	perfectCount: number;
+	maxCombo: number;
 	createdAt: string; // ISO8601
 }
 
@@ -18,19 +17,14 @@ export interface ScoreSubmission {
 	nickname: string;
 	difficulty: Difficulty;
 	score: number;
-	rounds: number;
-	duration: number;
+	maxCombo: number;
+	hits: number;
 	perfectCount: number;
-	averageDistance: number;
-	roundScores: number[];
-	roundDistances: number[];
 }
 
 export interface SubmitResult {
-	/** 「今日」の順位 */
 	rank: number;
 	period: RankingPeriod;
-	/** 各期間の順位（サーバーが返す場合） */
 	ranks?: Record<RankingPeriod, number>;
 }
 

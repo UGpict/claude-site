@@ -1,22 +1,19 @@
 // 自己ベストの保存（localStorage・ログイン不要・ブラウザ単位）。
-// ゲームエンジンはこのモジュールに依存しない。
-// 難易度ごとに別々のベストを持つ（易しいと鬼を混ぜない）。
+// ゲームエンジンはこのモジュールに依存しない。難易度ごとに別々のベストを持つ。
 
-// 難易度キー。'' は旧仕様（難易度なし）の後方互換キー。
 type DiffKey = 'easy' | 'normal' | 'hard' | 'oni';
-const bestKey = (difficulty: DiffKey) => `cp:best:${difficulty}`;
+// CHAOS BEAT はスコア基準が変わったので旧キー(cp:best:*)とは別名にする。
+const bestKey = (difficulty: DiffKey) => `cb:best:${difficulty}`;
 
 export interface PersonalBest {
 	bestScore: number;
-	bestPerfectCount: number;
-	bestAverageDistance: number;
+	bestMaxCombo: number;
 	bestRecordedAt: string; // ISO8601
 }
 
 export interface GameResultSummary {
 	score: number;
-	perfectCount: number;
-	averageDistance: number;
+	maxCombo: number;
 }
 
 export function getBest(difficulty: DiffKey = 'normal'): PersonalBest | null {
@@ -27,8 +24,7 @@ export function getBest(difficulty: DiffKey = 'normal'): PersonalBest | null {
 		if (typeof parsed.bestScore !== 'number') return null;
 		return {
 			bestScore: parsed.bestScore,
-			bestPerfectCount: parsed.bestPerfectCount ?? 0,
-			bestAverageDistance: parsed.bestAverageDistance ?? 0,
+			bestMaxCombo: parsed.bestMaxCombo ?? 0,
 			bestRecordedAt: parsed.bestRecordedAt ?? '',
 		};
 	} catch {
@@ -36,26 +32,17 @@ export function getBest(difficulty: DiffKey = 'normal'): PersonalBest | null {
 	}
 }
 
-/**
- * 今回の結果で自己ベストを更新する。
- * スコアが従来ベストを上回ったときだけ NEW BEST 扱いで保存する。
- */
+/** 今回の結果で自己ベストを更新する（スコアが上回ったときだけ NEW BEST 扱い）。 */
 export function updateBest(
 	result: GameResultSummary,
 	difficulty: DiffKey = 'normal',
-): {
-	isNewBest: boolean;
-	best: PersonalBest;
-} {
+): { isNewBest: boolean; best: PersonalBest } {
 	const prev = getBest(difficulty);
 	const isNewBest = !prev || result.score > prev.bestScore;
-	if (!isNewBest && prev) {
-		return { isNewBest: false, best: prev };
-	}
+	if (!isNewBest && prev) return { isNewBest: false, best: prev };
 	const best: PersonalBest = {
 		bestScore: result.score,
-		bestPerfectCount: result.perfectCount,
-		bestAverageDistance: result.averageDistance,
+		bestMaxCombo: result.maxCombo,
 		bestRecordedAt: new Date().toISOString(),
 	};
 	try {

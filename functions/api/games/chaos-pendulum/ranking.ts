@@ -1,8 +1,7 @@
-// Cloudflare Pages Function: ランキング取得 API
-//   GET /api/games/chaos-pendulum/ranking?period=daily|weekly|all
+// Cloudflare Pages Function: ランキング取得 API（CHAOS BEAT）
+//   GET /api/games/chaos-pendulum/ranking?period=daily|weekly|all&difficulty=easy|normal|hard|oni
 //
-// D1（binding 名: DB）から TOP10 を返す。並び順は
-//   score DESC, perfect_count DESC, average_distance ASC, created_at ASC。
+// D1（binding 名: DB）から、同じ難易度の TOP10 を返す。並びは score DESC, max_combo DESC, created_at ASC。
 
 interface D1PreparedStatement {
 	bind(...values: unknown[]): D1PreparedStatement;
@@ -36,8 +35,7 @@ const sanitizeDifficulty = (raw: string | null): string =>
 interface Row {
 	nickname: string;
 	score: number;
-	perfect_count: number;
-	difficulty: string;
+	max_combo: number;
 	created_at: string;
 }
 
@@ -51,12 +49,10 @@ export const onRequestGet = async (context: Ctx): Promise<Response> => {
 		periodParam === 'weekly' ? 'weekly' : periodParam === 'all' ? 'all' : 'daily';
 	const difficulty = sanitizeDifficulty(url.searchParams.get('difficulty'));
 
-	const cols = 'nickname, score, perfect_count, difficulty, created_at';
-	const order =
-		'ORDER BY score DESC, perfect_count DESC, average_distance ASC, created_at ASC LIMIT 10';
+	const cols = 'nickname, score, max_combo, created_at';
+	const order = 'ORDER BY score DESC, max_combo DESC, created_at ASC LIMIT 10';
 
 	try {
-		// 難易度ごとの素点ランキング（易しい/普通/難しい/鬼を別々に集計）。
 		let rows: Row[];
 		if (period === 'all') {
 			const r = await env.DB.prepare(
@@ -77,9 +73,8 @@ export const onRequestGet = async (context: Ctx): Promise<Response> => {
 		const top = rows.map((row, i) => ({
 			rank: i + 1,
 			nickname: row.nickname,
-			difficulty: row.difficulty,
 			score: row.score,
-			perfectCount: row.perfect_count,
+			maxCombo: row.max_combo,
 			createdAt: row.created_at,
 		}));
 

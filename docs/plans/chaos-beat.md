@@ -5,12 +5,18 @@ spec: [../specs/chaos-beat.md](../specs/chaos-beat.md) / design: [../design/chao
 チェックを1つずつ潰す。plan から外れる判断が出たら、コードより先に spec/design を直す。
 
 ## Phase 1 — コアループ（これだけで化ける）
+
+> ✅ 2026-09-27 実装・デプロイ済み（下記チェック項目は概ね完了）。手触りは実機で検証中。
+> 音は判定SEのみ（ビート音は Phase 2）。BPM脈動は視覚のみ実装。
 ### エンジン（chaos-pendulum.ts）
 - [ ] 状態機械を `playing/slowmo/over` に作り替え、`GAME_TIME=30` の実時間カウントに変更
 - [ ] `timeScale` を導入し、物理積分に掛ける（slowmo≈0.15／通常1.0／鬼1.3）
-- [ ] ターゲットを `{x,y,r,type,bornAt}` 化し、`newTarget()` で1つずつ出す
-- [ ] 叩く act()：距離→判定(kind)→基本点→`score += round(pts×comboMult)`→コンボ/ maxCombo 更新→slowmo→次の的
-- [ ] 判定しきい値（0.35R/0.7R/R/1.25R）とラベル(kind)を実装
+- [ ] ターゲットを `{x,y,r,bornAt}` 化し、`newTarget()` で1つずつ出す
+- [ ] **ターゲット寿命 TTL=3秒**：超過で MISS（コンボ切断・0点）→即次
+- [ ] **入力ロック**：act() 先頭で `if (state !== 'playing') return;`
+- [ ] 叩く act()：距離→判定(kind)→**GOOD以上なら combo+1→倍率再計算→`score += round(pts×mult)`**（NEAR/MISS は0点・combo=0）→ maxCombo 更新 →slowmo→次の的
+- [ ] 判定しきい値（0.35R/0.7R/R/1.25R、超or寿命切れ=miss）とラベル(kind)を実装
+- [ ] **BPM脈動（視覚）**：BPM=130 で描画時に的半径を脈動（判定距離は素のR）
 - [ ] 「あと Npx」用に nearMissPx を算出して payload へ
 - [ ] onEvent を作り替え（game_start / hit / game_over）。round_complete 等の5R名残を削除
 - [ ] 5ラウンド・「次へ」・timeout(15秒)・over時ボタン隠しなどの旧仕様を撤去

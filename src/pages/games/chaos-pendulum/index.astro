@@ -3,9 +3,9 @@ import Base from '../../../layouts/Base.astro';
 import ChaosPendulum from '../../../components/games/ChaosPendulum.astro';
 import AffiliateBanner from '../../../components/AffiliateBanner.astro';
 
-const title = 'カオス振り子ストップ｜二重振り子を狙って止めるブラウザゲーム';
+const title = 'CHAOS BEAT｜暴れる二重振り子をビートで叩くブラウザゲーム';
 const description =
-	'予測不能な二重振り子を、狙った位置でピタリと止められるか？全5ラウンド・各15秒のシンプルなブラウザゲーム。スマホでもPCでも、インストール不要ですぐ遊べます。';
+	'カオスに暴れる二重振り子を、拍に合わせて黄色い丸で叩け。30秒でコンボを繋ぎ、PERFECTを狙うリズム×カオスのブラウザゲーム。スマホでもPCでも、インストール不要ですぐ遊べます。';
 
 // OGP 画像は scripts/genThumbnails.mjs が /thumb/_game-chaos-pendulum.webp を生成する。
 ---
@@ -13,7 +13,7 @@ const description =
 <Base
 	title={title}
 	description={description}
-	shareTitle="カオス振り子ストップ"
+	shareTitle="CHAOS BEAT"
 	ogImage="/thumb/_game-chaos-pendulum.webp"
 >
 	<Fragment slot="head">
@@ -27,24 +27,24 @@ const description =
 
 	<article class="game-page">
 		<!-- 1. タイトル -->
-		<h1>カオス振り子ストップ</h1>
+		<h1>CHAOS BEAT</h1>
 
 		<!-- 2. 短い説明 -->
 		<p class="lead">
-			予測不能に暴れる<strong>二重振り子</strong>を、狙った位置でピタリと止めるゲームです。
-			ほんの少しのタイミングのズレで結果が大きく変わる「カオス」を体感してください。
-			全5ラウンド、1ラウンドは13〜20秒（難易度による）。各ラウンド0〜100点で採点します。
+			カオスに暴れる<strong>二重振り子</strong>を、拍に合わせて<strong>叩く</strong>リズムゲームです。
+			先端（ピンクのおもり）が黄色い丸に重なる一瞬をビートで狙い、コンボを繋いでいきます。
+			1ゲーム<strong>30秒</strong>。終わったらすぐ「もう一回」で最高記録を更新しましょう。
 		</p>
 
 		<!-- 3. 操作方法 -->
 		<section class="how-to">
-			<h2>操作方法</h2>
+			<h2>遊び方</h2>
 			<ul>
-				<li>先端（ピンクのおもり）を、黄色い丸の中で止められるほど高得点。</li>
-				<li><b>「止める」ボタン</b>／<b>画面タップ</b>／<b>スペースキー</b>のいずれかで止まります。</li>
-				<li>制限時間（難易度で13〜20秒）を過ぎると自動で0点になります。易しいほど的が大きく、時間も長めです。</li>
-				<li>止めたら「次へ」で次ラウンドへ。5ラウンドの合計点を競います。</li>
-				<li>難易度は<b>易しい／普通／難しい／鬼</b>の4段階。カオスな暴れ方はそのままに、主に<b>的の大きさ</b>と<b>制限時間</b>が変わります（鬼はさらに激しく＆極小）。<b>ランキングは難易度ごと</b>に分かれ、同じ難易度の中で点数を競います。</li>
+				<li><b>画面タップ</b>／<b>スペースキー</b>で「叩く」。先端が黄色い丸に近いほど高判定。</li>
+				<li>判定は <b>PERFECT / GREAT / GOOD</b> が加点、<b>NEAR MISS / MISS</b> は0点。GOOD以上で<b>コンボ</b>が伸びます。</li>
+				<li>コンボが伸びると<b>倍率アップ</b>（3→×1.2 / 5→×1.5 / 10→×2.0）。MISS でコンボは途切れます。</li>
+				<li>的は<b>約3秒で消えて次へ</b>。BPM で脈動するので、拍に乗って叩くのがコツ。</li>
+				<li>難易度は<b>易しい／普通／難しい／鬼</b>の4段階。カオスはそのまま、<b>的の大きさ</b>（鬼は速度も）が変わります。<b>ランキングは難易度ごと</b>にスコアと最大コンボで競います。</li>
 			</ul>
 		</section>
 
@@ -95,28 +95,30 @@ const description =
 	const note = document.querySelector<HTMLElement>('[data-share-note]');
 
 	let lastScore: number | null = null;
-	const ROUNDS = 5;
+	let lastCombo = 0;
 
-	function buildShareText(score: number): string {
+	function buildShareText(score: number, maxCombo: number): string {
 		return (
-			`カオス振り子ストップで${score}点！\n\n` +
-			`予測不能な二重振り子を\n狙った位置で止めるゲーム。\n\n` +
-			`あなたは何点取れる？\n\n#カオス振り子ストップ`
+			`CHAOS BEAT で ${score}点（最大${maxCombo}コンボ）！\n\n` +
+			`暴れる二重振り子を\nビートに合わせて叩くゲーム。\n\n` +
+			`あなたは何点取れる？\n\n#CHAOSBEAT`
 		);
 	}
 
 	document.addEventListener('chaospendulum:complete', (e) => {
-		const detail = (e as CustomEvent<{ score: number; rounds: number; duration: number }>).detail;
+		const detail = (e as CustomEvent<{ score: number; maxCombo: number }>).detail;
 		if (!detail) return;
 		lastScore = detail.score;
+		lastCombo = detail.maxCombo;
 		if (btn) btn.disabled = false;
-		if (note) note.textContent = `今回のスコアは ${detail.score} / ${ROUNDS * 100} 点。シェアできます！`;
+		if (note)
+			note.textContent = `今回は ${detail.score}点・最大${detail.maxCombo}コンボ。シェアできます！`;
 	});
 
 	btn?.addEventListener('click', async () => {
 		if (lastScore == null) return;
 		const url = window.location.href;
-		const text = buildShareText(lastScore);
+		const text = buildShareText(lastScore, lastCombo);
 
 		trackGameEvent('score_share', { score: lastScore });
 

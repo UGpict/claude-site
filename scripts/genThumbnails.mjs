@@ -274,7 +274,7 @@ async function main() {
 
 	// ミニゲーム（一覧＋各ゲーム）
 	await write('_games.webp', await renderCard({ title: 'ミニゲーム', label: 'ゲーム', colors: GAME_COLOR }));
-	await write('_game-chaos-pendulum.webp', await renderCard({ title: 'カオス振り子ストップ', label: 'ゲーム', colors: GAME_COLOR }));
+	await write('_game-chaos-pendulum.webp', await renderCard({ title: 'CHAOS BEAT', label: 'ゲーム', colors: GAME_COLOR }));
 
 	console.log(`[thumb] ${made} 件のサムネを生成（記事＋ページ）`);
 }
