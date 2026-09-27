@@ -1,0 +1,124 @@
+---
+import Base from '../../layouts/Base.astro';
+
+// 将来ゲームを増やすときはこの配列に足すだけでカードが並ぶ。
+const games = [
+	{
+		slug: 'chaos-pendulum',
+		title: 'カオス振り子ストップ',
+		description:
+			'予測不能な二重振り子を、狙った黄色い丸の中で止めるゲーム。全5ラウンド・各15秒で高得点を狙おう。',
+		thumbnail: '/games/chaos-pendulum/thumbnail.svg',
+	},
+];
+
+const title = 'ミニゲーム一覧';
+const description =
+	'ブラウザで遊べるミニゲームの一覧。まずは二重振り子を狙った位置で止める「カオス振り子ストップ」から。';
+---
+
+<Base title={title} description={description} ogImage="/thumb/_games.webp">
+	<div class="games-page">
+		<h1>ミニゲーム</h1>
+		<p class="lead">
+			ブラウザでそのまま遊べるミニゲームをまとめています。スマホでもPCでも、インストール不要でどうぞ。
+		</p>
+
+		<ul class="game-grid">
+			{
+				games.map((game) => (
+					<li class="game-card">
+						<a href={`/games/${game.slug}/`}>
+							<div class="thumb">
+								<img
+									src={game.thumbnail}
+									alt=""
+									width="640"
+									height="360"
+									loading="lazy"
+								/>
+							</div>
+							<div class="card-body">
+								<h2>{game.title}</h2>
+								<p>{game.description}</p>
+								<span class="play">遊ぶ →</span>
+							</div>
+						</a>
+					</li>
+				))
+			}
+		</ul>
+	</div>
+</Base>
+
+<style>
+	.games-page {
+		width: 100%;
+		max-width: 900px;
+		margin: 0 auto;
+	}
+	.games-page h1 {
+		font-size: 1.9rem;
+		margin: 0 0 0.4em;
+	}
+	.lead {
+		color: #444444;
+		margin: 0 0 2em;
+		line-height: 1.8;
+	}
+	.game-grid {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+		gap: 1.4rem;
+	}
+	.game-card {
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 14px;
+		overflow: hidden;
+		background: #ffffff;
+		transition:
+			transform 0.15s ease,
+			box-shadow 0.15s ease;
+	}
+	.game-card:hover {
+		transform: translateY(-3px);
+		box-shadow: var(--box-shadow, 0 6px 20px rgba(0, 0, 0, 0.12));
+	}
+	.game-card a {
+		display: block;
+		text-decoration: none;
+		color: inherit;
+	}
+	.thumb {
+		aspect-ratio: 16 / 9;
+		background: #2f3e37;
+	}
+	.thumb img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.card-body {
+		padding: 1rem 1.1rem 1.2rem;
+	}
+	.card-body h2 {
+		font-size: 1.2rem;
+		margin: 0 0 0.5em;
+		border: none;
+		padding: 0;
+	}
+	.card-body p {
+		font-size: 0.95rem;
+		line-height: 1.7;
+		color: #444444;
+		margin: 0 0 0.9em;
+	}
+	.play {
+		font-weight: 700;
+		color: var(--accent);
+	}
+</style>

@@ -41,6 +41,8 @@ const CAT_COLOR = {
 	記事: ['#eef1f6', '#dde3ee'],
 };
 const DEFAULT_COLOR = ['#e7eeff', '#d3dfff'];
+// ミニゲーム用（記事カテゴリとは別枠。金×ピンクの遊び心のある配色）
+const GAME_COLOR = ['#fdf3df', '#ffe1ea'];
 
 function frontmatter(src) {
 	const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -269,6 +271,10 @@ async function main() {
 	for (const cat of [...new Set(Object.values(CATEGORY))]) {
 		await write(`_cat-${cat}.webp`, await renderCard({ title: `「${cat}」の記事`, label: cat, colors: CAT_COLOR[cat] ?? CAT_COLOR['記事'] }));
 	}
+
+	// ミニゲーム（一覧＋各ゲーム）
+	await write('_games.webp', await renderCard({ title: 'ミニゲーム', label: 'ゲーム', colors: GAME_COLOR }));
+	await write('_game-chaos-pendulum.webp', await renderCard({ title: 'カオス振り子ストップ', label: 'ゲーム', colors: GAME_COLOR }));
 
 	console.log(`[thumb] ${made} 件のサムネを生成（記事＋ページ）`);
 }

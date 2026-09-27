@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="640" height="360" role="img" aria-label="カオス振り子ストップ">
+  <rect width="640" height="360" fill="#2F3E37"/>
+  <!-- 可動範囲 -->
+  <circle cx="320" cy="170" r="120" fill="none" stroke="rgba(236,232,220,.25)" stroke-width="1.5" stroke-dasharray="2 8"/>
+  <!-- ターゲット -->
+  <g stroke="#F2D06B" stroke-width="2.5" fill="none">
+    <circle cx="430" cy="230" r="26" stroke-dasharray="6 6"/>
+    <path d="M420 230h20 M430 220v20"/>
+  </g>
+  <!-- 軌跡 -->
+  <path d="M320 170 C 360 120, 300 90, 250 130 S 210 220, 270 250 S 380 250, 415 218"
+        fill="none" stroke="#EE93A8" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+  <!-- 距離線 -->
+  <line x1="415" y1="218" x2="430" y2="230" stroke="#8CC7E0" stroke-width="2" stroke-dasharray="4 5"/>
+  <!-- 振り子 -->
+  <g stroke="#ECE8DC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="#ECE8DC">
+    <polyline points="320,170 360,240 415,218" fill="none"/>
+    <circle cx="320" cy="170" r="5"/>
+    <circle cx="360" cy="240" r="10"/>
+    <circle cx="415" cy="218" r="12" fill="#EE93A8" stroke="none"/>
+  </g>
+  <!-- タイトル -->
+  <text x="40" y="70" fill="#ECE8DC" font-family="'Klee One','Hiragino Maru Gothic ProN','Yu Gothic',sans-serif" font-size="34" font-weight="600">カオス振り子ストップ</text>
+  <text x="40" y="110" fill="#F2D06B" font-family="'Klee One','Hiragino Maru Gothic ProN','Yu Gothic',sans-serif" font-size="18">予測不能な二重振り子を、狙った位置で止める</text>
+</svg>

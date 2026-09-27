@@ -1,0 +1,239 @@
+---
+import Base from '../../../layouts/Base.astro';
+import ChaosPendulum from '../../../components/games/ChaosPendulum.astro';
+
+const title = 'カオス振り子ストップ｜二重振り子を狙って止めるブラウザゲーム';
+const description =
+	'予測不能な二重振り子を、狙った位置でピタリと止められるか？全5ラウンド・各15秒のシンプルなブラウザゲーム。スマホでもPCでも、インストール不要ですぐ遊べます。';
+
+// OGP 画像は scripts/genThumbnails.mjs が /thumb/_game-chaos-pendulum.webp を生成する。
+---
+
+<Base
+	title={title}
+	description={description}
+	shareTitle="カオス振り子ストップ"
+	ogImage="/thumb/_game-chaos-pendulum.webp"
+>
+	<Fragment slot="head">
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&display=swap"
+			rel="stylesheet"
+		/>
+	</Fragment>
+
+	<article class="game-page">
+		<!-- 1. タイトル -->
+		<h1>カオス振り子ストップ</h1>
+
+		<!-- 2. 短い説明 -->
+		<p class="lead">
+			予測不能に暴れる<strong>二重振り子</strong>を、狙った位置でピタリと止めるゲームです。
+			ほんの少しのタイミングのズレで結果が大きく変わる「カオス」を体感してください。
+			全5ラウンド、各ラウンド15秒。0〜100点で採点します。
+		</p>
+
+		<!-- 3. 操作方法 -->
+		<section class="how-to">
+			<h2>操作方法</h2>
+			<ul>
+				<li>先端（ピンクのおもり）を、黄色い丸の中で止められるほど高得点。</li>
+				<li><b>「止める」ボタン</b>／<b>画面タップ</b>／<b>スペースキー</b>のいずれかで止まります。</li>
+				<li>制限時間（15秒）を過ぎると自動で0点になります。</li>
+				<li>止めたら「次へ」で次ラウンドへ。5ラウンドの合計点を競います。</li>
+			</ul>
+		</section>
+
+		<!-- 4. ゲーム本体 ＋ 5. 結果表示（コンポーネント内のメッセージ／キャンバス演出） -->
+		<section class="play-area">
+			<ChaosPendulum />
+		</section>
+
+		<!-- 6. SNS シェア -->
+		<section class="share">
+			<h2>スコアをシェア</h2>
+			<p class="share-note" data-share-note>ゲームを1回遊ぶと、スコア付きでシェアできます。</p>
+			<button type="button" class="share-btn" data-share-btn disabled>結果をシェア</button>
+		</section>
+
+		<!-- 誤タップ防止のため、ゲーム操作領域から十分に離してから広告枠を置く -->
+		<div class="ad-gap" aria-hidden="true"></div>
+
+		<!-- 7. 広告枠（プレースホルダー。実広告は既存の AdSense 運用に合わせて後日差し込む） -->
+		<!-- TODO(ads): AdSense の広告ユニットを入れる場合はここに。ゲーム操作直近には置かないこと。 -->
+		<div class="ad-slot" aria-hidden="true"></div>
+
+		<!-- 8. 「このゲームをどう作ったか」記事への導線 -->
+		<section class="making-of">
+			<h2>このゲームの作り方</h2>
+			<!-- TODO(article): 制作記録の記事を書いたら、ここを実リンクに差し替える。
+			     まだ未公開なので、既存の制作記録カテゴリへ誘導しておく。 -->
+			<p>
+				このゲームを Claude と一緒に作った過程は、制作記録として近日公開予定です。
+				AI との開発の進め方は
+				<a href="/blog/shoshinsha-hitokara-tsukutta/">制作記録の記事</a>もあわせてどうぞ。
+			</p>
+		</section>
+
+		<!-- 9. 関連記事領域 -->
+		<section class="related">
+			<h2>関連記事</h2>
+			<ul>
+				<li><a href="/blog/shoshinsha-hitokara-tsukutta/">HTML未経験から約1.5ヶ月でBtoBサイトを自作した話</a></li>
+				<li><a href="/blog/blog-jisaku-skill/">このブログを回している自作スキルの話</a></li>
+				<li><a href="/blog/ai-inyou-shinki-site/">新規サイトのGEO現在地レポート</a></li>
+			</ul>
+		</section>
+	</article>
+</Base>
+
+<script>
+	import { trackGameEvent } from '../../../scripts/games/analytics';
+
+	const btn = document.querySelector<HTMLButtonElement>('[data-share-btn]');
+	const note = document.querySelector<HTMLElement>('[data-share-note]');
+
+	let lastScore: number | null = null;
+	const ROUNDS = 5;
+
+	function buildShareText(score: number): string {
+		return (
+			`カオス振り子ストップで${score}点！\n\n` +
+			`予測不能な二重振り子を\n狙った位置で止めるゲーム。\n\n` +
+			`あなたは何点取れる？\n\n#カオス振り子ストップ`
+		);
+	}
+
+	document.addEventListener('chaospendulum:complete', (e) => {
+		const detail = (e as CustomEvent<{ score: number; rounds: number; duration: number }>).detail;
+		if (!detail) return;
+		lastScore = detail.score;
+		if (btn) btn.disabled = false;
+		if (note) note.textContent = `今回のスコアは ${detail.score} / ${ROUNDS * 100} 点。シェアできます！`;
+	});
+
+	btn?.addEventListener('click', async () => {
+		if (lastScore == null) return;
+		const url = window.location.href;
+		const text = buildShareText(lastScore);
+
+		trackGameEvent('score_share', { score: lastScore });
+
+		// Web Share API が使える端末では将来的にそちらを優先できるよう分岐しておく。
+		if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+			try {
+				await navigator.share({ text, url });
+				return;
+			} catch {
+				// キャンセル等は握りつぶし、X へのフォールバックへ
+			}
+		}
+		const intent =
+			'https://twitter.com/intent/tweet?text=' +
+			encodeURIComponent(text) +
+			'&url=' +
+			encodeURIComponent(url);
+		window.open(intent, '_blank', 'noopener,noreferrer');
+	});
+</script>
+
+<style>
+	.game-page {
+		width: 100%;
+		max-width: 760px;
+		margin: 0 auto;
+	}
+	.game-page h1 {
+		font-size: 1.9rem;
+		line-height: 1.3;
+		margin: 0 0 0.6em;
+	}
+	.game-page h2 {
+		font-size: 1.35rem;
+		margin: 1.6em 0 0.6em;
+		padding-bottom: 0.25em;
+		border-bottom: 2px solid rgb(var(--gray-light));
+	}
+	.lead {
+		font-size: 1.05rem;
+		line-height: 1.9;
+		color: #333333;
+		margin: 0 0 1.6em;
+	}
+	.how-to ul {
+		line-height: 1.9;
+		color: #333333;
+		padding-left: 1.3em;
+	}
+	.how-to li {
+		margin-bottom: 0.35em;
+	}
+	.play-area {
+		margin: 1.2em 0 0.5em;
+	}
+
+	/* シェア */
+	.share {
+		margin-top: 1.4em;
+	}
+	.share-note {
+		color: #555555;
+		margin: 0 0 0.8em;
+	}
+	.share-btn {
+		font: inherit;
+		font-weight: 700;
+		font-size: 1rem;
+		background: var(--accent);
+		color: #ffffff;
+		border: none;
+		border-radius: 999px;
+		padding: 12px 30px;
+		cursor: pointer;
+	}
+	.share-btn:disabled {
+		background: rgb(var(--gray-light));
+		color: #888888;
+		cursor: not-allowed;
+	}
+
+	/* 広告はゲーム操作領域から十分に離す（タップ誤クリック防止） */
+	.ad-gap {
+		height: 3rem;
+	}
+	.ad-slot {
+		min-height: 120px;
+		margin: 0 auto 1rem;
+		border: 1px dashed rgb(var(--gray-light));
+		border-radius: 10px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.ad-slot::before {
+		content: '広告枠';
+		color: #aaaaaa;
+		font-size: 0.85rem;
+	}
+
+	.making-of p,
+	.related li {
+		line-height: 1.9;
+		color: #333333;
+	}
+	.related ul {
+		padding-left: 1.3em;
+	}
+	.related a,
+	.making-of a {
+		color: var(--accent);
+	}
+
+	@media (max-width: 720px) {
+		.game-page h1 {
+			font-size: 1.55rem;
+		}
+	}
+</style>

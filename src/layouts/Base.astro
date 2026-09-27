@@ -20,6 +20,7 @@ const { title, description, image, ogImage, shareTitle } = Astro.props;
 <html lang="ja">
 	<head>
 		<BaseHead title={title} description={description} image={image} ogImage={ogImage} />
+		<slot name="head" />
 	</head>
 	<body>
 		<Header />

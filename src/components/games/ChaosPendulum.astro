@@ -1,0 +1,660 @@
+---
+// カオス振り子ストップ — ゲーム UI（DOM + スタイル）と各モジュールの統合点。
+// ゲームロジックは src/scripts/games/chaos-pendulum.ts の initGame() が担う（Astro/GA4/広告/音/保存/通信に非依存）。
+// このコンポーネントが、エンジンの onEvent を
+//   - analytics.ts（GA4）
+//   - audio.ts（効果音）
+//   - storage.ts（自己ベスト）
+//   - ranking.ts（オンラインランキング）
+// へ橋渡しする。広告・ブログ導線などページ全体の要素はページ側に置く。
+---
+
+<div class="cp-wrap" data-cp-root>
+	<div class="cp-game">
+		<header class="cp-header">
+			<h2 class="cp-title">カオス振り子ストップ</h2>
+			<div class="cp-head-right">
+				<div class="cp-stats">
+					<span>ラウンド <b data-cp-round>1</b> / 5</span>
+					<span>合計 <b data-cp-total>0</b> 点</span>
+				</div>
+				<button type="button" class="cp-mute" data-cp-mute aria-pressed="false" title="効果音のオン/オフ">
+					🔊 音オン
+				</button>
+			</div>
+		</header>
+		<div class="cp-timebar" aria-hidden="true"><i data-cp-time></i></div>
+		<div class="cp-stage">
+			<canvas data-cp-canvas aria-label="二重振り子のゲーム画面"></canvas>
+		</div>
+		<footer class="cp-footer">
+			<button type="button" data-cp-act>止める</button>
+			<p data-cp-msg aria-live="polite">
+				先端のおもりを黄色い丸の中で止めよう。スペースキーや画面タップでも止まります。
+			</p>
+		</footer>
+		<p class="cp-detail" data-cp-detail aria-live="polite"></p>
+	</div>
+
+	<!-- 結果パネル（ゲーム完走後に表示） -->
+	<section class="cp-result" data-cp-result hidden aria-live="polite">
+		<div class="cp-result-head">
+			<div class="cp-score-block">
+				<span class="cp-score-label">今回のスコア</span>
+				<span class="cp-score-value"><b data-cp-final>0</b> <small>/ 500</small></span>
+			</div>
+			<div class="cp-best-block">
+				<span class="cp-best-label">自己ベスト</span>
+				<span class="cp-best-value"><b data-cp-best>0</b> <small>/ 500</small></span>
+			</div>
+			<span class="cp-newbest" data-cp-newbest hidden>NEW BEST!</span>
+		</div>
+
+		<div class="cp-submit">
+			<label class="cp-nick-label" for="cp-nick">ニックネーム（任意・未入力は「名無し」）</label>
+			<div class="cp-submit-row">
+				<input
+					id="cp-nick"
+					type="text"
+					data-cp-nick
+					maxlength="20"
+					placeholder="名無し"
+					autocomplete="off"
+				/>
+				<button type="button" class="cp-submit-btn" data-cp-submit>ランキングに登録</button>
+			</div>
+			<p class="cp-submit-status" data-cp-submit-status aria-live="polite"></p>
+		</div>
+	</section>
+
+	<!-- ランキング -->
+	<section class="cp-ranking" data-cp-ranking>
+		<div class="cp-ranking-head">
+			<h3>ランキング</h3>
+			<div class="cp-tabs" role="tablist">
+				<button type="button" class="cp-tab active" data-period="daily">今日</button>
+				<button type="button" class="cp-tab" data-period="weekly">今週</button>
+				<button type="button" class="cp-tab" data-period="all">歴代</button>
+			</div>
+		</div>
+		<ol class="cp-rank-list" data-cp-rank-list></ol>
+		<p class="cp-rank-status" data-cp-rank-status>ゲームを遊ぶとランキングが表示されます。</p>
+	</section>
+</div>
+
+<script>
+	import { initGame, type GameEventName, type GameEventPayloads } from '../../scripts/games/chaos-pendulum';
+	import { trackGameEvent } from '../../scripts/games/analytics';
+	import { createAudio } from '../../scripts/games/audio';
+	import { updateBest } from '../../scripts/games/storage';
+	import {
+		getRanking,
+		submitScore,
+		type RankingEntry,
+		type RankingPeriod,
+	} from '../../scripts/games/ranking';
+
+	const root = document.querySelector<HTMLElement>('[data-cp-root]');
+	if (root) {
+		const q = <T extends HTMLElement>(sel: string) => root.querySelector<T>(sel);
+
+		const canvas = q<HTMLCanvasElement>('[data-cp-canvas]');
+		const round = q('[data-cp-round]');
+		const total = q('[data-cp-total]');
+		const time = q('[data-cp-time]');
+		const msg = q('[data-cp-msg]');
+		const act = q('[data-cp-act]');
+		const muteBtn = q<HTMLButtonElement>('[data-cp-mute]');
+		const detail = q('[data-cp-detail]');
+		const resultPanel = q('[data-cp-result]');
+		const finalEl = q('[data-cp-final]');
+		const bestEl = q('[data-cp-best]');
+		const newBestBadge = q('[data-cp-newbest]');
+		const nickInput = q<HTMLInputElement>('[data-cp-nick]');
+		const submitBtn = q<HTMLButtonElement>('[data-cp-submit]');
+		const submitStatus = q('[data-cp-submit-status]');
+		const rankList = q<HTMLOListElement>('[data-cp-rank-list]');
+		const rankStatus = q('[data-cp-rank-status]');
+		const rankTabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-period]'));
+
+		if (canvas && round && total && time && msg && act) {
+			const audio = createAudio();
+
+			// --- ミュートボタン ---
+			const renderMute = () => {
+				if (!muteBtn) return;
+				const m = audio.isMuted();
+				muteBtn.textContent = m ? '🔇 音オフ' : '🔊 音オン';
+				muteBtn.setAttribute('aria-pressed', String(m));
+			};
+			renderMute();
+			muteBtn?.addEventListener('click', () => {
+				const m = audio.toggleMute();
+				renderMute();
+				trackGameEvent('sound_toggle', { muted: m });
+			});
+
+			const labelOf = (kind: string) =>
+				kind === 'perfect' ? 'PERFECT' : kind === 'nice' ? 'NICE' : kind === 'timeup' ? 'TIME UP' : 'MISS';
+
+			// --- ランキング表示 ---
+			let currentPeriod: RankingPeriod = 'daily';
+			let rankingViewed = false;
+
+			const renderRanking = (entries: RankingEntry[]) => {
+				if (!rankList) return;
+				rankList.replaceChildren(); // 既存を安全にクリア
+				for (const e of entries) {
+					const li = document.createElement('li');
+					const rk = document.createElement('span');
+					rk.className = 'rk';
+					rk.textContent = String(e.rank);
+					const nm = document.createElement('span');
+					nm.className = 'nm';
+					nm.textContent = e.nickname; // textContent なので HTML は挿入されない（XSS 安全）
+					const sc = document.createElement('span');
+					sc.className = 'sc';
+					sc.textContent = `${e.score}`;
+					const pf = document.createElement('span');
+					pf.className = 'pf';
+					pf.textContent = `P${e.perfectCount}`;
+					li.append(rk, nm, sc, pf);
+					rankList.append(li);
+				}
+			};
+
+			const loadRanking = async (period: RankingPeriod) => {
+				if (rankStatus) rankStatus.textContent = '読み込み中…';
+				try {
+					const entries = await getRanking(period);
+					renderRanking(entries);
+					if (rankStatus)
+						rankStatus.textContent = entries.length ? '' : 'まだ記録がありません。';
+				} catch {
+					// API 障害時のフォールバック（ゲーム本体には影響しない）
+					if (rankList) rankList.replaceChildren();
+					if (rankStatus) rankStatus.textContent = 'ランキングを取得できませんでした';
+				}
+			};
+
+			rankTabs.forEach((btn) =>
+				btn.addEventListener('click', () => {
+					const p = (btn.dataset.period as RankingPeriod) ?? 'daily';
+					currentPeriod = p;
+					rankTabs.forEach((b) => b.classList.toggle('active', b === btn));
+					trackGameEvent('ranking_view', { period: p });
+					loadRanking(p);
+				}),
+			);
+
+			// --- 結果集計・登録用の状態 ---
+			interface RoundData {
+				round: number;
+				score: number;
+				distance: number;
+				perfect: boolean;
+				kind: string;
+				overshoot: number;
+			}
+			let rounds: RoundData[] = [];
+			let lastResult: {
+				score: number;
+				rounds: number;
+				duration: number;
+				perfectCount: number;
+				averageDistance: number;
+				roundScores: number[];
+				roundDistances: number[];
+			} | null = null;
+			let submitted = false;
+
+			initGame({
+				canvas,
+				elements: { round, total, time, msg, act },
+				onEvent(name: GameEventName, payload: GameEventPayloads[GameEventName]) {
+					// 計測（GA4）。エンジンは送信先を知らない。
+					trackGameEvent(name, (payload as Record<string, unknown>) ?? {});
+
+					if (name === 'game_start') {
+						rounds = [];
+						submitted = false;
+						if (resultPanel) resultPanel.hidden = true;
+						if (detail) detail.textContent = '';
+					}
+
+					if (name === 'round_complete') {
+						const p = payload as GameEventPayloads['round_complete'];
+						rounds.push(p);
+						// STOP のクリック音 → ごく短い間をおいて判定音（表示・音のみの調整。ロジックは遅延させない）
+						audio.stopClick();
+						window.setTimeout(() => audio.judgment(p.kind), 130);
+						if (detail) {
+							const extra =
+								p.kind === 'timeup'
+									? '時間切れ'
+									: p.perfect
+										? `誤差 ${p.distance.toFixed(3)}`
+										: `あと ${p.overshoot.toFixed(3)}`;
+							detail.textContent = `R${p.round} · ${labelOf(p.kind)} · ${p.score} pts · ${extra}`;
+						}
+					}
+
+					if (name === 'game_complete') {
+						const g = payload as GameEventPayloads['game_complete'];
+						const perfectCount = rounds.filter((r) => r.perfect).length;
+						const roundScores = rounds.map((r) => r.score);
+						const roundDistances = rounds.map((r) => r.distance);
+						const averageDistance = roundDistances.length
+							? roundDistances.reduce((a, b) => a + b, 0) / roundDistances.length
+							: 0;
+						lastResult = {
+							score: g.score,
+							rounds: g.rounds,
+							duration: g.duration,
+							perfectCount,
+							averageDistance,
+							roundScores,
+							roundDistances,
+						};
+
+						const { isNewBest, best } = updateBest({
+							score: g.score,
+							perfectCount,
+							averageDistance,
+						});
+
+						if (finalEl) finalEl.textContent = String(g.score);
+						if (bestEl) bestEl.textContent = String(best.bestScore);
+						if (newBestBadge) newBestBadge.hidden = !isNewBest;
+						if (submitStatus) submitStatus.textContent = '';
+						if (submitBtn) submitBtn.disabled = false;
+						submitted = false;
+						if (resultPanel) resultPanel.hidden = false;
+
+						if (isNewBest) {
+							window.setTimeout(() => audio.best(), 520);
+							trackGameEvent('personal_best', { score: g.score });
+						}
+
+						if (!rankingViewed) {
+							rankingViewed = true;
+							trackGameEvent('ranking_view', { period: currentPeriod });
+						}
+						loadRanking(currentPeriod);
+
+						// ページ側（X シェア枠など）が結果を受け取れるよう通知
+						document.dispatchEvent(new CustomEvent('chaospendulum:complete', { detail: g }));
+					}
+				},
+			});
+
+			// --- ランキング登録（プレイヤーが希望したときだけ・自動送信しない） ---
+			submitBtn?.addEventListener('click', async () => {
+				if (!lastResult || submitted) return;
+				const nickname = (nickInput?.value ?? '').trim() || '名無し';
+				submitBtn.disabled = true;
+				if (submitStatus) submitStatus.textContent = '登録中…';
+				trackGameEvent('ranking_submit', { score: lastResult.score });
+				try {
+					const res = await submitScore({ nickname, ...lastResult });
+					submitted = true;
+					if (submitStatus) submitStatus.textContent = `今日 ${res.rank}位`;
+					trackGameEvent('ranking_submit_success', {
+						score: lastResult.score,
+						rank: res.rank,
+						period: res.period,
+					});
+					if (res.rank <= 10) audio.rankUp();
+					loadRanking(currentPeriod);
+				} catch {
+					submitBtn.disabled = false;
+					if (submitStatus)
+						submitStatus.textContent = '登録に失敗しました。ゲーム結果は失われません。';
+					trackGameEvent('ranking_submit_error', {});
+				}
+			});
+		}
+	}
+</script>
+
+<style>
+	.cp-wrap {
+		width: 100%;
+	}
+
+	.cp-game {
+		/* 元 HTML の配色。色は CSS 変数としてエンジンから読み取られる */
+		--board: #2f3e37;
+		--board-deep: #1f2a25;
+		--chalk: #ece8dc;
+		--chalk-dim: rgba(236, 232, 220, 0.25);
+		--yellow: #f2d06b;
+		--pink: #ee93a8;
+		--blue: #8cc7e0;
+
+		display: flex;
+		flex-direction: column;
+		background: var(--board);
+		color: var(--chalk);
+		border-radius: 14px;
+		overflow: hidden;
+		box-shadow: var(--box-shadow, 0 4px 16px rgba(0, 0, 0, 0.2));
+		font-family: 'Klee One', 'Hiragino Maru Gothic ProN', 'Yu Gothic', sans-serif;
+		user-select: none;
+		-webkit-user-select: none;
+	}
+
+	.cp-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 12px;
+		flex-wrap: wrap;
+		padding: 14px 20px 0;
+	}
+	.cp-title {
+		font-size: 1.2rem;
+		font-weight: 600;
+		margin: 0;
+		color: var(--chalk);
+		border: none;
+		padding: 0;
+	}
+	.cp-head-right {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		flex-wrap: wrap;
+	}
+	.cp-stats {
+		display: flex;
+		gap: 20px;
+		font-size: 1rem;
+	}
+	.cp-stats b {
+		color: var(--yellow);
+		font-weight: 600;
+	}
+	.cp-mute {
+		font: inherit;
+		font-size: 0.85rem;
+		background: transparent;
+		color: var(--chalk);
+		border: 1px solid var(--chalk-dim);
+		border-radius: 999px;
+		padding: 5px 12px;
+		cursor: pointer;
+	}
+	.cp-mute:focus-visible {
+		outline: 2px solid var(--yellow);
+		outline-offset: 2px;
+	}
+
+	.cp-timebar {
+		height: 4px;
+		margin: 10px 20px 0;
+		background: var(--chalk-dim);
+		border-radius: 2px;
+		overflow: hidden;
+	}
+	.cp-timebar i {
+		display: block;
+		height: 100%;
+		width: 100%;
+		background: var(--chalk);
+	}
+
+	.cp-stage {
+		position: relative;
+		width: 100%;
+		height: min(70vh, 560px);
+		min-height: 320px;
+	}
+	.cp-stage canvas {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		display: block;
+		cursor: pointer;
+		touch-action: manipulation;
+	}
+
+	.cp-footer {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		flex-wrap: wrap;
+		padding: 12px 20px 6px;
+	}
+	.cp-footer button {
+		font: inherit;
+		font-size: 1.1rem;
+		font-weight: 600;
+		background: var(--chalk);
+		color: var(--board-deep);
+		border: none;
+		border-radius: 999px;
+		padding: 12px 34px;
+		cursor: pointer;
+		min-width: 9em;
+	}
+	.cp-footer button:focus-visible {
+		outline: 3px solid var(--yellow);
+		outline-offset: 3px;
+	}
+	.cp-footer p {
+		margin: 0;
+		font-size: 1rem;
+		min-height: 1.5em;
+		max-width: 60ch;
+		color: var(--chalk);
+	}
+	.cp-detail {
+		margin: 0;
+		padding: 0 20px 16px;
+		min-height: 1.4em;
+		font-size: 0.95rem;
+		color: var(--chalk);
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* 結果パネル（サイトの配色に合わせた無機質な実験装置風カード） */
+	.cp-result {
+		margin-top: 1.2rem;
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 12px;
+		padding: 1.1rem 1.2rem 1.3rem;
+		background: #fbfbfa;
+	}
+	.cp-result-head {
+		display: flex;
+		align-items: center;
+		gap: 1.6rem;
+		flex-wrap: wrap;
+	}
+	.cp-score-label,
+	.cp-best-label {
+		display: block;
+		font-size: 0.8rem;
+		color: rgb(var(--gray));
+	}
+	.cp-score-value,
+	.cp-best-value {
+		font-variant-numeric: tabular-nums;
+	}
+	.cp-score-value b {
+		font-size: 2rem;
+		color: var(--accent);
+	}
+	.cp-best-value b {
+		font-size: 1.4rem;
+	}
+	.cp-score-value small,
+	.cp-best-value small {
+		color: rgb(var(--gray));
+	}
+	.cp-newbest {
+		margin-left: auto;
+		font-weight: 700;
+		font-size: 0.95rem;
+		color: #ffffff;
+		background: var(--accent);
+		border-radius: 999px;
+		padding: 6px 14px;
+		animation: cp-pop 0.35s ease;
+	}
+	@keyframes cp-pop {
+		from {
+			transform: scale(0.6);
+			opacity: 0;
+		}
+		to {
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+
+	.cp-submit {
+		margin-top: 1rem;
+	}
+	.cp-nick-label {
+		display: block;
+		font-size: 0.85rem;
+		color: rgb(var(--gray));
+		margin-bottom: 0.4rem;
+	}
+	.cp-submit-row {
+		display: flex;
+		gap: 0.6rem;
+		flex-wrap: wrap;
+	}
+	.cp-submit-row input {
+		flex: 1 1 12rem;
+		min-width: 0;
+		font: inherit;
+		font-size: 1rem;
+		padding: 10px 12px;
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 8px;
+	}
+	.cp-submit-btn {
+		font: inherit;
+		font-weight: 700;
+		background: var(--accent);
+		color: #ffffff;
+		border: none;
+		border-radius: 8px;
+		padding: 10px 20px;
+		cursor: pointer;
+	}
+	.cp-submit-btn:disabled {
+		background: rgb(var(--gray-light));
+		color: #888888;
+		cursor: not-allowed;
+	}
+	.cp-submit-status {
+		margin: 0.6rem 0 0;
+		min-height: 1.3em;
+		font-weight: 600;
+		color: #333333;
+	}
+
+	/* ランキング */
+	.cp-ranking {
+		margin-top: 1.4rem;
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 12px;
+		padding: 1rem 1.2rem 1.2rem;
+	}
+	.cp-ranking-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.8rem;
+		flex-wrap: wrap;
+	}
+	.cp-ranking-head h3 {
+		margin: 0;
+		font-size: 1.15rem;
+	}
+	.cp-tabs {
+		display: flex;
+		gap: 0.35rem;
+	}
+	.cp-tab {
+		font: inherit;
+		font-size: 0.9rem;
+		background: transparent;
+		color: rgb(var(--gray));
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 999px;
+		padding: 5px 14px;
+		cursor: pointer;
+	}
+	.cp-tab.active {
+		background: var(--accent);
+		color: #ffffff;
+		border-color: var(--accent);
+	}
+	.cp-rank-list {
+		list-style: none;
+		margin: 1rem 0 0;
+		padding: 0;
+		font-variant-numeric: tabular-nums;
+	}
+	.cp-rank-list li {
+		display: grid;
+		grid-template-columns: 2.2rem 1fr auto auto;
+		align-items: center;
+		gap: 0.7rem;
+		padding: 0.5rem 0.2rem;
+		border-bottom: 1px solid rgb(var(--gray-light));
+	}
+	.cp-rank-list .rk {
+		font-weight: 700;
+		color: var(--accent);
+		text-align: right;
+	}
+	.cp-rank-list .nm {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.cp-rank-list .sc {
+		font-weight: 700;
+	}
+	.cp-rank-list .pf {
+		color: rgb(var(--gray));
+		font-size: 0.85rem;
+	}
+	.cp-rank-status {
+		margin: 0.8rem 0 0;
+		color: rgb(var(--gray));
+		font-size: 0.9rem;
+	}
+
+	@media (max-width: 520px) {
+		.cp-header {
+			padding: 12px 14px 0;
+		}
+		.cp-timebar {
+			margin: 8px 14px 0;
+		}
+		.cp-footer {
+			padding: 12px 14px 6px;
+			gap: 12px;
+		}
+		.cp-footer button {
+			padding: 11px 26px;
+			min-width: 8em;
+		}
+		.cp-detail {
+			padding: 0 14px 14px;
+		}
+		.cp-submit-row input,
+		.cp-submit-btn {
+			flex: 1 1 100%;
+		}
+	}
+</style>

@@ -1,0 +1,25 @@
+# Cloudflare Pages（Functions + D1）設定。
+# 静的サイトは Astro が dist/ に出力し、/functions 配下が Pages Functions として動く。
+#
+# ローカル実行:
+#   npm run build
+#   npx wrangler d1 migrations apply chaos_pendulum --local
+#   npx wrangler pages dev dist
+#
+# 本番:
+#   1) D1 作成:            npx wrangler d1 create chaos_pendulum
+#   2) 下の database_id を、作成時に表示された ID に置き換える
+#   3) マイグレーション:    npx wrangler d1 migrations apply chaos_pendulum --remote
+#   4) Pages プロジェクト設定の「D1 バインディング」で binding=DB / database=chaos_pendulum を紐付け
+#      （wrangler.toml をデプロイに使わない運用なら、ダッシュボードのバインディング設定が正）
+
+name = "yasashiibai"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "dist"
+
+# D1 バインディング（コード側は env.DB で参照）
+[[d1_databases]]
+binding = "DB"
+database_name = "chaos_pendulum"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
