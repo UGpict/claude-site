@@ -36,12 +36,14 @@ interface DifficultyPreset {
 	dist: [number, number];
 }
 
-// どれも「頑張れば届く」範囲に置く。易しい＝大きい的＋穏やかな揺れ、鬼＝小さい的＋最大級の暴れ。
+// カオス（激しく回る挙動）は全難易度で維持する。初期エネルギーを弱めると
+// 二重振り子がただの一重振り子のように穏やかになり、ゲームの主役が消えるため。
+// 難易度差は主に「的の大きさ」でつける（易しい＝大きい的、鬼＝極小の的）。
 export const DIFFICULTY_PRESETS: Record<Difficulty, DifficultyPreset> = {
-	easy: { targetR: 0.4, a1: [0.7, 1.4], a2: [0.6, 1.5], dist: [0.5, 1.3] },
-	normal: { targetR: 0.26, a1: [1.3, 2.2], a2: [1.1, 2.3], dist: [0.6, 1.6] },
+	easy: { targetR: 0.42, a1: [1.9, 3.0], a2: [1.6, 3.1], dist: [0.6, 1.5] },
+	normal: { targetR: 0.3, a1: [1.9, 3.0], a2: [1.5, 3.1], dist: [0.7, 1.7] },
 	hard: { targetR: 0.18, a1: [1.9, 3.0], a2: [1.4, 3.1], dist: [0.7, 1.8] },
-	oni: { targetR: 0.12, a1: [2.3, 3.3], a2: [2.0, 3.3], dist: [0.8, 1.9] },
+	oni: { targetR: 0.11, a1: [2.2, 3.3], a2: [2.0, 3.3], dist: [0.8, 1.9] },
 };
 
 export interface GameEventPayloads {
