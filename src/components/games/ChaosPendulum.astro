@@ -59,6 +59,8 @@
 			<span class="cp-newbest" data-cp-newbest hidden>NEW BEST!</span>
 		</div>
 
+		<p class="cp-choice-head">全5ラウンド終了！ この結果をどうする？</p>
+
 		<div class="cp-submit">
 			<label class="cp-nick-label" for="cp-nick">ニックネーム（任意・未入力は「名無し」）</label>
 			<div class="cp-submit-row">
@@ -70,12 +72,13 @@
 					placeholder="名無し"
 					autocomplete="off"
 				/>
-				<button type="button" class="cp-submit-btn" data-cp-submit>ランキングに登録</button>
+				<button type="button" class="cp-submit-btn" data-cp-submit>ランキングに入れる</button>
 			</div>
 			<p class="cp-submit-status" data-cp-submit-status aria-live="polite"></p>
 		</div>
 
 		<div class="cp-again">
+			<span class="cp-or">または</span>
 			<button type="button" class="cp-again-btn" data-cp-again>1 から始める</button>
 		</div>
 	</section>
@@ -302,7 +305,11 @@
 						if (submitStatus) submitStatus.textContent = '';
 						if (submitBtn) submitBtn.disabled = false;
 						submitted = false;
-						if (resultPanel) resultPanel.hidden = false;
+						if (resultPanel) {
+							resultPanel.hidden = false;
+							// 盤面タップでは再開しなくなったので、二択パネルへ視線を誘導する
+							resultPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+						}
 
 						if (isNewBest) {
 							window.setTimeout(() => audio.best(), 520);
@@ -624,8 +631,15 @@
 		}
 	}
 
+	.cp-choice-head {
+		margin: 1.1rem 0 0.6rem;
+		font-weight: 700;
+		font-size: 1rem;
+		color: #333333;
+	}
+
 	.cp-submit {
-		margin-top: 1rem;
+		margin-top: 0.4rem;
 	}
 	.cp-nick-label {
 		display: block;
@@ -675,7 +689,13 @@
 		padding-top: 1rem;
 		border-top: 1px solid rgb(var(--gray-light));
 		display: flex;
-		justify-content: center;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.6rem;
+	}
+	.cp-or {
+		font-size: 0.85rem;
+		color: rgb(var(--gray));
 	}
 	.cp-again-btn {
 		font: inherit;

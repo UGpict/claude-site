@@ -250,6 +250,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		popT = 0;
 		particles = [];
 		$round.textContent = String(round);
+		$act.style.display = ''; // 終了時に隠していた場合にそなえ、毎ラウンド戻す
 		$act.textContent = '止める';
 		$msg.textContent = '先端のおもりを黄色い丸の中で止めよう。';
 	}
@@ -315,8 +316,9 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 		state = round >= ROUNDS ? 'over' : 'stopped';
 		if (state === 'over') {
-			$msg.textContent = `${text}　最終スコアは ${total} / ${ROUNDS * 100} 点`;
-			$act.textContent = 'もう一度';
+			// 終了後は盤面ボタンを隠し、続行は結果パネルの二択に任せる
+			$act.style.display = 'none';
+			$msg.textContent = `${text}　最終スコアは ${total} / ${ROUNDS * 100} 点。下から選んでね。`;
 			const duration = Math.round((performance.now() - gameStartMs) / 1000);
 			emit('game_complete', { score: total, rounds: ROUNDS, duration });
 		} else {
@@ -330,10 +332,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 		else if (state === 'stopped') {
 			round++;
 			newRound();
-		} else {
-			emit('game_retry', undefined);
-			newGame();
 		}
+		// state === 'over'（全5ラウンド終了）では何もしない。
+		// 続行は結果パネルの「ランキングに入れる」か「1 から始める」の二択に委ねる
+		// （盤面タップやスペースで勝手に始まらないようにする）。
 	}
 
 	const onActClick = () => act();
