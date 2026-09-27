@@ -38,10 +38,13 @@ spec: [../specs/chaos-beat.md](../specs/chaos-beat.md) を満たす作り方。�
 - ループの物理積分ステップに `timeScale` を掛ける（`dt * timeScale` を積分に使う。実時間の経過＝30秒判定は実 dt で計る）。
 - slowmo 中：timeScale≈0.15。Magnet Assist（Phase2）：的付近で timeScale≈0.65。通常：1.0（鬼は 1.3）。
 
-## ターゲット生成
-- `newTarget()`：`ang=rand(0,2π)`, `dist=rand(distRange)` で配置（現行と同様、届く範囲）。
-- Phase 3 で「動く的」「ボーナス的（色・効果）」を `target.type` として拡張できるよう、
-  ターゲットを `{ x, y, r, type, bornAt }` の形に持たせる。
+## ターゲット生成（軌道上に置く）
+- ランダムな位置だと先端が通らず理不尽になる。→ **これから先端が通る軌道上**に置く。
+- `predictPath()`：現在の状態 s から通常速度・ループと同じ積分（PRED_DT=1/60, 10サブステップ）で
+  ~1.4秒先まで先端位置を予測。二重振り子はカオスなので horizon は短く保ち近い将来だけ信頼する。
+- `newTarget()`：予測パスの 0.5〜1.4秒先からランダムに1点を選び的にする。
+  到達予測時刻（idx×PRED_DT）＋猶予0.9秒を `expireAt` にし、通過後の間延びを防ぐ（見逃しでコンボ切断）。
+- ターゲットは `{ x, y, r, bornAt, expireAt }`。Phase 3 の動く的/ボーナス的は `type` を足して拡張。
 
 ## 判定しきい値
 - `R = TARGET_R`（難易度別・従来の targetR を流用）。

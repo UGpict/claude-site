@@ -101,7 +101,6 @@ type Vec = number[];
 export function initGame(options: InitGameOptions): GameHandle {
 	// --- ルール定数 ---
 	const GAME_TIME = 30; // 1ゲームの尺（秒・固定）
-	const TARGET_TTL = 3; // 的の寿命（秒）。超えたら見逃し（MISS）
 	const BPM = 130;
 	const BEAT = 60 / BPM;
 	const SLOWMO_TIME = 0.2; // 叩いた後のスロー時間（実秒）
@@ -176,6 +175,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 		y: number;
 		r: number;
 		bornAt: number;
+		/** この時刻を過ぎたら見逃し（予測到達時刻＋猶予で決める） */
+		expireAt: number;
 	}
 	let s: Vec; // [θ1, θ2, ω1, ω2]
 	let trail: [number, number][] = [];
@@ -276,10 +277,32 @@ export function initGame(options: InitGameOptions): GameHandle {
 		miss: 'MISS',
 	};
 
+	// これから先端が通る軌道を予測する（通常速度前提・ループと同じ積分で近い将来を精度良く）。
+	// 二重振り子はカオスなので遠い未来はズレる。だから horizon は短め（~1.4秒）に保つ。
+	const PRED_DT = 1 / 60;
+	function predictPath(): [number, number][] {
+		let sim = s.slice();
+		const path: [number, number][] = [];
+		const frames = Math.round(1.4 / PRED_DT);
+		for (let f = 0; f < frames; f++) {
+			for (let i = 0; i < 10; i++) sim = rk4(sim, PRED_DT / 10);
+			const [, , x2, y2] = tips(sim);
+			path.push([x2, y2]);
+		}
+		return path;
+	}
+
+	// 的は「ランダムな位置」ではなく「これから先端が通る軌道上」に置く（＝必ず通過して狙える）。
 	function newTarget() {
-		const ang = rand(0, Math.PI * 2),
-			dist = rand(preset.dist[0], preset.dist[1]);
-		target = { x: Math.sin(ang) * dist, y: Math.cos(ang) * dist, r: TARGET_R, bornAt: gameTime };
+		const path = predictPath();
+		const minF = Math.round(0.5 / PRED_DT); // 反応の猶予（0.5秒先以降）
+		const maxF = path.length - 1;
+		const idx = minF >= maxF ? maxF : minF + Math.floor(Math.random() * (maxF - minF));
+		const [x2now, y2now] = [tips(s)[2], tips(s)[3]];
+		const [tx, ty] = path[idx] ?? [x2now, y2now];
+		// 先端が到達するのは約 idx*PRED_DT 秒後。そこ＋猶予0.9秒で見逃し扱いにしてテンポを保つ。
+		const arrival = idx * PRED_DT;
+		target = { x: tx, y: ty, r: TARGET_R, bornAt: gameTime, expireAt: gameTime + arrival + 0.9 };
 	}
 
 	function newGame() {
@@ -481,9 +504,9 @@ export function initGame(options: InitGameOptions): GameHandle {
 		// ターゲット（BPM で脈動。残り寿命が短いと薄くなる）
 		if (state !== 'over') {
 			const [tx, ty] = P(target.x, target.y);
-			const life = Math.max(0, 1 - (gameTime - target.bornAt) / TARGET_TTL);
+			const remain = target.expireAt - gameTime;
 			const rDraw = target.r * scale * (1 + 0.18 * beatPulse());
-			ctx!.globalAlpha = 0.35 + 0.65 * Math.min(1, life * 2); // 消える直前だけフェード
+			ctx!.globalAlpha = 0.35 + 0.65 * Math.min(1, remain / 0.5); // 消える直前0.5sだけフェード
 			ctx!.strokeStyle = col.yellow;
 			ctx!.lineWidth = 2.5 + 1.5 * beatPulse();
 			ctx!.setLineDash([6, 6]);
@@ -650,7 +673,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 					state = 'playing';
 					newTarget();
 				}
-			} else if (gameTime - target.bornAt > TARGET_TTL) {
+			} else if (gameTime > target.expireAt) {
 				expireTarget();
 			}
 
