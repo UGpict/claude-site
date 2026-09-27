@@ -26,58 +26,81 @@ const description =
 	</Fragment>
 
 	<article class="game-page">
-		<!-- 1. タイトル＋一行説明（スマホで開いた瞬間にゲームが見えるよう最小限に） -->
-		<header class="game-head">
+		<!-- ① HERO：何をするゲームかを1〜2行で。説明より先に PLAY -->
+		<header class="hero">
 			<h1>CHAOS BEAT</h1>
-			<p class="tagline">暴れる二重振り子を、<strong>ビートに合わせて叩く</strong>60秒リズムゲーム</p>
+			<p class="hero-copy">音を聞いて、<br />振り子が丸に重なる瞬間を叩け。</p>
+			<div class="hero-cta">
+				<button type="button" class="play-btn" data-play-cta>▶ PLAY</button>
+				<p class="hero-meta">タップ / クリック / Space<br />1プレイ 約60秒</p>
+			</div>
 		</header>
 
-		<!-- 2. ゲーム本体（説明より先に置く＝すぐ遊べる） -->
+		<!-- ② GAME（TAP TO START で開始）→ ③ 遊び方 → ④ FEVER / コンボ → ⑤ ランキング（コンポーネント内） -->
 		<section class="play-area" aria-label="ゲーム">
-			<ChaosPendulum />
-		</section>
+			<ChaosPendulum>
+				<Fragment slot="guide">
+					<!-- ③ 遊び方：3ステップ（文章ではなく図＋一言） -->
+					<section class="howto" aria-labelledby="howto-title">
+						<h2 id="howto-title">遊び方は3ステップ</h2>
+						<ol class="steps">
+							<li class="step">
+								<div class="fig fig-sound" aria-hidden="true">
+									<span>♪</span><span>♪</span><span>♪</span><b>ドン！</b>
+								</div>
+								<p class="step-no">STEP 1</p>
+								<h3>音を聞く</h3>
+								<p>タン・タン・タン…… 次に押すタイミングを音が教えてくれます。</p>
+							</li>
+							<li class="step">
+								<div class="fig fig-ring" aria-hidden="true">
+									<i class="ring"></i><i class="dot-target"></i>
+								</div>
+								<p class="step-no">STEP 2</p>
+								<h3>輪を見る</h3>
+								<p>外側の輪が黄色い丸へ縮んでいきます。</p>
+							</li>
+							<li class="step">
+								<div class="fig fig-hit" aria-hidden="true">
+									<i class="dot-target"></i><i class="bob"></i><b>PERFECT!</b>
+								</div>
+								<p class="step-no">STEP 3</p>
+								<h3>ドン！で叩く</h3>
+								<p>振り子（ピンクの玉）が丸に重なる瞬間にタップ。</p>
+							</li>
+						</ol>
 
-		<!-- 3. 遊び方（アコーディオン。初期は閉じる。内容は検索エンジン向けに DOM に残す） -->
-		<section class="guide" aria-label="遊び方とルール">
-			<details class="acc" data-acc="howto">
-				<summary>遊び方（まずはここだけ）</summary>
-				<div class="acc-body">
-					<ol class="quick">
-						<li><b>TAP TO START</b> → 「3・2・1・GO」</li>
-						<li>「タン・タン・<b>ドン！</b>」の<b>ドン</b>で画面を<b>タップ</b>（PC はスペースキー）</li>
-						<li>縮んでくる<b>輪</b>が黄色い丸に重なる瞬間＝ドン。先端（ピンクの玉）が丸の中心に近いほど高判定</li>
-					</ol>
-					<p>
-						音だけでも GOOD 以上、振り子を目で見て微調整すると PERFECT が狙えます。的は<b>ドンの瞬間に先端が通る軌道上</b>に出ます。
-					</p>
-				</div>
-			</details>
+						<!-- 判定（色だけに頼らず文字で） -->
+						<dl class="judge" aria-label="判定">
+							<div><dt class="j-perfect">PERFECT</dt><dd>真ん中！</dd></div>
+							<div><dt class="j-great">GREAT</dt><dd>かなり近い</dd></div>
+							<div><dt class="j-good">GOOD</dt><dd>コンボ継続</dd></div>
+							<div><dt class="j-near">NEAR MISS</dt><dd>あと少し！</dd></div>
+							<div><dt class="j-miss">MISS</dt><dd>コンボ切れ</dd></div>
+						</dl>
+					</section>
 
-			<details class="acc" data-acc="rules">
-				<summary>判定・コンボ・CHAOS FEVER</summary>
-				<div class="acc-body">
-					<ul>
-						<li><b>PERFECT / GREAT / GOOD</b> が加点、<b>NEAR MISS / MISS</b> は0点。GOOD以上で<b>コンボ</b>が伸びます。</li>
-						<li>コンボで<b>倍率アップ</b>（3→×1.2 / 5→×1.5 / 10→×2.0）。コンボが伸びるほど曲の音が増えていきます。MISS で途切れます。</li>
-						<li><b>PERFECT を3連続</b>で <b>🔥CHAOS FEVER</b>（得点2倍・的が虹色に・曲が最高潮に）。MISS で解除。</li>
-					</ul>
-				</div>
-			</details>
-
-			<details class="acc" data-acc="song">
-				<summary>60秒の曲の流れ・難易度・ランキング</summary>
-				<div class="acc-body">
-					<p>
-						カオスに暴れる<strong>二重振り子</strong>を、拍に合わせて<strong>叩く</strong>リズムゲームです。
-						1ゲームは<strong>60秒で1曲</strong>。<b>INTRO</b>（やさしい譜面）→ <b>GROOVE</b> → <b>BUILD</b>（裏拍が増える）→
-						<b>CLIMAX</b>（いちばん難しく、曲も厚く）→ <b>FINAL</b>（最後の5カウント）と展開します。
-					</p>
-					<ul>
-						<li>難易度は<b>易しい／普通／難しい／鬼</b>の4段階。カオスと振り子の速さはそのまま、<b>的の大きさ</b>（と初期の暴れ方）が変わります。</li>
-						<li><b>ランキングは難易度ごと</b>にスコアと最大コンボで競います。終わったらすぐ「もう一回」で記録更新を狙いましょう。</li>
-					</ul>
-				</div>
-			</details>
+					<!-- ④ 目標：CHAOS FEVER とコンボ -->
+					<section class="goals" aria-label="目標">
+						<div class="goal goal-fever">
+							<p class="goal-kicker">PERFECT ×3</p>
+							<h2>🔥 CHAOS FEVER</h2>
+							<p class="goal-lead">PERFECTを3連続すると突入！</p>
+							<ul>
+								<li>スコア <b>×2</b></li>
+								<li>音楽が一気に豪華に</li>
+								<li>画面が虹色に変化</li>
+							</ul>
+						</div>
+						<div class="goal goal-combo">
+							<p class="goal-kicker">COMBO</p>
+							<h2>♪ 曲が育つ</h2>
+							<p class="goal-lead">コンボをつなぐと、<br />曲がどんどん完成していく。</p>
+							<p class="goal-note">MISS すると音が減ってしまう…</p>
+						</div>
+					</section>
+				</Fragment>
+			</ChaosPendulum>
 		</section>
 
 		<!-- 6. SNS シェア -->
@@ -92,6 +115,35 @@ const description =
 
 		<!-- 広告（楽天アフィリエイト。もしも経由・「スポンサーリンク」表記つき） -->
 		<AffiliateBanner />
+
+		<!-- ⑥ 詳しい情報（遊ぶ前に読まなくていいもの）は下へ -->
+		<section class="more" aria-label="詳しい情報">
+			<h2>もっと詳しく</h2>
+			<details class="acc" data-acc="song">
+				<summary>60秒の曲の流れ・難易度・ランキング</summary>
+				<div class="acc-body">
+					<p>
+						1ゲームは<strong>60秒で1曲</strong>。<b>INTRO</b>（やさしい譜面）→ <b>GROOVE</b> → <b>BUILD</b>（裏拍が増える）→
+						<b>CLIMAX</b>（いちばん難しく、曲も厚く）→ <b>FINAL</b>（最後の5カウント）と展開します。
+					</p>
+					<ul>
+						<li>コンボ倍率：3 → ×1.2 / 5 → ×1.5 / 10 → ×2.0。コンボ 3・5・10 でベース・ハイハット・メロディが加わります。</li>
+						<li>難易度は<b>易しい／普通／難しい／鬼</b>の4段階。振り子の速さはそのまま、<b>的の大きさ</b>（と初期の暴れ方）が変わります。</li>
+						<li><b>ランキングは難易度ごと</b>にスコアと最大コンボで競います。登録は任意です。</li>
+					</ul>
+				</div>
+			</details>
+			<details class="acc" data-acc="tech">
+				<summary>このゲームのしくみ</summary>
+				<div class="acc-body">
+					<ul>
+						<li><b>二重振り子</b>：振り子の先にもう1本振り子をつないだもの。わずかな差で動きがまったく変わる「カオス」の代表例です。RK4（ルンゲ＝クッタ法）で計算しています。</li>
+						<li><b>未来軌道予測</b>：振り子の少し先の動きを計算し、「ドン！」の瞬間に先端が通る場所へ的を置いています。だから音どおりに押せば必ず当たります。</li>
+						<li><b>音</b>：外部の音源は使わず、Web Audio API でその場で合成。BGM・予告音・的・輪はすべて同じ拍（BPM130）の上で動いています。</li>
+					</ul>
+				</div>
+			</details>
+		</section>
 
 		<!-- 8. 「このゲームをどう作ったか」記事への導線 -->
 		<section class="making-of">
@@ -118,7 +170,13 @@ const description =
 <script>
 	import { trackGameEvent } from '../../../scripts/games/analytics';
 
-	// 遊び方アコーディオンを開いたら計測（どの説明が読まれているか）
+	// ▶ PLAY：ゲームを画面に入れて TAP TO START にフォーカスするだけ（ゲーム開始はしない）
+	document.querySelector<HTMLButtonElement>('[data-play-cta]')?.addEventListener('click', () => {
+		trackGameEvent('play_cta_click', {});
+		document.dispatchEvent(new CustomEvent('chaospendulum:focus'));
+	});
+
+	// 詳しい情報のアコーディオンを開いたら計測（どの説明が読まれているか）
 	document.querySelectorAll<HTMLDetailsElement>('details[data-acc]').forEach((d) => {
 		d.addEventListener('toggle', () => {
 			if (d.open) trackGameEvent('howto_open', { section: d.dataset.acc });
@@ -180,19 +238,56 @@ const description =
 		max-width: 760px;
 		margin: 0 auto;
 	}
-	.game-head {
-		margin: 0 0 0.7em;
+	/* ① HERO */
+	.hero {
+		margin: 0 0 0.9em;
 	}
 	.game-page h1 {
-		font-size: 1.7rem;
-		line-height: 1.2;
+		font-size: 2.1rem;
+		line-height: 1.1;
+		letter-spacing: 0.04em;
 		margin: 0;
 	}
-	.tagline {
-		margin: 0.3em 0 0;
-		font-size: 0.98rem;
+	.hero-copy {
+		margin: 0.35em 0 0;
+		font-size: 1.1rem;
+		font-weight: 700;
 		line-height: 1.5;
-		color: #444444;
+		color: #222222;
+	}
+	.hero-cta {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		margin-top: 0.75em;
+	}
+	.play-btn {
+		font: inherit;
+		font-weight: 800;
+		font-size: 1.15rem;
+		letter-spacing: 0.06em;
+		min-height: 48px;
+		padding: 10px 34px;
+		border: none;
+		border-radius: 999px;
+		background: #f2d06b;
+		color: #1f2a25;
+		cursor: pointer;
+		box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+		transition: transform 0.12s ease;
+	}
+	.play-btn:hover {
+		transform: translateY(-1px);
+	}
+	.play-btn:focus-visible {
+		outline: 3px solid var(--accent);
+		outline-offset: 3px;
+	}
+	.hero-meta {
+		margin: 0;
+		font-size: 0.8rem;
+		line-height: 1.45;
+		color: #555555;
 	}
 	.game-page h2 {
 		font-size: 1.35rem;
@@ -204,12 +299,227 @@ const description =
 		margin: 0 0 0.5em;
 	}
 
-	/* 遊び方アコーディオン */
-	.guide {
-		margin-top: 1.2em;
+	/* ③ 遊び方：3ステップ */
+	.howto h2 {
+		margin-top: 1.4em;
+	}
+	.steps {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 12px;
+	}
+	.step {
+		background: #ffffff;
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 14px;
+		padding: 12px 14px 14px;
+	}
+	.step h3 {
+		margin: 0 0 0.3em;
+		font-size: 1.1rem;
+	}
+	.step p {
+		margin: 0;
+		font-size: 0.9rem;
+		line-height: 1.65;
+		color: #444444;
+	}
+	.step .step-no {
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.12em;
+		color: rgb(var(--gray));
+		margin: 0.5em 0 0.1em;
+	}
+	/* 図（ゲーム盤と同じ黒板色で、実際の見た目に寄せる） */
+	.fig {
+		position: relative;
+		height: 76px;
+		border-radius: 10px;
+		background: #2f3e37;
+		color: #ece8dc;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 10px;
+		overflow: hidden;
+	}
+	.fig-sound span {
+		font-size: 1.1rem;
+		opacity: 0.7;
+	}
+	.fig-sound b {
+		font-size: 1.3rem;
+		color: #f2d06b;
+	}
+	.fig .dot-target {
+		width: 34px;
+		height: 34px;
+		border: 3px dashed #f2d06b;
+		border-radius: 50%;
+	}
+	.fig-ring .ring {
+		position: absolute;
+		width: 62px;
+		height: 62px;
+		border: 2px solid #8cc7e0;
+		border-radius: 50%;
+		animation: fig-shrink 1.4s ease-in infinite;
+	}
+	@keyframes fig-shrink {
+		from {
+			transform: scale(1.15);
+			opacity: 0.5;
+		}
+		to {
+			transform: scale(0.62);
+			opacity: 1;
+		}
+	}
+	.fig-hit .dot-target {
+		position: absolute;
+		left: calc(50% - 50px);
+	}
+	.fig-hit .bob {
+		position: absolute;
+		left: calc(50% - 41px);
+		width: 18px;
+		height: 18px;
+		border-radius: 50%;
+		background: #ee93a8;
+	}
+	.fig-hit b {
+		margin-left: 46px;
+		font-size: 1.05rem;
+		color: #f2d06b;
+		letter-spacing: 0.04em;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.fig-ring .ring {
+			animation: none;
+			transform: scale(0.85);
+		}
+	}
+
+	/* 判定（色は補助。文字で意味が分かる） */
+	.judge {
+		margin: 14px 0 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px 16px;
+		font-size: 0.88rem;
+	}
+	.judge div {
+		display: flex;
+		align-items: baseline;
+		gap: 6px;
+	}
+	.judge dt {
+		font-weight: 800;
+		letter-spacing: 0.03em;
+	}
+	.judge dd {
+		margin: 0;
+		color: #444444;
+	}
+	.j-perfect {
+		color: #a4790a;
+	}
+	.j-great {
+		color: #b0476a;
+	}
+	.j-good {
+		color: #2f6f8a;
+	}
+	.j-near,
+	.j-miss {
+		color: #666666;
+	}
+
+	/* ④ 目標：FEVER / コンボ */
+	.goals {
+		margin-top: 1.4em;
+		display: grid;
+		grid-template-columns: 1.2fr 1fr;
+		gap: 12px;
+	}
+	.goal {
+		border-radius: 14px;
+		padding: 14px 16px 16px;
+	}
+	.goal h2 {
+		margin: 0.1em 0 0.25em;
+		padding: 0;
+		border: none;
+		font-size: 1.35rem;
+	}
+	.goal-kicker {
+		margin: 0;
+		font-size: 0.75rem;
+		font-weight: 800;
+		letter-spacing: 0.14em;
+		opacity: 0.8;
+	}
+	.goal-lead {
+		margin: 0 0 0.4em;
+		font-weight: 700;
+		line-height: 1.55;
+	}
+	.goal ul {
+		margin: 0;
+		padding-left: 1.2em;
+		line-height: 1.75;
+	}
+	.goal-note {
+		margin: 0;
+		font-size: 0.85rem;
+		opacity: 0.8;
+	}
+	/* FEVER：黒板色のカードに虹の縁と虹色の見出し（白文字×淡色グラデの低コントラストを避ける） */
+	.goal-fever {
+		color: #ece8dc;
+		border: 3px solid transparent;
+		background:
+			linear-gradient(#1f2a25, #1f2a25) padding-box,
+			linear-gradient(135deg, #f2d06b, #ee93a8, #b79cf2, #7fe3f0) border-box;
+	}
+	.goal-fever .goal-kicker {
+		color: #f2d06b;
+		opacity: 1;
+	}
+	.goal-fever h2 {
+		color: #ee93a8; /* グラデ非対応時 */
+		background: linear-gradient(90deg, #f2d06b, #ee93a8, #b79cf2, #7fe3f0);
+		-webkit-background-clip: text;
+		background-clip: text;
+		-webkit-text-fill-color: transparent;
+	}
+	.goal-fever b {
+		color: #f2d06b;
+	}
+	.goal-combo {
+		background: #2f3e37;
+		color: #ece8dc;
+	}
+	.goal-combo .goal-kicker {
+		color: #8cc7e0;
+		opacity: 1;
+	}
+	.goal-combo h2 {
+		color: #f2d06b;
+	}
+
+	/* ⑥ 詳しい情報（アコーディオン） */
+	.more {
 		display: flex;
 		flex-direction: column;
 		gap: 0.6em;
+	}
+	.more h2 {
+		margin-bottom: 0.2em;
 	}
 	.acc {
 		border: 1px solid rgb(var(--gray-light));
@@ -224,7 +534,7 @@ const description =
 		align-items: center;
 		justify-content: space-between;
 		gap: 12px;
-		min-height: 48px; /* 指で押しやすい高さ */
+		min-height: 48px;
 		padding: 10px 16px;
 		font-weight: 700;
 		font-size: 1rem;
@@ -261,8 +571,7 @@ const description =
 	.acc-body p {
 		margin: 0 0 0.6em;
 	}
-	.acc-body ul,
-	.acc-body ol {
+	.acc-body ul {
 		margin: 0 0 0.6em;
 		padding-left: 1.3em;
 	}
@@ -270,7 +579,8 @@ const description =
 		margin-bottom: 0.3em;
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.acc summary::after {
+		.acc summary::after,
+		.play-btn {
 			transition: none;
 		}
 	}
@@ -320,10 +630,45 @@ const description =
 
 	@media (max-width: 720px) {
 		.game-page h1 {
-			font-size: 1.4rem;
+			font-size: 1.7rem;
 		}
-		.tagline {
-			font-size: 0.9rem;
+		.hero-copy {
+			font-size: 1rem;
+		}
+		.hero-cta {
+			margin-top: 0.6em;
+		}
+		/* スマホ：3ステップは縦に、図は左・文は右のコンパクトなカード */
+		.steps {
+			grid-template-columns: 1fr;
+			gap: 8px;
+		}
+		.step {
+			display: grid;
+			grid-template-columns: 96px 1fr;
+			grid-template-rows: auto auto 1fr;
+			column-gap: 12px;
+			align-items: start;
+			padding: 10px;
+		}
+		.step .fig {
+			grid-row: 1 / 4;
+			height: 72px;
+		}
+		.step .step-no {
+			margin-top: 0;
+		}
+		.fig-hit b {
+			display: none;
+		}
+		.fig-hit .dot-target {
+			left: calc(50% - 17px);
+		}
+		.fig-hit .bob {
+			left: calc(50% - 8px);
+		}
+		.goals {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>

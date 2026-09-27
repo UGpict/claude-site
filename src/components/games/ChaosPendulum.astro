@@ -31,43 +31,37 @@
 		<div class="cp-timebar" aria-hidden="true"><i data-cp-time></i></div>
 		<div class="cp-stage">
 			<canvas data-cp-canvas aria-label="二重振り子のゲーム画面"></canvas>
+			<!-- ゲーム中の最小説明（開始後しばらくで消える。操作の邪魔をしない） -->
+			<p class="cp-play-hint" data-cp-play-hint aria-hidden="true"><b>ドン！</b>でタップ</p>
 			<div class="cp-start" data-cp-start>
 				<div class="cp-start-inner">
 					<p class="cp-start-title">CHAOS BEAT</p>
-					<p class="cp-start-sub">音を聞いてタイミングを狙え</p>
-					<ol class="cp-start-steps" aria-label="3ステップの遊び方">
-						<li><span aria-hidden="true">🎧</span>タン・タン・<b>ドン</b>を聞く</li>
-						<li><span aria-hidden="true">⭕</span>輪が丸に重なったら<b>タップ</b></li>
-						<li><span aria-hidden="true">🔥</span>PERFECT 3連で<b>FEVER</b></li>
-					</ol>
+					<p class="cp-start-sound">🔊 音あり推奨</p>
+					<p class="cp-start-rule">
+						<span class="cp-start-ticks">タン・タン・タン・</span>
+						<span class="cp-start-don"><b>ドン！</b>でタップ</span>
+					</p>
 					<button type="button" class="cp-start-btn" data-cp-start-btn>▶ TAP TO START</button>
-					<p class="cp-start-hint">音が出ます（右上でオフ）・60秒で1曲</p>
+					<p class="cp-start-hint">タップ / クリック / Space ・ 1プレイ約60秒</p>
 				</div>
 			</div>
 		</div>
 		<footer class="cp-footer">
 			<p data-cp-msg aria-live="polite">
-				拍に合わせて、先端を黄色い丸で叩け！ 画面タップ／スペースで叩けます。
+				「ドン！」の瞬間にタップ（PC はスペース）。振り子の先端が黄色い丸に重なるほど高得点。
 			</p>
 		</footer>
 	</div>
 
 	<!-- 結果パネル（1曲60秒の終了後に表示） -->
 	<section class="cp-result" data-cp-result hidden aria-live="polite">
+		<!-- 優先順位：スコア → 最大コンボ → NEW BEST → もう一回 → ランキング登録（副導線） -->
 		<div class="cp-result-head">
-			<div class="cp-score-block">
-				<span class="cp-score-label">スコア</span>
-				<span class="cp-score-value"><b data-cp-final>0</b></span>
-			</div>
-			<div class="cp-best-block">
-				<span class="cp-best-label">最大コンボ</span>
-				<span class="cp-best-value"><b data-cp-final-combo>0</b></span>
-			</div>
-			<div class="cp-best-block">
-				<span class="cp-best-label">自己ベスト（この難易度）</span>
-				<span class="cp-best-value"><b data-cp-best>0</b></span>
-			</div>
-			<span class="cp-newbest" data-cp-newbest hidden>NEW BEST!</span>
+			<p class="cp-finish">FINISH!</p>
+			<p class="cp-score-value"><b data-cp-final>0</b><span class="cp-score-unit">点</span></p>
+			<p class="cp-combo-line">MAX COMBO <b data-cp-final-combo>0</b></p>
+			<p class="cp-newbest" data-cp-newbest hidden>NEW BEST!</p>
+			<p class="cp-best-line">自己ベスト（この難易度）<b data-cp-best>0</b></p>
 		</div>
 
 		<div class="cp-again">
@@ -92,8 +86,11 @@
 		</div>
 	</section>
 
+	<!-- ページ側の「遊び方・FEVER」をゲームとランキングの間に差し込む（ランキングは説明より下） -->
+	<slot name="guide" />
+
 	<!-- ランキング -->
-	<section class="cp-ranking" data-cp-ranking>
+	<section class="cp-ranking" data-cp-ranking id="ranking">
 		<div class="cp-ranking-head">
 			<h3>ランキング</h3>
 			<div class="cp-tabs" role="tablist">
@@ -259,6 +256,15 @@
 				perfectCount: number;
 			} | null = null;
 			let submitted = false;
+			// ゲーム中の最小説明「ドン！でタップ」：開始（カウントイン）から約6秒だけ出して消す
+			const playHint = q('[data-cp-play-hint]');
+			let playHintTimer = 0;
+			const showPlayHint = () => {
+				if (!playHint) return;
+				playHint.classList.add('show');
+				window.clearTimeout(playHintTimer);
+				playHintTimer = window.setTimeout(() => playHint.classList.remove('show'), 6000);
+			};
 			let gameSerial = 0; // game_start ごとに増やす（遅延表示の取り消し用）
 			const RESULT_DELAY_MS = 1300;
 			const musicLevelOf = (combo: number) => (combo >= 10 ? 3 : combo >= 5 ? 2 : combo >= 3 ? 1 : 0);
@@ -277,6 +283,7 @@
 					trackGameEvent(name, perGame ? { ...params, difficulty: currentDifficulty } : params);
 
 					if (name === 'game_start') {
+						showPlayHint();
 						// プレイ中はスマホ下部に浮くシェアバーを隠す（盤面の下端に重なって誤タップしないように）
 						document.documentElement.classList.add('cp-playing');
 						submitted = false;
@@ -336,9 +343,9 @@
 							currentDifficulty,
 						);
 
-						if (finalEl) finalEl.textContent = String(g.score);
+						if (finalEl) finalEl.textContent = g.score.toLocaleString('ja-JP');
 						if (finalComboEl) finalComboEl.textContent = String(g.maxCombo);
-						if (bestEl) bestEl.textContent = String(best.bestScore);
+						if (bestEl) bestEl.textContent = best.bestScore.toLocaleString('ja-JP');
 						if (newBestBadge) newBestBadge.hidden = !isNewBest;
 						if (submitStatus) submitStatus.textContent = '';
 						if (submitBtn) submitBtn.disabled = false;
@@ -389,7 +396,7 @@
 			 * サイトのヘッダーは sticky なので、その高さぶん下げて HUD が隠れないようにする。
 			 * behavior は 'auto'（スマホで smooth スクロール中のタップが握りつぶされる・開始処理と競合するのを避ける）。
 			 */
-			const revealGame = () => {
+			const revealGame = (behavior: ScrollBehavior = 'auto') => {
 				const game = root.querySelector<HTMLElement>('.cp-game');
 				if (!game) return;
 				const headerH = document.querySelector('body > header')?.getBoundingClientRect().height ?? 0;
@@ -397,7 +404,7 @@
 				if (r.top < headerH || r.bottom > window.innerHeight) {
 					const room = window.innerHeight - headerH;
 					const offset = r.height <= room ? headerH + (room - r.height) / 2 : headerH + 4;
-					window.scrollTo({ top: window.scrollY + r.top - offset, behavior: 'auto' });
+					window.scrollTo({ top: window.scrollY + r.top - offset, behavior });
 				}
 			};
 			const startGame = async (retry = false) => {
@@ -417,7 +424,7 @@
 				}
 				if (token !== startToken) return;
 				handle.start({ difficulty: currentDifficulty, retry }); // gameTime<0 のカウントインから開始
-				requestAnimationFrame(revealGame); // スクロールはゲーム開始の後に分離
+				requestAnimationFrame(() => revealGame('auto')); // スクロールはゲーム開始の後に分離
 				gameStarted = true;
 				if (startOverlay) startOverlay.hidden = true;
 				rankDifficulty = currentDifficulty;
@@ -426,6 +433,15 @@
 			// オーバーレイ全体が TAP TO START（ボタンだけでなくどこを押しても開始）
 			startOverlay?.addEventListener('click', () => void startGame(false));
 			const isResultShown = () => !!resultPanel && !resultPanel.hidden;
+
+			// ページ上部の ▶ PLAY から：ゲームを画面に入れて TAP TO START にフォーカスするだけ（ここでは開始しない）。
+			// 開始（AudioContext の解除→transport→カウントイン）は、盤面を見た状態での TAP TO START に任せる。
+			document.addEventListener('chaospendulum:focus', () => {
+				const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+				revealGame(reduce ? 'auto' : 'smooth');
+				const target = startOverlay && !startOverlay.hidden ? startBtn : isResultShown() ? againBtn : null;
+				target?.focus({ preventScroll: true });
+			});
 
 			// --- 難易度の切り替え ---
 			diffBtns.forEach((btn) =>
@@ -455,6 +471,10 @@
 			});
 			window.addEventListener('keydown', (e) => {
 				if (e.code !== 'Space' && e.code !== 'Enter') return;
+				// 入力欄・ボタン・リンク・アコーディオンでは各要素の本来の動作を優先（ニックネームに空白を打てる／
+				// ▶ PLAY を Enter で押しても開始はしない。TAP TO START 等のボタンは自分の click で動く）
+				const el = e.target as HTMLElement | null;
+				if (el?.closest?.('input, textarea, select, button, a, summary, [contenteditable="true"]')) return;
 				// スタート前、または結果パネル表示中は、スペース/Enter で開始・再戦
 				const retry = gameStarted && isResultShown();
 				if (!gameStarted || retry) {
@@ -668,7 +688,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: rgba(20, 26, 22, 0.72);
+		background: rgba(20, 26, 22, 0.8); /* 静止プレビューの振り子が文字に被っても読めるように */
 		z-index: 2;
 	}
 	.cp-start[hidden] {
@@ -684,11 +704,6 @@
 		font-weight: 700;
 		letter-spacing: 0.08em;
 		margin: 0 0 0.3em;
-	}
-	.cp-start-sub {
-		font-size: 0.95rem;
-		opacity: 0.85;
-		margin: 0 0 1.2em;
 	}
 	.cp-start-btn {
 		font: inherit;
@@ -706,23 +721,58 @@
 		outline: 3px solid #ffffff;
 		outline-offset: 3px;
 	}
-	.cp-start-steps {
-		list-style: none;
-		margin: 0 auto 1.1em;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.35em;
-		font-size: 0.92rem;
-		text-align: left;
-		width: fit-content;
+	.cp-start-sound {
+		margin: 0 0 0.7em;
+		font-size: 0.85rem;
+		opacity: 0.85;
 	}
-	.cp-start-steps span {
-		display: inline-block;
-		width: 1.6em;
+	/* 何をすればいいかを1つだけ大きく：「ドン！でタップ」 */
+	.cp-start-rule {
+		margin: 0 0 1.1em;
+		line-height: 1.35;
 	}
-	.cp-start-steps b {
+	.cp-start-ticks {
+		display: block;
+		font-size: 1rem;
+		opacity: 0.75;
+		letter-spacing: 0.04em;
+	}
+	.cp-start-don {
+		display: block;
+		font-size: clamp(1.5rem, 6.5vw, 2rem);
+		font-weight: 800;
+	}
+	.cp-start-don b {
 		color: var(--yellow);
+	}
+	/* ゲーム中の最小説明：盤面下端に小さく。開始から約6秒で消える（操作は透過） */
+	.cp-play-hint {
+		position: absolute;
+		left: 50%;
+		bottom: 12px;
+		transform: translateX(-50%);
+		margin: 0;
+		padding: 4px 14px;
+		border-radius: 999px;
+		background: rgba(20, 26, 22, 0.6);
+		color: var(--chalk);
+		font-size: 0.9rem;
+		font-weight: 700;
+		white-space: nowrap;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.6s ease;
+	}
+	.cp-play-hint b {
+		color: var(--yellow);
+	}
+	.cp-play-hint.show {
+		opacity: 1;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.cp-play-hint {
+			transition: none;
+		}
 	}
 	.cp-start-hint {
 		font-size: 0.8rem;
@@ -755,36 +805,67 @@
 	}
 	.cp-result-head {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
-		gap: 1.6rem;
-		flex-wrap: wrap;
+		text-align: center;
+		gap: 0.15rem;
 	}
-	.cp-score-label,
-	.cp-best-label {
-		display: block;
+	.cp-result-head p {
+		margin: 0;
+	}
+	.cp-finish {
+		font-size: 0.9rem;
+		font-weight: 800;
+		letter-spacing: 0.12em;
+		color: rgb(var(--gray));
+	}
+	.cp-score-value {
+		font-variant-numeric: tabular-nums;
+		line-height: 1.1;
+	}
+	.cp-score-value b {
+		font-size: clamp(2.4rem, 11vw, 3.2rem);
+		color: var(--accent);
+	}
+	.cp-score-unit {
+		font-size: 1rem;
+		font-weight: 700;
+		margin-left: 0.15em;
+		color: rgb(var(--gray-dark));
+	}
+	.cp-combo-line {
+		font-size: 1rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		color: rgb(var(--gray-dark));
+	}
+	.cp-combo-line b {
+		font-size: 1.35rem;
+		margin-left: 0.2em;
+		font-variant-numeric: tabular-nums;
+	}
+	.cp-best-line {
 		font-size: 0.8rem;
 		color: rgb(var(--gray));
 	}
-	.cp-score-value,
-	.cp-best-value {
+	.cp-best-line b {
+		margin-left: 0.4em;
 		font-variant-numeric: tabular-nums;
 	}
-	.cp-score-value b {
-		font-size: 2rem;
-		color: var(--accent);
-	}
-	.cp-best-value b {
-		font-size: 1.4rem;
-	}
 	.cp-newbest {
-		margin-left: auto;
-		font-weight: 700;
+		margin: 0.35rem 0 0.1rem !important;
+		font-weight: 800;
 		font-size: 0.95rem;
 		color: #ffffff;
 		background: var(--accent);
 		border-radius: 999px;
-		padding: 6px 14px;
+		padding: 6px 16px;
 		animation: cp-pop 0.35s ease;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.cp-newbest {
+			animation: none;
+		}
 	}
 	@keyframes cp-pop {
 		from {
@@ -822,18 +903,25 @@
 		border: 1px solid rgb(var(--gray-light));
 		border-radius: 8px;
 	}
+	/* 副導線：もう一回（塗り）より控えめな枠線ボタン */
 	.cp-submit-btn {
 		font: inherit;
 		font-weight: 700;
-		background: var(--accent);
-		color: #ffffff;
-		border: none;
+		background: #ffffff;
+		color: var(--accent);
+		border: 2px solid var(--accent);
 		border-radius: 8px;
-		padding: 10px 20px;
+		padding: 8px 18px;
+		min-height: 44px;
 		cursor: pointer;
+	}
+	.cp-submit-btn:focus-visible {
+		outline: 3px solid var(--accent);
+		outline-offset: 2px;
 	}
 	.cp-submit-btn:disabled {
 		background: rgb(var(--gray-light));
+		border-color: rgb(var(--gray-light));
 		color: #888888;
 		cursor: not-allowed;
 	}
@@ -1037,13 +1125,16 @@
 		.cp-stage {
 			height: min(60vh, 520px);
 		}
+		/* スタート画面は盤面の上寄せ：スマホの初期表示で TAP TO START まで見えるように */
+		.cp-start {
+			align-items: flex-start;
+			padding-top: 14px;
+		}
 		.cp-start-title {
-			font-size: 1.5rem;
+			font-size: 1.35rem;
+			margin-bottom: 0.2em;
 		}
-		.cp-start-sub {
-			margin-bottom: 0.8em;
-		}
-		.cp-timebar {
+			.cp-timebar {
 			margin: 8px 14px 0;
 		}
 		.cp-footer {

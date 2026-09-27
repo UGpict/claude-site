@@ -588,7 +588,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		} else {
 			state = 'playing';
 			newTarget();
-			$msg.textContent = '拍に合わせて、先端を黄色い丸で叩け！';
+			$msg.textContent = '「ドン！」でタップ ― 先端が黄色い丸に重なる瞬間';
 		}
 		updateHUD();
 		emit('game_start', undefined);
@@ -832,10 +832,14 @@ export function initGame(options: InitGameOptions): GameHandle {
 		act();
 	};
 	const onKeyDown = (e: KeyboardEvent) => {
-		if (e.code === 'Space' || e.code === 'Enter') {
-			e.preventDefault();
-			act();
-		}
+		if (e.code !== 'Space' && e.code !== 'Enter') return;
+		// 文字入力中（ニックネーム欄など）は奪わない
+		const el = e.target as HTMLElement | null;
+		if (el?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
+		// ゲーム進行中だけキーを奪う。開始前・終了後はページのボタン（▶ PLAY・もう一回 等）の本来の Space/Enter を妨げない
+		if (state !== 'countin' && state !== 'playing' && state !== 'slowmo') return;
+		e.preventDefault();
+		act();
 	};
 	cv.addEventListener('pointerdown', onPointerDown);
 	window.addEventListener('keydown', onKeyDown);
@@ -1253,7 +1257,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 					newTarget();
 					resultLabel = 'GO!';
 					popT = 1;
-					$msg.textContent = '拍に合わせて、先端を黄色い丸で叩け！';
+					$msg.textContent = '「ドン！」でタップ ― 先端が黄色い丸に重なる瞬間';
 				}
 			} else {
 				// フィーバー残り時間（速度は変えず得点2倍＋演出だけ）
