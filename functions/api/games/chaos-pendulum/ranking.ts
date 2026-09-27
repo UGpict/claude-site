@@ -29,6 +29,10 @@ function cutoff(period: 'daily' | 'weekly'): string {
 	return new Date(shifted.getTime() - 9 * 3600000).toISOString();
 }
 
+const DIFFICULTIES = ['easy', 'normal', 'hard', 'oni'];
+const sanitizeDifficulty = (raw: string | null): string =>
+	raw && DIFFICULTIES.includes(raw) ? raw : 'normal';
+
 interface Row {
 	nickname: string;
 	score: number;
@@ -45,24 +49,27 @@ export const onRequestGet = async (context: Ctx): Promise<Response> => {
 	const periodParam = url.searchParams.get('period') ?? 'daily';
 	const period: 'daily' | 'weekly' | 'all' =
 		periodParam === 'weekly' ? 'weekly' : periodParam === 'all' ? 'all' : 'daily';
+	const difficulty = sanitizeDifficulty(url.searchParams.get('difficulty'));
 
 	const cols = 'nickname, score, perfect_count, difficulty, created_at';
 	const order =
 		'ORDER BY score DESC, perfect_count DESC, average_distance ASC, created_at ASC LIMIT 10';
 
 	try {
-		// 全難易度をまぜた1本のランキング（難易度ボーナス込みのスコア順）。
+		// 難易度ごとの素点ランキング（易しい/普通/難しい/鬼を別々に集計）。
 		let rows: Row[];
 		if (period === 'all') {
 			const r = await env.DB.prepare(
-				`SELECT ${cols} FROM chaos_pendulum_scores ${order}`,
-			).all<Row>();
+				`SELECT ${cols} FROM chaos_pendulum_scores WHERE difficulty = ?1 ${order}`,
+			)
+				.bind(difficulty)
+				.all<Row>();
 			rows = r.results;
 		} else {
 			const r = await env.DB.prepare(
-				`SELECT ${cols} FROM chaos_pendulum_scores WHERE created_at >= ?1 ${order}`,
+				`SELECT ${cols} FROM chaos_pendulum_scores WHERE difficulty = ?1 AND created_at >= ?2 ${order}`,
 			)
-				.bind(cutoff(period))
+				.bind(difficulty, cutoff(period))
 				.all<Row>();
 			rows = r.results;
 		}
@@ -76,7 +83,7 @@ export const onRequestGet = async (context: Ctx): Promise<Response> => {
 			createdAt: row.created_at,
 		}));
 
-		return json({ period, top });
+		return json({ period, difficulty, top });
 	} catch (e) {
 		return json({ error: 'db error', detail: String(e) }, 500);
 	}

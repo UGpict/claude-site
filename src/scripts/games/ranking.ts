@@ -9,7 +9,6 @@ export type RankingPeriod = 'daily' | 'weekly' | 'all';
 export interface RankingEntry {
 	rank: number;
 	nickname: string;
-	difficulty: Difficulty;
 	score: number;
 	perfectCount: number;
 	createdAt: string; // ISO8601
@@ -37,11 +36,15 @@ export interface SubmitResult {
 
 const BASE = '/api/games/chaos-pendulum';
 
-export async function getRanking(period: RankingPeriod): Promise<RankingEntry[]> {
-	// ランキングは全難易度をまぜた1本（難易度ボーナス込みのスコアで並ぶ）。
-	const res = await fetch(`${BASE}/ranking?period=${encodeURIComponent(period)}`, {
-		headers: { accept: 'application/json' },
-	});
+export async function getRanking(
+	period: RankingPeriod,
+	difficulty: Difficulty,
+): Promise<RankingEntry[]> {
+	// 難易度ごとの素点ランキング。
+	const res = await fetch(
+		`${BASE}/ranking?period=${encodeURIComponent(period)}&difficulty=${encodeURIComponent(difficulty)}`,
+		{ headers: { accept: 'application/json' } },
+	);
 	if (!res.ok) throw new Error(`ranking fetch failed: ${res.status}`);
 	const data = (await res.json()) as { top?: RankingEntry[] };
 	return Array.isArray(data.top) ? data.top : [];

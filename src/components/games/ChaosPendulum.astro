@@ -50,12 +50,11 @@
 		<div class="cp-result-head">
 			<div class="cp-score-block">
 				<span class="cp-score-label">今回のスコア</span>
-				<span class="cp-score-value"><b data-cp-final>0</b> <small>点</small></span>
-				<span class="cp-score-breakdown" data-cp-breakdown></span>
+				<span class="cp-score-value"><b data-cp-final>0</b> <small>/ 500</small></span>
 			</div>
 			<div class="cp-best-block">
 				<span class="cp-best-label">自己ベスト（この難易度）</span>
-				<span class="cp-best-value"><b data-cp-best>0</b> <small>点</small></span>
+				<span class="cp-best-value"><b data-cp-best>0</b> <small>/ 500</small></span>
 			</div>
 			<span class="cp-newbest" data-cp-newbest hidden>NEW BEST!</span>
 		</div>
@@ -87,17 +86,22 @@
 	<!-- ランキング -->
 	<section class="cp-ranking" data-cp-ranking>
 		<div class="cp-ranking-head">
-			<h3>ランキング <small class="cp-rank-note">全難易度・ボーナス込み</small></h3>
+			<h3>ランキング</h3>
 			<div class="cp-tabs" role="tablist">
 				<button type="button" class="cp-tab active" data-period="daily">今日</button>
 				<button type="button" class="cp-tab" data-period="weekly">今週</button>
 				<button type="button" class="cp-tab" data-period="all">歴代</button>
 			</div>
 		</div>
+		<div class="cp-rank-diffs" role="tablist" aria-label="ランキングの難易度">
+			<button type="button" class="cp-difftab" data-rank-diff="easy">易しい</button>
+			<button type="button" class="cp-difftab active" data-rank-diff="normal">普通</button>
+			<button type="button" class="cp-difftab" data-rank-diff="hard">難しい</button>
+			<button type="button" class="cp-difftab" data-rank-diff="oni">鬼</button>
+		</div>
 		<div class="cp-rank-header" data-cp-rank-header hidden>
 			<span class="rk">順位</span>
 			<span class="nm">名前</span>
-			<span class="df">難易度</span>
 			<span class="sc">点数</span>
 		</div>
 		<ol class="cp-rank-list" data-cp-rank-list></ol>
@@ -108,7 +112,6 @@
 <script>
 	import {
 		initGame,
-		DIFFICULTY_MULTIPLIER,
 		type Difficulty,
 		type GameEventName,
 		type GameEventPayloads,
@@ -122,13 +125,6 @@
 		type RankingEntry,
 		type RankingPeriod,
 	} from '../../scripts/games/ranking';
-
-	const DIFF_LABEL: Record<Difficulty, string> = {
-		easy: '易しい',
-		normal: '普通',
-		hard: '難しい',
-		oni: '鬼',
-	};
 
 	const root = document.querySelector<HTMLElement>('[data-cp-root]');
 	if (root) {
@@ -144,7 +140,6 @@
 		const detail = q('[data-cp-detail]');
 		const resultPanel = q('[data-cp-result]');
 		const finalEl = q('[data-cp-final]');
-		const breakdownEl = q('[data-cp-breakdown]');
 		const bestEl = q('[data-cp-best]');
 		const newBestBadge = q('[data-cp-newbest]');
 		const nickInput = q<HTMLInputElement>('[data-cp-nick]');
@@ -155,6 +150,7 @@
 		const rankHeader = q('[data-cp-rank-header]');
 		const rankStatus = q('[data-cp-rank-status]');
 		const rankTabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-period]'));
+		const rankDiffTabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-rank-diff]'));
 		const diffBtns = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-diff]'));
 
 		if (canvas && round && total && time && msg && act) {
@@ -179,8 +175,13 @@
 
 			// --- ランキング表示 ---
 			let currentPeriod: RankingPeriod = 'daily';
-			let currentDifficulty: Difficulty = 'normal';
+			let currentDifficulty: Difficulty = 'normal'; // 今プレイしている難易度
+			let rankDifficulty: Difficulty = 'normal'; // 今ランキングで見ている難易度
 			let rankingViewed = false;
+
+			const setRankDiffTab = (level: Difficulty) => {
+				rankDiffTabs.forEach((b) => b.classList.toggle('active', b.dataset.rankDiff === level));
+			};
 
 			const renderRanking = (entries: RankingEntry[]) => {
 				if (!rankList) return;
@@ -193,14 +194,10 @@
 					const nm = document.createElement('span');
 					nm.className = 'nm';
 					nm.textContent = e.nickname; // textContent なので HTML は挿入されない（XSS 安全）
-					const df = document.createElement('span');
-					df.className = 'df';
-					df.textContent = DIFF_LABEL[e.difficulty] ?? e.difficulty;
-					df.dataset.diff = e.difficulty;
 					const sc = document.createElement('span');
 					sc.className = 'sc';
 					sc.textContent = `${e.score}点`;
-					li.append(rk, nm, df, sc);
+					li.append(rk, nm, sc);
 					rankList.append(li);
 				}
 			};
@@ -208,7 +205,7 @@
 			const loadRanking = async (period: RankingPeriod) => {
 				if (rankStatus) rankStatus.textContent = '読み込み中…';
 				try {
-					const entries = await getRanking(period);
+					const entries = await getRanking(period, rankDifficulty);
 					renderRanking(entries);
 					if (rankHeader) rankHeader.hidden = entries.length === 0;
 					if (rankStatus)
@@ -226,8 +223,19 @@
 					const p = (btn.dataset.period as RankingPeriod) ?? 'daily';
 					currentPeriod = p;
 					rankTabs.forEach((b) => b.classList.toggle('active', b === btn));
-					trackGameEvent('ranking_view', { period: p });
+					trackGameEvent('ranking_view', { period: p, difficulty: rankDifficulty });
 					loadRanking(p);
+				}),
+			);
+
+			// ランキングの難易度タブ（表示だけ切り替え・ゲームは変えない）
+			rankDiffTabs.forEach((btn) =>
+				btn.addEventListener('click', () => {
+					const level = (btn.dataset.rankDiff as Difficulty) ?? 'normal';
+					rankDifficulty = level;
+					setRankDiffTab(level);
+					trackGameEvent('ranking_view', { period: currentPeriod, difficulty: level });
+					loadRanking(currentPeriod);
 				}),
 			);
 
@@ -302,22 +310,16 @@
 							roundDistances,
 						};
 
-						// 難易度ボーナスを掛けた最終スコア（表示・自己ベスト・ランキングはこの値）
-						const mult = DIFFICULTY_MULTIPLIER[currentDifficulty];
-						const effectiveScore = Math.round(g.score * mult);
-
 						const { isNewBest, best } = updateBest(
 							{
-								score: effectiveScore,
+								score: g.score,
 								perfectCount,
 								averageDistance,
 							},
 							currentDifficulty,
 						);
 
-						if (finalEl) finalEl.textContent = String(effectiveScore);
-						if (breakdownEl)
-							breakdownEl.textContent = `基本 ${g.score} × ${mult}（${DIFF_LABEL[currentDifficulty]}）`;
+						if (finalEl) finalEl.textContent = String(g.score);
 						if (bestEl) bestEl.textContent = String(best.bestScore);
 						if (newBestBadge) newBestBadge.hidden = !isNewBest;
 						if (submitStatus) submitStatus.textContent = '';
@@ -334,9 +336,12 @@
 							trackGameEvent('personal_best', { score: g.score });
 						}
 
+						// 遊んだ難易度のランキングを表示する
+						rankDifficulty = currentDifficulty;
+						setRankDiffTab(currentDifficulty);
 						if (!rankingViewed) {
 							rankingViewed = true;
-							trackGameEvent('ranking_view', { period: currentPeriod });
+							trackGameEvent('ranking_view', { period: currentPeriod, difficulty: rankDifficulty });
 						}
 						loadRanking(currentPeriod);
 
@@ -355,6 +360,10 @@
 					diffBtns.forEach((b) => b.classList.toggle('active', b === btn));
 					trackGameEvent('difficulty_change', { difficulty: level });
 					handle.setDifficulty(level); // ゲームを最初から
+					// ランキング表示もこの難易度に合わせる
+					rankDifficulty = level;
+					setRankDiffTab(level);
+					loadRanking(currentPeriod);
 				}),
 			);
 
@@ -619,12 +628,6 @@
 		font-size: 2rem;
 		color: var(--accent);
 	}
-	.cp-score-breakdown {
-		display: block;
-		font-size: 0.8rem;
-		color: rgb(var(--gray));
-		margin-top: 0.15rem;
-	}
 	.cp-best-value b {
 		font-size: 1.4rem;
 	}
@@ -760,11 +763,6 @@
 		margin: 0;
 		font-size: 1.15rem;
 	}
-	.cp-rank-note {
-		font-size: 0.78rem;
-		font-weight: 600;
-		color: rgb(var(--gray));
-	}
 	.cp-tabs {
 		display: flex;
 		gap: 0.35rem;
@@ -790,11 +788,39 @@
 		padding: 0;
 		font-variant-numeric: tabular-nums;
 	}
+	/* ランキングの難易度タブ */
+	.cp-rank-diffs {
+		display: flex;
+		gap: 0.35rem;
+		margin: 0.9rem 0 0.2rem;
+		flex-wrap: wrap;
+	}
+	.cp-difftab {
+		font: inherit;
+		font-size: 0.85rem;
+		font-weight: 600;
+		background: transparent;
+		color: rgb(var(--gray));
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 999px;
+		padding: 4px 14px;
+		cursor: pointer;
+	}
+	.cp-difftab.active {
+		background: var(--accent);
+		color: #ffffff;
+		border-color: var(--accent);
+	}
+	.cp-difftab[data-rank-diff='oni'].active {
+		background: #ee93a8;
+		border-color: #ee93a8;
+	}
+
 	/* 見出し行と各行で同じ固定カラムを使い、列をきっちり揃える */
 	.cp-rank-header,
 	.cp-rank-list li {
 		display: grid;
-		grid-template-columns: 3rem 1fr 4.6rem 5rem;
+		grid-template-columns: 3.2rem 1fr 5rem;
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.5rem 0.2rem;
@@ -811,9 +837,6 @@
 	.cp-rank-header .sc {
 		text-align: right;
 	}
-	.cp-rank-header .df {
-		text-align: center;
-	}
 	.cp-rank-list li {
 		border-bottom: 1px solid rgb(var(--gray-light));
 	}
@@ -826,24 +849,6 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-	}
-	.cp-rank-list .df {
-		justify-self: center;
-		font-size: 0.75rem;
-		font-weight: 600;
-		color: #555555;
-		background: rgb(var(--gray-light));
-		border-radius: 999px;
-		padding: 2px 9px;
-		white-space: nowrap;
-	}
-	.cp-rank-list .df[data-diff='oni'] {
-		color: #ffffff;
-		background: #ee93a8;
-	}
-	.cp-rank-list .df[data-diff='hard'] {
-		color: #ffffff;
-		background: #c98a2e;
 	}
 	.cp-rank-list .sc {
 		font-weight: 700;

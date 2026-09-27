@@ -49,15 +49,6 @@ export const DIFFICULTY_PRESETS: Record<Difficulty, DifficultyPreset> = {
 	oni: { targetR: 0.11, time: 13, a1: [2.2, 3.3], a2: [2.0, 3.3], dist: [0.8, 1.9] },
 };
 
-// 難易度ボーナス倍率。ランキングのスコアは「基本点(0〜500) × この倍率」で出す（難しいほど高得点）。
-// 採点式や物理は変えず、最終スコアの重みだけを難易度で変える。バックエンドと必ず一致させる。
-export const DIFFICULTY_MULTIPLIER: Record<Difficulty, number> = {
-	easy: 1,
-	normal: 1.5,
-	hard: 2,
-	oni: 3,
-};
-
 export interface GameEventPayloads {
 	game_view: undefined;
 	game_start: undefined;
