@@ -5,7 +5,7 @@
 // セクションは「曲そのものの進行（譜面の性格・基本アレンジ）」。コンボで解放される音の層とは別概念。
 // 将来 QUICK 30 / NORMAL 60 / FULL 90 などは SongDefinition を増やすだけで作れるようにしてある（今は60秒のみ）。
 
-import { SPB } from './beat-grid';
+import { BPM, makeGrid, type BeatGrid } from './beat-grid';
 
 /** リズム予告の音種（Web Audio 側で鳴らし分ける） */
 export type CueSound = 'tick' | 'accent';
@@ -132,11 +132,57 @@ export interface GameSection {
 	arrangement: SectionArrangement;
 }
 
+/**
+ * 外部音源（mp3 等）。Web Audio の AudioBufferSourceNode で transport に合わせて再生する。
+ * ファイル内の時刻 startAt + offset が「拍0」（＝ゲームの gameTime 0、最初の拍頭）。
+ *   startAt：ファイルのどこからゲーム用に使うか（秒）。フル尺の中の「いちばんゲーム向きな60秒」を切り出す
+ *   offset ：startAt から最初の拍頭までの秒数（波形で最初のキック／拍頭を見て決める）
+ * 再生は拍0ちょうどに、ファイル位置 startAt + offset から始める（カウントインは曲の前に鳴る）。
+ */
+export interface ExternalAudio {
+	/** 例：'/audio/chaos-beat/burning-heart.mp3'（public/ 配下に置いたファイル） */
+	src: string;
+	startAt: number;
+	offset: number;
+	/** 曲の音量 0..1（cue・判定音より小さめに。cue の前後はさらにダッキング） */
+	volume: number;
+	/** ゲーム終了後も鳴らす秒数（この間にフェードアウト）。曲に自然な終わりがあるならそこまでの長さにする。既定 1.5 */
+	tail?: number;
+}
+
+export interface SongCredit {
+	/** 例：'Music: 魔王魂' */
+	label: string;
+	url?: string;
+}
+
+/** 手書き譜面の1エントリ。beat はパターン先頭（最初の「タン」）の拍番号。入力拍は beat + pattern.hitBeat */
+export interface BeatmapEntry {
+	beat: number;
+	pattern: string;
+}
+
 export interface SongDefinition {
 	id: string;
-	/** ゲーム本編の長さ（秒）。カウントインは含まない */
+	title: string;
+	/** ゲーム本編の長さ（秒）。カウントインは含まない。拍頭に揃えると終止がきれい（例：BPM130 なら 60秒＝130拍） */
 	duration: number;
+	/** 曲のテンポ。拍グリッド（cue・hitAt・リング・BGM・外部音源）の基準 */
+	bpm: number;
 	sections: GameSection[];
+	/** あれば外部音源モード（合成BGMの代わりに曲を流す）。無ければ合成BGMモード */
+	audio?: ExternalAudio;
+	/** 外部音源の作者表記（ゲームの下に小さく出す） */
+	credit?: SongCredit;
+	/**
+	 * 手書き譜面（任意・拍番号の昇順）。ここにある拍ではこのパターンを必ず出し、間はセクションの sequencePool で埋める。
+	 * 全打を書かなくてよい（サビの頭だけ等）。
+	 * 間隔の決まり：次のエントリの beat は「前のエントリの入力拍 + 2」以上にする（見逃した的は入力拍＋1.2拍で消えるため、
+	 * それより前のエントリは間に合わず飛ばされる。拍はずらさない＝曲のフレーズを優先）。
+	 */
+	beatmap?: BeatmapEntry[];
+	/** 判定音（コンボで上がる音階）に使う和音（小節ごとに循環、各 [根音, 3度, 5度] Hz）。外部曲は曲のキーに合わせる。既定は Dm */
+	harmony?: number[][];
 }
 
 /** 正式モード：60秒で1曲 */
@@ -144,7 +190,9 @@ export const GAME_DURATION = 60;
 
 export const SONG_60: SongDefinition = {
 	id: 'normal60',
+	title: 'CHAOS BEAT（合成BGM）',
 	duration: GAME_DURATION,
+	bpm: BPM,
 	sections: [
 		{
 			id: 'intro',
@@ -201,7 +249,52 @@ export const SONG_60: SongDefinition = {
 
 export const DEFAULT_SONG = SONG_60;
 
-const BAR = 4 * SPB;
+/**
+ * 外部音源の曲の雛形（テスト用）。音源ファイルはリポジトリに入れていない。
+ * 使うとき：public/audio/chaos-beat/ に利用条件を確認した音源を置き、src・bpm・startAt・offset・sections・credit を実際の曲に合わせる。
+ * ページで ?song=external_test を付けると、この曲で遊べる（通常表示は DEFAULT_SONG のまま）。
+ * 音源が読めない場合は、同じ拍グリッドの合成BGMで遊べる（ゲームは止まらない）。
+ */
+export const TEST_EXTERNAL_SONG: SongDefinition = {
+	id: 'external_test',
+	title: 'External Test',
+	duration: GAME_DURATION,
+	bpm: 130,
+	audio: {
+		src: '/audio/chaos-beat/test-song.mp3',
+		startAt: 0,
+		offset: 0,
+		volume: 0.8,
+		tail: 1.5,
+	},
+	credit: { label: 'Music: （テスト音源）' },
+	// 曲の構成に合わせて秒で指定（小節頭に丸まる）。例：Aメロ=INTRO/GROOVE、Bメロ=BUILD、サビ=CLIMAX、サビ終わり=FINAL
+	sections: SONG_60.sections,
+	// 例：サビ頭で A（拍88開始→入力拍91）、続けて E（拍93開始＝91+2→入力拍96）を固定。間はセクションの譜面で埋まる
+	beatmap: [
+		{ beat: 88, pattern: 'A' },
+		{ beat: 93, pattern: 'E' },
+	],
+};
+
+/** id → 曲。ページの ?song= で選べる（UI の曲選択はまだ無い） */
+export const SONGS: Record<string, SongDefinition> = {
+	[SONG_60.id]: SONG_60,
+	[TEST_EXTERNAL_SONG.id]: TEST_EXTERNAL_SONG,
+};
+
+const gridCache = new WeakMap<SongDefinition, BeatGrid>();
+/** 曲の拍グリッド（BPM は曲ごと） */
+export function gridOf(song: SongDefinition): BeatGrid {
+	let g = gridCache.get(song);
+	if (!g) {
+		g = makeGrid(song.bpm);
+		gridCache.set(song, g);
+	}
+	return g;
+}
+
+
 /**
  * セクションの実際の開始時刻（transport 秒）。設計値の秒を「最寄りの小節頭」へ丸める。
  * → BGM のアレンジ切替・section_change・譜面プールの切替が全部同じ小節頭で起きる（beat grid 上）。
@@ -209,7 +302,8 @@ const BAR = 4 * SPB;
  */
 export function sectionStart(song: SongDefinition, index: number): number {
 	if (index <= 0) return 0;
-	return Math.round(song.sections[index].start / BAR) * BAR;
+	const bar = 4 * gridOf(song).spb; // 小節（4拍）は曲の BPM から
+	return Math.round(song.sections[index].start / bar) * bar;
 }
 
 /** transport 時刻 t が属するセクションの index（t<0 は 0、t≥duration は最後） */

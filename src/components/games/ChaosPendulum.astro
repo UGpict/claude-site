@@ -51,6 +51,8 @@
 				「ドン！」の瞬間にタップ（PC はスペース）。振り子の先端が黄色い丸に重なるほど高得点。
 			</p>
 		</footer>
+		<!-- 外部音源の曲のクレジット（曲に credit があるときだけ表示） -->
+		<p class="cp-credit" data-cp-credit hidden></p>
 	</div>
 
 	<!-- 結果パネル（1曲60秒の終了後に表示） -->
@@ -146,7 +148,7 @@
 	import { trackGameEvent } from '../../scripts/games/analytics';
 	import { createAudio } from '../../scripts/games/audio';
 	import { COUNTIN_BEATS } from '../../scripts/games/beat-grid';
-	import { DEFAULT_SONG as SONG } from '../../scripts/games/song';
+	import { DEFAULT_SONG, SONGS, type SongDefinition } from '../../scripts/games/song';
 	import { updateBest } from '../../scripts/games/storage';
 	import { nextGoal, rankOf, type NextGoal, type ResultRank } from '../../scripts/games/result-rank';
 	import {
@@ -155,6 +157,34 @@
 		type RankingEntry,
 		type RankingPeriod,
 	} from '../../scripts/games/ranking';
+
+	// 遊ぶ曲：既定は内蔵の合成BGM曲。?song=<id> で外部音源の曲を試せる（曲選択 UI はまだ無い）
+	const urlParams = new URLSearchParams(location.search);
+	const BASE_SONG = SONGS[urlParams.get('song') ?? ''] ?? DEFAULT_SONG;
+	const IS_DEFAULT_SONG = BASE_SONG === DEFAULT_SONG;
+	const DEBUG = urlParams.get('debug') === '1';
+	/**
+	 * 同期の調整用（?debug=1 のときだけ）：外部音源の曲の bpm / offset / startAt を URL で上書きできる。
+	 * 例：?song=external_test&debug=1&offset=0.183 → メトロノーム四角と曲のキックが揃う値を探して song.ts に書き戻す。
+	 */
+	const num = (k: string) => {
+		const v = urlParams.get(k);
+		return v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : undefined;
+	};
+	const SONG: SongDefinition =
+		DEBUG && BASE_SONG.audio
+			? {
+					...BASE_SONG,
+					bpm: num('bpm') ?? BASE_SONG.bpm,
+					audio: {
+						...BASE_SONG.audio,
+						offset: num('offset') ?? BASE_SONG.audio.offset,
+						startAt: num('startAt') ?? BASE_SONG.audio.startAt,
+					},
+				}
+			: BASE_SONG;
+	/** 自己ベストのキー：内蔵曲は従来どおり、外部音源の曲は曲 id ごと */
+	const SONG_KEY = IS_DEFAULT_SONG ? undefined : SONG.id;
 
 	const root = document.querySelector<HTMLElement>('[data-cp-root]');
 	if (root) {
@@ -199,6 +229,21 @@
 
 		if (canvas && scoreEl && comboEl && timeEl && msg) {
 			const audio = createAudio();
+			audio.preloadSong(SONG); // 外部音源なら取得だけ先に始める（デコードは初回スタート時。以後キャッシュ）
+			const creditEl = q('[data-cp-credit]');
+			if (creditEl && SONG.credit) {
+				creditEl.hidden = false;
+				if (SONG.credit.url) {
+					const a = document.createElement('a');
+					a.href = SONG.credit.url;
+					a.target = '_blank';
+					a.rel = 'noopener';
+					a.textContent = SONG.credit.label;
+					creditEl.append(a);
+				} else {
+					creditEl.textContent = SONG.credit.label;
+				}
+			}
 
 			// --- ミュートボタン ---
 			const renderMute = () => {
@@ -444,7 +489,8 @@
 			const handle = initGame({
 				canvas,
 				elements: { score: scoreEl, combo: comboEl, time: timeEl, timeText: timeTextEl, msg },
-				song: SONG, // 60秒・5セクション（audio にも同じ曲を渡す＝同じ beat grid でアレンジが切り替わる）
+				song: SONG, // 曲（尺・BPM・セクション・譜面）。audio にも同じ曲を渡す＝同じ beat grid
+				debugInfo: DEBUG ? () => audio.debugLines() : undefined, // ?debug=1 の同期確認表示
 				difficulty: currentDifficulty,
 				now: () => audio.now(), // 共通トランスポート時計（BGM/cue と同じ原点）
 				autostart: false, // TAP TO START を待つ
@@ -456,7 +502,12 @@
 					// 段階ごとに game_retry ÷ game_over（結果画面からの再戦率）を比べるための目印（古いキャッシュのプレイも分けられる）
 					// game_over は結果（ランク・自己ベスト更新）を計算してから下で送る
 					if (name !== 'game_over')
-						trackGameEvent(name, perGame ? { ...params, difficulty: currentDifficulty, reward_stage: REWARD_STAGE } : params);
+						trackGameEvent(
+							name,
+							perGame
+								? { ...params, difficulty: currentDifficulty, reward_stage: REWARD_STAGE, song_id: SONG.id, audio_mode: audio.audioMode() }
+								: params,
+						);
 
 					if (name === 'game_start') {
 						cancelResultShow();
@@ -527,7 +578,7 @@
 						};
 
 						const rank = rankOf(g.score, currentDifficulty);
-						const up = updateBest({ score: g.score, maxCombo: g.maxCombo, rank }, currentDifficulty);
+						const up = updateBest({ score: g.score, maxCombo: g.maxCombo, rank }, currentDifficulty, SONG_KEY);
 						const isNewBest = up.isNewBest;
 						const goal = nextGoal({
 							score: g.score,
@@ -540,6 +591,8 @@
 							...(payload as Record<string, unknown>),
 							difficulty: currentDifficulty,
 							reward_stage: REWARD_STAGE,
+							song_id: SONG.id,
+							audio_mode: audio.audioMode(),
 							result_rank: rank,
 							new_best: isNewBest,
 							score_delta: g.score - (up.prevBestScore ?? 0), // 自己ベスト（更新前）との差。初回は score
@@ -619,11 +672,14 @@
 				try {
 					// ユーザー操作の同期部分で resume を要求する。startTransport はどの状態でも有限時間で resolve し、
 					// 音の時計が使えなければ performance 時計で返す（ここで止まらない）。念のため例外も握る。
+					// 外部音源の初回はデコードに少しかかることがあるので、押したことが分かる表示に
+					if (!retry && SONG.audio && startBtn) startBtn.textContent = '♪ LOADING…';
 					await audio.startTransport(COUNTIN_BEATS, SONG);
 				} catch {
 					/* 音なしでもゲームは始める（audio.now() は performance 時計で進む） */
 				} finally {
 					starting = false;
+					if (startBtn) startBtn.textContent = '▶ TAP TO START';
 				}
 				if (token !== startToken) return;
 				handle.start({ difficulty: currentDifficulty, retry }); // gameTime<0 のカウントインから開始
@@ -689,6 +745,11 @@
 			// --- ランキング登録（希望したときだけ・自動送信しない） ---
 			submitBtn?.addEventListener('click', async () => {
 				if (!lastResult || submitted) return;
+				// ランキングは内蔵曲のみ（外部音源のテスト曲は点の基準が違うので混ぜない）
+				if (!IS_DEFAULT_SONG) {
+					if (submitStatus) submitStatus.textContent = 'この曲はランキングの対象外です（テスト曲）';
+					return;
+				}
 				const nickname = (nickInput?.value ?? '').trim() || '名無し';
 				submitBtn.disabled = true;
 				if (submitStatus) submitStatus.textContent = '登録中…';
@@ -883,6 +944,19 @@
 		cursor: pointer;
 		touch-action: manipulation;
 	}
+	/* 外部音源のクレジット（小さく・盤面の下） */
+	.cp-credit {
+		margin: 0;
+		padding: 0 20px 10px;
+		font-size: 0.75rem;
+		color: var(--chalk);
+		opacity: 0.6;
+		text-align: right;
+	}
+	.cp-credit a {
+		color: inherit;
+	}
+
 	/* TAP TO START オーバーレイ */
 	.cp-start {
 		position: absolute;

@@ -93,6 +93,22 @@ per-game イベント（game_start / game_over / game_retry）に `reward_stage`
 - [x] 結果：FINISH! → スコア（大）→ MAX COMBO → NEW BEST → 自己ベスト → もう一回！（主）→ ランキング登録（枠線の副ボタン）
 - [x] キーボード：開始前・終了後はエンジンが Space/Enter を奪わない（▶ PLAY・アコーディオン・ニックネーム入力が本来どおり動く）
 
+### 外部音源の曲同期（Burning Heart 系の基盤）2026-09-28
+- [x] `SongDefinition` に `bpm` / `audio { src, startAt, offset, volume, tail }` / `credit` / `beatmap` / `harmony`。拍グリッドを曲ごとに（`gridOf(song)`）
+- [x] ロード：fetch をページ表示時に先読み、decode は開始時（キャッシュ・4秒タイムアウト）。失敗は同じ grid で合成BGMへフォールバック
+- [x] 同期：`src.start(transport.startTime, startAt + offset)`＝曲の拍 n が transport の拍 n。カウントインは曲の前、60秒でフェード＋音程なしの終止
+- [x] 再戦ごとに新しい source、前の曲は 50ms フェードで停止。時計停止（iOS）時は外部音源も止めて無音で継続
+- [x] バス：曲（bgmGain＝ダッキング）/ cueBus / sfxBus。外部音源のダッキング ×0.42。コンボ／FEVER 層は音程なしの最小限
+- [x] credit 表示、GA4 に `song_id` / `audio_mode`、自己ベストは曲 id ごと、既定曲以外はランキング登録しない（ランキングは初期化しない）
+- [x] `?song=external_test&debug=1`（+ `bpm/offset/startAt` 上書き）で拍・transport・ファイル位置・メトロノームを表示
+- [x] 検証（実 AudioContext＋AudioWorklet でレンダリング後のサンプルを計測）：BPM120・startAt 2.0・offset 0.35 のクリック音源で、
+      拍0 = ファイル 2.350s、クリック 123 個すべて拍グリッドから誤差 0.045ms 以内（サンプル丸め）、整数拍の入力拍はすべてクリックと 2ms 以内で一致、
+      デコイ（0s/1s）は鳴らない、60秒後はフェード。再戦（2ゲーム目も同精度）・iPhone 13 エミュレーション＋タップ再戦・404 で合成BGMへフォールバック・
+      beatmap（A@88→入力拍91、E@93→入力拍96）を確認
+- [ ] **Burning Heart（魔王魂）**：音源ファイル（`public/audio/chaos-beat/`）・利用規約とクレジット表記の確認はオーナーが用意。
+      受け取ったら `bpm` / `startAt`（使う60秒）/ `offset`（`?debug=1` のメトロノームで合わせる）/ セクション秒 / `harmony`（曲のキー）/ beatmap を決める
+- [ ] 曲ごとのランキング（今は既定曲のみ。D1 は既存行を消さず、列追加＋既定値で互換にする設計から）
+
 ## Next
 - [ ] **playtest tuning（60秒版）**：セクション境界ごとの判定分布（hit × section_change）、FEVER の発生回数（多ければ終了後の短いクールダウンを検討）、
       INTRO/CLIMAX の的サイズ倍率、BUILD のフィルや CLIMAX のパッドの音量。実機 20〜30 回＋GA4 の `averageTimingOffsetMs`・判定分布で、カウントイン長・音量・ダッキング量・

@@ -9,12 +9,12 @@
 // 外へは onEvent(name, payload) だけで通知する（送信先はこのファイルの外で決める）。
 //
 // 時計：gameTime は外から注入される共通トランスポート時計（options.now。拍0=0）。
-// 拍の時刻は beat-grid.ts の beatTime(beatIndex) だけで決め、BGM・cue・hitAt・アプローチリングが同じ拍を見る。
+// 拍の時刻は beat-grid.ts の grid.beatTime(beatIndex) だけで決め、BGM・cue・hitAt・アプローチリングが同じ拍を見る。
 
-import { SPB, beatPhase, beatTime, nextBeatIndex } from './beat-grid';
 import {
 	DEFAULT_SONG,
 	PATTERN_BY_ID,
+	gridOf,
 	RHYTHM_PATTERNS,
 	SEQUENCE_BY_ID,
 	sectionIndexAt,
@@ -91,12 +91,12 @@ export interface GameEventPayloads {
 		chaosPerfect: boolean;
 	};
 	/**
-	 * リズム予告のスケジュール。時刻は全部 transport 時刻（秒・拍0=0）＝ beatTime(beatIndex)。
+	 * リズム予告のスケジュール。時刻は全部 transport 時刻（秒・拍0=0）＝ grid.beatTime(beatIndex)。
 	 * audio は startTime + time に予約する（「今から何秒後」の相対値は使わない＝位相がズレない）。
 	 */
 	rhythm_pattern: {
 		patternId: string;
-		/** 入力拍の拍番号（小数=裏拍）。target.hitAt = beatTime(hitBeat) */
+		/** 入力拍の拍番号（小数=裏拍）。target.hitAt = grid.beatTime(hitBeat) */
 		hitBeat: number;
 		/** 入力拍の transport 時刻（= target.hitAt） */
 		hitTime: number;
@@ -175,6 +175,8 @@ export interface InitGameOptions {
 	autostart?: boolean;
 	/** 曲（尺とセクション）。既定は 60 秒の DEFAULT_SONG。audio にも同じものを渡すこと */
 	song?: SongDefinition;
+	/** 同期確認用のデバッグ表示（?debug=1）。追加で表示する行を返す。本番では渡さない */
+	debugInfo?: () => string[];
 	onEvent?: <K extends GameEventName>(name: K, payload: GameEventPayloads[K]) => void;
 }
 
@@ -193,14 +195,16 @@ export function initGame(options: InitGameOptions): GameHandle {
 	// --- ルール定数 ---
 	// 1ゲームの尺とセクションは曲データから（GAME_DURATION を直書きしない＝将来 30/90 秒モードに広げられる）
 	const song: SongDefinition = options.song ?? DEFAULT_SONG;
+	// 拍グリッドは曲の BPM から（外部音源の曲は曲ごとのテンポ）。以降の拍計算はすべてこの grid
+	const grid = gridOf(song);
 	const duration = song.duration;
 	const finalIdx = song.sections.length - 1;
 	// 最後のセクション（FINAL）を5カウントに等分（60秒版は10拍＝2拍ごとに 5→1。最終拍＝終止）
 	const FINAL_COUNT = 5;
 	const finalStart = sectionStart(song, finalIdx);
 	const countStep = (duration - finalStart) / FINAL_COUNT;
-	const LAST_HIT_MARGIN = SPB; // 最後の入力拍は終止拍の1拍以上前（終止の拍で押させない）
-	const BEAT = SPB; // 1拍の秒数（beat-grid と共通の BPM）
+	const LAST_HIT_MARGIN = grid.spb; // 最後の入力拍は終止拍の1拍以上前（終止の拍で押させない）
+	const BEAT = grid.spb; // 1拍の秒数（曲の BPM）
 	const SLOWMO_TIME = 0.2; // 叩いた後のスロー時間（実秒）
 	const SLOWMO_SCALE = 0.15; // スロー中の物理倍率
 	const FEVER_STREAK = 3; // PERFECT 連続でフィーバー発火
@@ -313,7 +317,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		bornAt: number;
 		/** 入力拍の拍番号（beat grid 上。小数=裏拍） */
 		hitBeat: number;
-		/** 入力すべき時刻（gameTime）= beatTime(hitBeat)。先端がここでターゲットへ来る＝ドン・リング収束と一致 */
+		/** 入力すべき時刻（gameTime）= grid.beatTime(hitBeat)。先端がここでターゲットへ来る＝ドン・リング収束と一致 */
 		hitAt: number;
 		/** この時刻を過ぎたら見逃し */
 		expireAt: number;
@@ -358,6 +362,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 	let scorePop: { text: string; big: boolean; t: number; sub?: string } | null = null;
 	// CHAOS PERFECT（表示・集計のみ）
 	let lastWasChaos = false;
+	// 手書き譜面（曲ごと・任意）
+	const beatmap = song.beatmap ?? [];
+	let mapIdx = 0;
+	let waitingForMap = false;
 	let chaosChances = 0;
 	let chaosPerfectCount = 0;
 	let chaosFlashT = 0; // 叩き抜いた瞬間の白い閃光＋電撃（1→0）
@@ -528,24 +536,50 @@ export function initGame(options: InitGameOptions): GameHandle {
 		const maxT = PRED_HORIZON;
 
 		// パターンは「パターン先頭の拍」が属するセクションの譜面から順番に取り、先頭を次の拍頭に合わせる（beat grid と同期）。
-		// 以降、cue・hitAt・リングはすべてこの拍番号から beatTime() で求める（=BGMの拍頭と同じ式）。
-		const firstBeat = nextBeatIndex(gameTime);
-		const sec = song.sections[sectionIndexAt(song, beatTime(firstBeat))];
+		// 以降、cue・hitAt・リングはすべてこの拍番号から grid.beatTime() で求める（=BGMの拍頭と同じ式）。
+		const firstBeat = grid.nextBeatIndex(gameTime);
+		const sec = song.sections[sectionIndexAt(song, grid.beatTime(firstBeat))];
 		const place = (p: RhythmPattern) => {
 			let sb = firstBeat;
 			// 予測範囲を超えない・最低限の反応猶予を確保（ずらすときはパターンごと拍単位＝ドンと hitAt が離れない）
-			while (sb > 0 && beatTime(sb + p.hitBeat) - gameTime > maxT) sb--;
-			while (beatTime(sb + p.hitBeat) - gameTime < 0.5) sb++;
+			while (sb > 0 && grid.beatTime(sb + p.hitBeat) - gameTime > maxT) sb--;
+			while (grid.beatTime(sb + p.hitBeat) - gameTime < 0.5) sb++;
 			return sb;
 		};
 		const lastHitTime = duration - LAST_HIT_MARGIN;
+		waitingForMap = false;
+
+		// 手書き譜面（song.beatmap）：その拍では必ず指定のパターン。拍はずらさない（曲のフレーズに合わせてあるため）。
+		// 過ぎてしまったエントリ・曲の終わりに収まらないエントリは飛ばす。間はセクションの譜面で埋める。
+		while (
+			mapIdx < beatmap.length &&
+			(beatmap[mapIdx].beat < firstBeat ||
+				!PATTERN_BY_ID[beatmap[mapIdx].pattern] ||
+				grid.beatTime(beatmap[mapIdx].beat + PATTERN_BY_ID[beatmap[mapIdx].pattern].hitBeat) > lastHitTime)
+		)
+			mapIdx++;
+		const entry = beatmap[mapIdx];
+		// 通常のパターン（最長4拍＋余裕1拍）が次のエントリより前に収まらないなら、エントリを優先する
+		if (entry && firstBeat + 5 > entry.beat) {
+			const ep = PATTERN_BY_ID[entry.pattern];
+			if (grid.beatTime(entry.beat + ep.hitBeat) - gameTime > maxT) {
+				// まだ予測範囲の外：的を出さずに待つ（ループが毎フレーム呼び直す）。曲のフレーズを優先して拍はずらさない
+				target = null;
+				waitingForMap = true;
+				return;
+			}
+			mapIdx++;
+			spawn(ep, entry.beat, sec);
+			return;
+		}
+
 		let pat = nextPattern(sec);
 		let startBeat = place(pat);
-		if (beatTime(startBeat + pat.hitBeat) > lastHitTime) {
+		if (grid.beatTime(startBeat + pat.hitBeat) > lastHitTime) {
 			// 曲の終わりに収まらない：入力拍が一番遅い「収まるパターン」に差し替え。無ければ的なし（終止を待つ）
 			const fit = [...RHYTHM_PATTERNS]
 				.sort((x, y) => y.hitBeat - x.hitBeat)
-				.find((p) => beatTime(place(p) + p.hitBeat) <= lastHitTime);
+				.find((p) => grid.beatTime(place(p) + p.hitBeat) <= lastHitTime);
 			if (!fit) {
 				target = null;
 				return;
@@ -553,8 +587,13 @@ export function initGame(options: InitGameOptions): GameHandle {
 			pat = fit;
 			startBeat = place(pat);
 		}
+		spawn(pat, startBeat, sec);
+	}
+
+	/** パターン pat を拍 startBeat から始める的を作り、予告音を通知する（hitAt = grid.beatTime(startBeat + hitBeat)） */
+	function spawn(pat: RhythmPattern, startBeat: number, sec: GameSection) {
 		const hitBeat = startBeat + pat.hitBeat;
-		const hitAt = beatTime(hitBeat); // 入力すべき時刻（transport 時刻）
+		const hitAt = grid.beatTime(hitBeat); // 入力すべき時刻（transport 時刻）
 
 		// 的の中心＝hitAt の時刻に実際の物理が通る点。hitAt まで同じ固定ステップ列で直接積分して求める
 		// （以前の「13ms 間隔でサンプルした軌道から最寄り点」だと ±2 ステップ≒±7ms の量子化誤差が出て、小さい的ほど目立った）。
@@ -582,7 +621,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 		// 予告音（transport 時刻で渡す）。既に過ぎた cue と入力拍より後の cue は捨てる。
 		const cues = pat.cues
-			.map((c) => ({ beat: startBeat + c.beat, time: beatTime(startBeat + c.beat), sound: c.sound }))
+			.map((c) => ({ beat: startBeat + c.beat, time: grid.beatTime(startBeat + c.beat), sound: c.sound }))
 			.filter((c) => c.time >= gameTime && c.beat <= hitBeat);
 		emit('rhythm_pattern', { patternId: pat.id, hitBeat, hitTime: hitAt, cues, chaos, chaosTell: CHAOS_TELL });
 	}
@@ -620,6 +659,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 		scorePop = null;
 		pendingBursts = [];
 		lastWasChaos = false;
+		mapIdx = 0;
+		waitingForMap = false;
 		chaosChances = 0;
 		chaosPerfectCount = 0;
 		chaosFlashT = 0;
@@ -950,7 +991,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 	// --- 描画 ---
 	function beatPulse(): number {
-		const phase = beatPhase(gameTime); // 0→1（BGM の拍頭で 0）
+		const phase = grid.beatPhase(gameTime); // 0→1（BGM の拍頭で 0）
 		return Math.max(0, 1 - phase * 1.6); // 拍頭で1、すぐ減衰
 	}
 
@@ -1137,7 +1178,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 			const targetCol = fever ? rainbowAt(gameTime) : col.yellow;
 			const ringCol = fever ? rainbowAt(gameTime, 2) : col.blue;
 
-			// アプローチリング：bornAt→hitAt で大きな輪が的の大きさへ収束する（重なった時が入力拍＝beatTime(hitBeat)＝ドン）
+			// アプローチリング：bornAt→hitAt で大きな輪が的の大きさへ収束する（重なった時が入力拍＝grid.beatTime(hitBeat)＝ドン）
 			const lead = Math.max(0.001, target.hitAt - target.bornAt);
 			const prog = Math.min(1.3, Math.max(0, (gameTime - target.bornAt) / lead));
 			if (prog < 1.25) {
@@ -1425,6 +1466,35 @@ export function initGame(options: InitGameOptions): GameHandle {
 		}
 
 		ctx!.restore(); // カメラ（ズーム・シェイク）を戻す
+		if (options.debugInfo) drawDebug();
+	}
+
+	/** ?debug=1：拍グリッドの同期確認。左上に曲・BPM・拍番号・transport 時刻、拍頭で光るメトロノーム四角（曲のキックと見比べる） */
+	function drawDebug() {
+		const beatNo = Math.floor(gameTime / BEAT + 1e-9);
+		const lines = [
+			`Song: ${song.id}  BPM: ${song.bpm}`,
+			`beat: ${beatNo}  phase: ${grid.beatPhase(gameTime).toFixed(2)}`,
+			`transport: ${gameTime.toFixed(3)}`,
+			...(target ? [`next hit: beat ${target.hitBeat} @ ${target.hitAt.toFixed(3)}`] : []),
+			...(options.debugInfo?.() ?? []),
+		];
+		ctx!.save();
+		ctx!.globalAlpha = 0.85;
+		ctx!.fillStyle = 'rgba(0,0,0,0.55)';
+		ctx!.fillRect(6, 6, 250, 16 * lines.length + 10);
+		ctx!.fillStyle = '#E8FBFF';
+		ctx!.font = '12px ui-monospace, monospace';
+		ctx!.textAlign = 'start';
+		ctx!.textBaseline = 'top';
+		lines.forEach((l, i) => ctx!.fillText(l, 12, 11 + i * 16));
+		// メトロノーム：拍頭で白く光る（4拍目ごとに黄色＝小節頭）
+		const ph = grid.beatPhase(gameTime);
+		const on = ph < 0.12;
+		ctx!.globalAlpha = on ? 1 : 0.25;
+		ctx!.fillStyle = beatNo % 4 === 0 ? col.yellow : '#ffffff';
+		ctx!.fillRect(W - 34, 8, 26, 26);
+		ctx!.restore();
 	}
 
 	// --- ループ ---
@@ -1482,6 +1552,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 					}
 				} else if (target && gameTime > target.expireAt) {
 					expireTarget();
+				} else if (!target && waitingForMap) {
+					newTarget(); // 手書き譜面のエントリが予測範囲に入るのを待っている
 				}
 				if (gameTime >= duration) endGame();
 				else checkSection();

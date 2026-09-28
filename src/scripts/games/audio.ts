@@ -4,11 +4,11 @@
 // ミュート状態は localStorage に保持する。
 //
 // 共通トランスポート：startTransport() が「拍0の時刻 startTime」を1つだけ決め、
-// BGM の拍頭・cue（タン/ドン）・エンジンの gameTime（now()）を全部 startTime + beatTime(beatIndex) で揃える。
+// BGM の拍頭・cue（タン/ドン）・エンジンの gameTime（now()）を全部 startTime + grid.beatTime(beatIndex) で揃える。
 
-import { BPM, SPB, beatTime } from './beat-grid';
+import { DEFAULT_GRID, type BeatGrid } from './beat-grid';
 import type { HitKind } from './chaos-pendulum';
-import { DEFAULT_SONG, sectionIndexAt, sectionStart, type CueSound, type SongDefinition } from './song';
+import { DEFAULT_SONG, gridOf, sectionIndexAt, sectionStart, type CueSound, type SongDefinition } from './song';
 
 const MUTE_KEY = 'cp:muted';
 
@@ -22,7 +22,7 @@ export interface AudioTransport {
 	clock: 'audio' | 'performance';
 }
 
-/** cue の予約単位。time は transport 時刻（秒・拍0=0）＝ beatTime(beatIndex) */
+/** cue の予約単位。time は transport 時刻（秒・拍0=0）＝ grid.beatTime(beatIndex) */
 export interface ScheduledCue {
 	time: number;
 	sound: CueSound;
@@ -59,12 +59,21 @@ export interface GameAudio {
 	// --- 共通トランスポート＆持続BGM ---
 	/**
 	 * ユーザー操作の中で呼ぶ。① AudioContext.resume() を待つ → ② 拍0の時刻を決める
-	 * （startTime = now + START_DELAY + leadBeats×SPB）→ ③ BGMスケジューラを拍0から開始＋カウントインを予約。
+	 * （startTime = now + START_DELAY + leadBeats×grid.spb）→ ③ BGMスケジューラを拍0から開始＋カウントインを予約。
 	 * 解決後にエンジンを開始すること（初回も retry も同じ経路）。
 	 */
 	startTransport(leadBeats: number, song?: SongDefinition): Promise<AudioTransport>;
 	/** 現在の transport（未開始なら null） */
 	getTransport(): AudioTransport | null;
+	/**
+	 * 外部音源の曲なら、音源ファイルの取得だけ先に始める（ユーザー操作の前でよい。デコードは初回スタート時）。
+	 * 取得・デコードは src ごとにキャッシュし、再戦で取り直さない。
+	 */
+	preloadSong(song: SongDefinition): void;
+	/** 今のゲームの音楽の出どころ：external=外部音源 / synth=合成BGM / silent=音なし（AudioContext が使えない） */
+	audioMode(): 'external' | 'synth' | 'silent';
+	/** ?debug=1 用の表示行（外部音源の再生位置など） */
+	debugLines(): string[];
 	/** 現在の transport 時刻（秒。拍0で 0、カウントイン中は負）。エンジンの時計に渡す。 */
 	now(): number;
 	/** BGM停止（ゲーム終了時。短くフェードアウト） */
@@ -156,7 +165,10 @@ export function createAudio(): GameAudio {
 		if (!c || muted) return;
 		toneAt(c, freq, c.currentTime + start, dur, type, gain, freqTo);
 	}
-	/** 単音を AudioContext の絶対時刻 t0 に予約。freq→freqTo へスイープ可。track=true で取消対象に追跡。 */
+	/**
+	 * 単音を AudioContext の絶対時刻 t0 に予約。freq→freqTo へスイープ可。track=true で取消対象に追跡。
+	 * dest：出口のバス（既定＝判定音・SE の sfxBus。cue は cueBus）。
+	 */
 	function toneAt(
 		c: AudioContext,
 		freq: number,
@@ -166,6 +178,7 @@ export function createAudio(): GameAudio {
 		gain: number,
 		freqTo?: number,
 		track = false,
+		dest?: AudioNode,
 	): void {
 		const osc = c.createOscillator();
 		const g = c.createGain();
@@ -176,17 +189,90 @@ export function createAudio(): GameAudio {
 		g.gain.setValueAtTime(0.0001, t0);
 		g.gain.exponentialRampToValueAtTime(gain, t0 + 0.008);
 		g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-		osc.connect(g).connect(c.destination);
+		osc.connect(g).connect(dest ?? sfxBusOf(c));
 		osc.start(t0);
 		osc.stop(t0 + dur + 0.02);
 		if (track) pending.push({ osc, startAt: t0 });
 	}
 
+	// --- 出口のバス（優先順：cue ＞ 判定音・SE ＞ 曲）。曲は bgmGain（ダッキング）→ bgmOut（コンボ切れの瞬断）→ 出力 ---
+	const CUE_LEVEL = 1; // タン・ドン・CHAOS 予兆（入力の合図＝最優先）
+	const SFX_LEVEL = 0.85; // 判定音・FEVER・結果音
+	let cueBus: GainNode | null = null;
+	let sfxBus: GainNode | null = null;
+	function cueBusOf(c: AudioContext): GainNode {
+		if (!cueBus) {
+			cueBus = c.createGain();
+			cueBus.gain.value = CUE_LEVEL;
+			cueBus.connect(c.destination);
+		}
+		return cueBus;
+	}
+	function sfxBusOf(c: AudioContext): GainNode {
+		if (!sfxBus) {
+			sfxBus = c.createGain();
+			sfxBus.gain.value = SFX_LEVEL;
+			sfxBus.connect(c.destination);
+		}
+		return sfxBus;
+	}
+
+	// --- 外部音源（AudioBufferSourceNode で transport に同期再生） ---
+	// 取得（fetch→ArrayBuffer）はページ表示時に先行、デコードは初回スタート時（AudioContext が要る）。どちらも src ごとにキャッシュ。
+	const bytesCache = new Map<string, Promise<ArrayBuffer | null>>();
+	const bufferCache = new Map<string, Promise<AudioBuffer | null>>();
+	const DECODE_TIMEOUT_MS = 4000; // これ以上かかる初回ロードは待たず、その回は合成BGMで遊ぶ（次回は読み込み済み）
+	function fetchBytes(src: string): Promise<ArrayBuffer | null> {
+		let p = bytesCache.get(src);
+		if (!p) {
+			p = fetch(src)
+				.then((r) => (r.ok ? r.arrayBuffer() : null))
+				.catch(() => null);
+			bytesCache.set(src, p);
+		}
+		return p;
+	}
+	function loadBuffer(c: AudioContext, src: string): Promise<AudioBuffer | null> {
+		let p = bufferCache.get(src);
+		if (!p) {
+			p = fetchBytes(src).then(async (bytes) => {
+				if (!bytes) return null;
+				try {
+					// decodeAudioData は ArrayBuffer を手放すのでコピーを渡す（キャッシュの bytes は残す）
+					return await c.decodeAudioData(bytes.slice(0));
+				} catch {
+					return null;
+				}
+			});
+			bufferCache.set(src, p);
+			p.then((b) => {
+				if (!b) bufferCache.delete(src); // 失敗は次回やり直せるように
+			});
+		}
+		return p;
+	}
+	let extSource: AudioBufferSourceNode | null = null;
+	let extActive = false; // 今のゲームが外部音源モードか
+	/** 外部音源を止める（再戦・時計停止・音なしへの切替時）。AudioBufferSourceNode は使い捨てなので次は作り直す */
+	function stopExternal(c: AudioContext | null, fade = 0.05): void {
+		if (!extSource) return;
+		const src = extSource;
+		extSource = null;
+		try {
+			if (c) src.stop(c.currentTime + fade);
+		} catch {
+			/* 停止済み */
+		}
+	}
+
 	// --- 共通トランスポート＆持続BGM（拍同期ループ・先読みスケジューラ） ---
 	// transport.startTime = 拍0（＝ゲームの gameTime=0）の時刻。BGM・cue・エンジンの時計を全部これに揃える。
 	const START_DELAY = 0.3; // resume 直後の頭切れを避ける余白（秒）。カウントインの前に置く
-	const BGM_LEVEL = 0.5; // BGM のマスター音量。cue（ドン）より明確に小さく
-	const DUCK = 0.55; // accent 前後の BGM 倍率（約 -5dB）
+	const BGM_LEVEL = 0.5; // 合成BGM のマスター音量。cue（ドン）より明確に小さく
+	const DUCK = 0.55; // accent 前後の合成BGM 倍率（約 -5dB）
+	const DUCK_EXTERNAL = 0.42; // 外部音源は音が厚いので深めに（約 -7.5dB）
+	let grid: BeatGrid = DEFAULT_GRID; // 今の曲の拍グリッド（BPM は曲ごと）
+	const barSec = () => 4 * grid.spb; // 1小節（4拍）の秒数
 	let transport: AudioTransport | null = null;
 	// --- 音の時計が本当に進んでいるかの監視（スマホ対策） ---
 	// iOS Safari などでは、AudioContext が 'interrupted' になったり、state が 'running' のまま currentTime が
@@ -227,6 +313,8 @@ export function createAudio(): GameAudio {
 	function fallbackToPerformance(): void {
 		if (!transport || transport.clock !== 'audio') return;
 		transport = { ...transport, startTime: perfNow() - lastTransportT, clock: 'performance' };
+		stopExternal(ctx); // 時計が止まった音源はずれるので止める（その回は無音で続行）
+		extActive = false;
 		if (musicTimer) {
 			clearInterval(musicTimer);
 			musicTimer = null;
@@ -243,7 +331,9 @@ export function createAudio(): GameAudio {
 	let feverOn = false;
 	let feverCrashPending = false; // FEVER 突入後、次に予約する拍頭にクラッシュ＋インパクト（拍に同期した「解放」）
 
-	const musicVol = () => (muted ? 0 : BGM_LEVEL);
+	/** 曲の基準音量（外部音源なら曲ごとの volume、合成BGMなら BGM_LEVEL） */
+	const musicBase = () => (extActive && song.audio ? song.audio.volume : BGM_LEVEL);
+	const musicVol = () => (muted ? 0 : musicBase());
 	// BGM の出口（ずっと1つ）。コンボ切れの「プツッ」で一瞬だけ抜くための専用ノード。
 	// cue のダッキング（bgmGain 側の自動化）とは別ノードなので互いの予約を壊さない。
 	let bgmOut: GainNode | null = null;
@@ -270,11 +360,13 @@ export function createAudio(): GameAudio {
 	function duckAt(c: AudioContext, at: number): void {
 		if (!bgmGain || muted) return;
 		const g = bgmGain.gain;
+		const base = musicBase();
+		const duck = extActive ? DUCK_EXTERNAL : DUCK;
 		const t0 = Math.max(c.currentTime, at - 0.08);
-		g.setValueAtTime(BGM_LEVEL, t0);
-		g.linearRampToValueAtTime(BGM_LEVEL * DUCK, Math.max(t0 + 0.01, at - 0.03));
-		g.setValueAtTime(BGM_LEVEL * DUCK, at + 0.12);
-		g.linearRampToValueAtTime(BGM_LEVEL, at + 0.2);
+		g.setValueAtTime(base, t0);
+		g.linearRampToValueAtTime(base * duck, Math.max(t0 + 0.01, at - 0.03));
+		g.setValueAtTime(base * duck, at + 0.12);
+		g.linearRampToValueAtTime(base, at + 0.2);
 		duckFrom = t0;
 	}
 	/** まだ始まっていないダッキングを取り消す（早押しで消えた的のドン用。進行中のものは自然に戻す） */
@@ -286,8 +378,8 @@ export function createAudio(): GameAudio {
 	}
 	/** ドン（ここで押す合図）。低く太い音。BGM より明確に大きく、前後をダッキング。 */
 	function accentAt(c: AudioContext, at: number): void {
-		toneAt(c, 180, at, 0.14, 'sine', 0.3, 120, true);
-		toneAt(c, 90, at, 0.16, 'triangle', 0.16, undefined, true);
+		toneAt(c, 180, at, 0.14, 'sine', 0.3, 120, true, cueBusOf(c));
+		toneAt(c, 90, at, 0.16, 'triangle', 0.16, undefined, true, cueBusOf(c));
 		duckAt(c, at);
 	}
 	// CHAOS 予兆音：加速する高いチッ・チッ＋かすかに上昇するサイン。ドン（180Hz）とは帯域が離れていて埋もれさせない。
@@ -301,7 +393,7 @@ export function createAudio(): GameAudio {
 		g.gain.setValueAtTime(0.0001, at);
 		g.gain.exponentialRampToValueAtTime(gain, at + Math.min(0.01, dur / 3));
 		g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-		osc.connect(g).connect(c.destination);
+		osc.connect(g).connect(cueBusOf(c));
 		osc.start(at);
 		osc.stop(at + dur + 0.02);
 		tellOscs.push(osc);
@@ -317,7 +409,7 @@ export function createAudio(): GameAudio {
 	}
 	/** タン（予告クリック） */
 	function tickAt(c: AudioContext, at: number): void {
-		toneAt(c, 720, at, 0.05, 'square', 0.1, undefined, true);
+		toneAt(c, 720, at, 0.05, 'square', 0.1, undefined, true, cueBusOf(c));
 	}
 	// BGM 用の単音（bgmGain 経由。cue/judgment より控えめにして予告を埋もれさせない）
 	function bgmTone(
@@ -363,7 +455,6 @@ export function createAudio(): GameAudio {
 	//   ① セクションの基本アレンジ（曲の進行。拍の transport 時刻 → 曲データの section から決まる。コンボ無関係）
 	//   ② コンボ層（musicLevel/feverOn。その拍を予約する瞬間の値を読むので切替は拍に同期）
 	// CLIMAX でも combo 0 なら melody は鳴らさない（②は①に左右されない）。
-	const BAR = 4 * SPB;
 	// 伴奏の進行（Dm → B♭ → C → A）。pad と、pad のあるセクションの bass ルートに使う
 	const CHORDS = [
 		[293.66, 349.23, 440.0],
@@ -384,9 +475,14 @@ export function createAudio(): GameAudio {
 	function chordNow(): number[] {
 		if (!transport) return CHORDS[0];
 		const t = Math.max(0, api.now());
+		// 曲に和音の指定（harmony）があればそれを小節ごとに循環（外部音源の曲はキーに合わせる）
+		if (song.harmony?.length) {
+			const hb = Math.floor(t / barSec());
+			return song.harmony[((hb % song.harmony.length) + song.harmony.length) % song.harmony.length];
+		}
 		const secIdx = sectionIndexAt(song, t);
 		if (!song.sections[secIdx].arrangement.pad) return CHORDS[0];
-		const bar = Math.floor(t / BAR);
+		const bar = Math.floor(t / barSec());
 		return CHORDS[((bar % 4) + 4) % 4];
 	}
 	/** コンボ切れ：短いクリック＋下降ブリップ（テープが止まる感じ）＋BGM が一瞬抜けて戻る。罰音ではなく「切れた」合図 */
@@ -396,7 +492,7 @@ export function createAudio(): GameAudio {
 		const now = c.currentTime;
 		const g = c.createGain();
 		g.gain.value = 1;
-		g.connect(c.destination);
+		g.connect(sfxBusOf(c));
 		bgmNoise(c, g, now, 0.012, 2500, 0.12); // プツッ
 		toneAt(c, 520, now + 0.005, 0.09, 'square', 0.06, 90);
 		setTimeout(() => g.disconnect(), 300);
@@ -407,11 +503,60 @@ export function createAudio(): GameAudio {
 		out.gain.setValueAtTime(0.15, now + 0.12);
 		out.gain.linearRampToValueAtTime(1, now + 0.45);
 	}
+	/**
+	 * 外部音源を拍0（transport.startTime）ちょうどに、ファイル位置 startAt + offset から鳴らす。
+	 * ＝ファイル上の拍頭がそのまま transport の拍0。以降の拍 n はファイル位置 startAt + offset + n×spb（曲の BPM が正しい前提）。
+	 * 曲は srcGain（頭の 8ms フェードイン・終わりのフェードアウト）→ bgmGain（cue 前後のダッキング・ミュート）→ bgmOut（コンボ切れの瞬断）。
+	 * 終わり：duration で終止、tail 秒かけてフェードアウトして停止。
+	 */
+	function startExternal(c: AudioContext, buffer: AudioBuffer, songDef: SongDefinition): void {
+		const a = songDef.audio!;
+		const t0 = audioTimeOf(0);
+		const src = c.createBufferSource();
+		src.buffer = buffer;
+		const g = c.createGain();
+		g.gain.setValueAtTime(0.0001, t0);
+		g.gain.exponentialRampToValueAtTime(1, t0 + 0.008);
+		const end = audioTimeOf(songDef.duration);
+		const tail = Math.max(0.05, a.tail ?? 1.5);
+		g.gain.setValueAtTime(1, end);
+		g.gain.linearRampToValueAtTime(0.0001, end + tail);
+		src.connect(g).connect(ensureBgmGain(c));
+		src.start(t0, Math.max(0, a.startAt + a.offset));
+		src.stop(end + tail + 0.05);
+		src.onended = () => g.disconnect();
+		extSource = src;
+	}
+	/**
+	 * 外部音源モードの拍ごとの追加音。原曲とキーがぶつからないよう音程のない音だけ・ごく控えめ：
+	 * コンボ5+ ハイハット8分 / 10+ シェイカー16分を少し / FEVER オープンハット＋突入のクラッシュ。
+	 */
+	function scheduleExternalBeat(c: AudioContext, dest: AudioNode, time: number): void {
+		if (musicLevel >= 2) {
+			bgmNoise(c, dest, time, 0.025, 8000, 0.03);
+			bgmNoise(c, dest, time + grid.spb / 2, 0.025, 8000, 0.022);
+		}
+		if (musicLevel >= 3) {
+			bgmNoise(c, dest, time + grid.spb / 4, 0.018, 10000, 0.012);
+			bgmNoise(c, dest, time + (grid.spb * 3) / 4, 0.018, 10000, 0.012);
+		}
+		if (feverOn) {
+			if (feverCrashPending) {
+				feverCrashPending = false;
+				bgmNoise(c, dest, time, 1.0, 3500, 0.07);
+			}
+			bgmNoise(c, dest, time + grid.spb / 2, 0.05, 6000, 0.035);
+		}
+	}
 	function scheduleBgmBeat(beat: number, time: number): void {
 		const c = ctx;
 		if (!c || !bgmGain) return;
 		const dest = bgmGain;
-		const tt = beatTime(beat); // この拍の transport 時刻（cue/hitAt と同じ式）
+		if (extActive) {
+			scheduleExternalBeat(c, dest, time);
+			return;
+		}
+		const tt = grid.beatTime(beat); // この拍の transport 時刻（cue/hitAt と同じ式）
 		const secIdx = sectionIndexAt(song, tt);
 		const arr = song.sections[secIdx].arrangement;
 		const b = ((beat % 4) + 4) % 4; // 小節内の拍 0..3
@@ -432,19 +577,19 @@ export function createAudio(): GameAudio {
 			bgmNoise(c, dest, time, 0.08, 1800, 0.09); // スネア
 		}
 		if (arr.drums === 'drive' || arr.drums === 'four') {
-			bgmNoise(c, dest, time + SPB / 2, 0.025, 9000, 0.03); // 裏の8分シェイカー（密度UP）
+			bgmNoise(c, dest, time + grid.spb / 2, 0.025, 9000, 0.03); // 裏の8分シェイカー（密度UP）
 		}
 		// 次セクションへのフィル：最後の1小節を16分スネアでクレッシェンド
 		if (arr.fill && secIdx < song.sections.length - 1) {
 			const next = sectionStart(song, secIdx + 1);
-			if (tt >= next - BAR - 1e-6) {
-				const prog = (tt - (next - BAR)) / BAR; // 0→0.75
-				for (let k = 0; k < 4; k++) bgmNoise(c, dest, time + (k * SPB) / 4, 0.05, 1500, 0.025 + 0.06 * (prog + k / 16));
+			if (tt >= next - barSec() - 1e-6) {
+				const prog = (tt - (next - barSec())) / barSec(); // 0→0.75
+				for (let k = 0; k < 4; k++) bgmNoise(c, dest, time + (k * grid.spb) / 4, 0.05, 1500, 0.025 + 0.06 * (prog + k / 16));
 			}
 		}
 		// 伴奏パッド（小節頭で和音をのばす）
 		if (arr.pad && b === 0) {
-			for (const f of chord) bgmTone(c, dest, f, time, BAR * 0.95, 'triangle', 0.025);
+			for (const f of chord) bgmTone(c, dest, f, time, barSec() * 0.95, 'triangle', 0.025);
 		}
 		// FINAL の締めモチーフ（基本アレンジとして小さく。コンボ melody とは別）
 		if (arr.motif === 'finale') {
@@ -468,7 +613,7 @@ export function createAudio(): GameAudio {
 		// hihat（level>=2）：8分
 		if (musicLevel >= 2) {
 			bgmNoise(c, dest, time, 0.03, 7000, 0.05);
-			bgmNoise(c, dest, time + SPB / 2, 0.03, 7000, 0.035);
+			bgmNoise(c, dest, time + grid.spb / 2, 0.03, 7000, 0.035);
 		}
 		// melody（level>=3）：セクションのモチーフ（main / variation / finale）と音量
 		if (musicLevel >= 3) {
@@ -486,10 +631,10 @@ export function createAudio(): GameAudio {
 			}
 			const lead = [1174.66, 1174.66, 1567.98, 1174.66][b];
 			bgmTone(c, dest, lead, time, 0.14, 'sawtooth', 0.075);
-			bgmTone(c, dest, lead * 1.5, time + SPB / 2, 0.1, 'triangle', 0.035); // 裏で5度上の合いの手
-			bgmNoise(c, dest, time + SPB / 2, 0.05, 6000, 0.045);
+			bgmTone(c, dest, lead * 1.5, time + grid.spb / 2, 0.1, 'triangle', 0.035); // 裏で5度上の合いの手
+			bgmNoise(c, dest, time + grid.spb / 2, 0.05, 6000, 0.045);
 			if (!arr.pad && b === 0) {
-				for (const f of chord) bgmTone(c, dest, f, time, BAR * 0.95, 'triangle', 0.022);
+				for (const f of chord) bgmTone(c, dest, f, time, barSec() * 0.95, 'triangle', 0.022);
 			}
 			const bars = MOTIFS[arr.motif];
 			const oct = bars[((bar % bars.length) + bars.length) % bars.length][b];
@@ -502,7 +647,14 @@ export function createAudio(): GameAudio {
 		if (!c || muted) return;
 		const g = c.createGain();
 		g.gain.value = 0.9;
-		g.connect(c.destination);
+		g.connect(sfxBusOf(c));
+		if (extActive) {
+			// 外部音源：曲のキーとぶつからないよう音程のない終止（クラッシュ＋衝撃）。曲自体は tail の間にフェード
+			bgmTone(c, g, 52, time, 0.35, 'sine', 0.45, 28);
+			bgmNoise(c, g, time, feverOn ? 1.8 : 1.2, 4000, feverOn ? 0.1 : 0.08);
+			setTimeout(() => g.disconnect(), (time - c.currentTime + 2) * 1000);
+			return;
+		}
 		bgmTone(c, g, 52, time, 0.4, 'sine', 0.55, 28);
 		bgmNoise(c, g, time, feverOn ? 2.2 : 1.4, 4000, feverOn ? 0.12 : 0.09);
 		for (const f of [293.66, 369.99, 440.0, 587.33]) bgmTone(c, g, f, time, 1.6, 'triangle', 0.08); // D major
@@ -519,18 +671,18 @@ export function createAudio(): GameAudio {
 		const c = ctx;
 		if (!c || !transport || transport.clock !== 'audio') return;
 		// currentTime + 0.12 秒先まで予約（fps に依存しない）
-		// 拍 n の時刻は常に startTime + n×SPB（加算の誤差を溜めない＝cue/エンジンと同じ式）
+		// 拍 n の時刻は常に startTime + n×grid.spb（加算の誤差を溜めない＝cue/エンジンと同じ式）
 		while (nextBeatTime < c.currentTime + 0.12) {
-			if (beatTime(bgmBeat) >= song.duration - 1e-6) {
-				// 曲の最終拍：ループではなく終止音を鳴らしてスケジューラを止める
-				scheduleFinish(nextBeatTime);
+			if (grid.beatTime(bgmBeat) >= song.duration - 1e-6) {
+				// 曲の終わり（transport 時刻 song.duration。拍頭に揃えた尺なら最終拍）：ループではなく終止音を鳴らしてスケジューラを止める
+				scheduleFinish(audioTimeOf(song.duration));
 				if (musicTimer) clearInterval(musicTimer);
 				musicTimer = null;
 				return;
 			}
 			scheduleBgmBeat(bgmBeat, nextBeatTime);
 			bgmBeat++;
-			nextBeatTime = audioTimeOf(bgmBeat * SPB);
+			nextBeatTime = audioTimeOf(bgmBeat * grid.spb);
 		}
 	}
 
@@ -567,7 +719,7 @@ export function createAudio(): GameAudio {
 			else tone(180, 0, 0.16, 'sawtooth', 0.14, 150); // 低く少し濁った失敗音（不快すぎない）
 		},
 		scheduleRhythm(cues, chaos) {
-			// cue.time は transport 時刻（=beatTime(beatIndex)）。BGM の拍と同じ startTime + time に予約する。
+			// cue.time は transport 時刻（=grid.beatTime(beatIndex)）。BGM の拍と同じ startTime + time に予約する。
 			const c = ctx;
 			if (!c || muted || !transport || transport.clock !== 'audio') return;
 			clearPendingCues(c); // 前パターンの未再生の予告（早押しで消えた的のドン等）を取り消す
@@ -599,7 +751,7 @@ export function createAudio(): GameAudio {
 			const now = c.currentTime;
 			const g = c.createGain();
 			g.gain.value = 1;
-			g.connect(c.destination);
+			g.connect(sfxBusOf(c));
 			bgmNoise(c, g, now, 0.08, 4000, 0.14); // バチッ
 			setTimeout(() => g.disconnect(), 600);
 			toneAt(c, 2400, now, 0.14, 'sawtooth', 0.08, 180); // ザップ
@@ -615,7 +767,7 @@ export function createAudio(): GameAudio {
 			toneAt(c, 70, now, 0.35, 'sine', 0.32, 32); // インパクト
 			const g = c.createGain(); // ノイズの一撃
 			g.gain.value = 0.9;
-			g.connect(c.destination);
+			g.connect(sfxBusOf(c));
 			bgmNoise(c, g, now, 0.18, 800, 0.12);
 			setTimeout(() => g.disconnect(), 800);
 			toneAt(c, 330, now + 0.02, 0.32, 'sawtooth', 0.12, 1320); // ライザー
@@ -629,6 +781,7 @@ export function createAudio(): GameAudio {
 		},
 		async startTransport(leadBeats: number, songDef: SongDefinition = DEFAULT_SONG) {
 			song = songDef;
+			grid = gridOf(songDef);
 			// ユーザー操作の同期部分で ctx を作り resume を要求する（iOS Safari はジェスチャー内が必須）
 			const c = ensureCtx();
 			if (musicTimer) {
@@ -648,13 +801,21 @@ export function createAudio(): GameAudio {
 					running = false; // resume 失敗・closed などは無音扱い
 				}
 			}
+			// ②' 外部音源：デコード（初回のみ。以後キャッシュ）を待ってから拍0を決める（拍0が必ず未来になる）。
+			//     読めない・遅すぎる・音が使えないなら、その回は同じ拍グリッドの合成BGMで遊ぶ（ゲームは止めない）
+			let buffer: AudioBuffer | null = null;
+			stopExternal(c);
+			if (running && c && songDef.audio) {
+				buffer = await Promise.race([loadBuffer(c, songDef.audio.src), sleep(DECODE_TIMEOUT_MS).then(() => null)]);
+			}
+			extActive = !!buffer;
 			const lead = Math.max(0, Math.round(leadBeats));
 			const base = running && c ? c.currentTime : perfNow();
 			// ② 拍0（gameTime=0）の時刻をここで1回だけ決める。全時計の原点。
 			transport = {
-				startTime: base + START_DELAY + lead * SPB,
-				bpm: BPM,
-				secondsPerBeat: SPB,
+				startTime: base + START_DELAY + lead * grid.spb,
+				bpm: grid.bpm,
+				secondsPerBeat: grid.spb,
 				clock: running ? 'audio' : 'performance',
 			};
 			musicLevel = 0;
@@ -662,7 +823,7 @@ export function createAudio(): GameAudio {
 			feverCrashPending = false;
 			lastCombo = 0;
 			bgmBeat = 0;
-			lastTransportT = -(START_DELAY + lead * SPB);
+			lastTransportT = -(START_DELAY + lead * grid.spb);
 			if (!running || !c) return transport;
 			lastAudioT = c.currentTime;
 			lastAudioAdvanceAt = perfNow();
@@ -682,9 +843,10 @@ export function createAudio(): GameAudio {
 				duckFrom = 0;
 				ensureBgmGain(c);
 				nextBeatTime = audioTimeOf(0); // BGM の拍0＝startTime
+				if (buffer && songDef.audio) startExternal(c, buffer, songDef);
 				// カウントイン：拍 -lead … -1 に「タン」、拍0 に「ドン（GO）」。同じ beatIndex 式で置く
 				if (!muted) {
-					for (let i = lead; i >= 1; i--) tickAt(c, audioTimeOf(-i * SPB));
+					for (let i = lead; i >= 1; i--) tickAt(c, audioTimeOf(-i * grid.spb));
 					accentAt(c, audioTimeOf(0));
 				}
 				musicTimer = setInterval(bgmScheduler, 25);
@@ -694,9 +856,30 @@ export function createAudio(): GameAudio {
 					clearInterval(musicTimer);
 					musicTimer = null;
 				}
-				transport = { ...transport, startTime: perfNow() + START_DELAY + lead * SPB, clock: 'performance' };
+				transport = { ...transport, startTime: perfNow() + START_DELAY + lead * grid.spb, clock: 'performance' };
+				stopExternal(c);
+				extActive = false;
 			}
 			return transport;
+		},
+		preloadSong(songDef: SongDefinition) {
+			if (songDef.audio) void fetchBytes(songDef.audio.src);
+		},
+		audioMode() {
+			if (!transport || transport.clock !== 'audio') return 'silent';
+			return extActive ? 'external' : 'synth';
+		},
+		debugLines() {
+			const lines = [`audio: ${api.audioMode()}${muted ? ' (muted)' : ''}  clock: ${transport?.clock ?? '-'}`];
+			if (song.audio) {
+				lines.push(`src: ${song.audio.src.split('/').pop()}`);
+				lines.push(`startAt: ${song.audio.startAt}  offset: ${song.audio.offset}`);
+				if (extActive && ctx && transport) {
+					// 今鳴っている音源ファイル内の位置（拍0 = startAt + offset）
+					lines.push(`file pos: ${(song.audio.startAt + song.audio.offset + ctx.currentTime - transport.startTime).toFixed(3)}`);
+				}
+			}
+			return lines;
 		},
 		getTransport() {
 			return transport;
@@ -717,6 +900,8 @@ export function createAudio(): GameAudio {
 				clearInterval(musicTimer);
 				musicTimer = null;
 			}
+			// 外部音源は終止時刻から tail 秒のフェードを予約済み（原曲の自然な終わりを優先）。ここでは切らない
+			if (extActive) return;
 			if (ctx && bgmGain) {
 				const t = ctx.currentTime;
 				bgmGain.gain.cancelScheduledValues(t);
@@ -749,7 +934,7 @@ export function createAudio(): GameAudio {
 			tone(70, 0, 0.3, 'sine', 0.32 * strong, 34);
 			const g = c.createGain();
 			g.gain.value = 1;
-			g.connect(c.destination);
+			g.connect(sfxBusOf(c));
 			bgmNoise(c, g, c.currentTime, 0.06, 1500, 0.1 * strong);
 			setTimeout(() => g.disconnect(), 400);
 			const chord = rank === 'C' ? [293.66, 349.23, 440] : [293.66, 369.99, 440, 587.33]; // C は短調、それ以外は長調

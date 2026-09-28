@@ -137,8 +137,8 @@
 | 難しい | 0.20 | 1.9–3.0 / 1.4–3.1 |
 | 鬼 | 0.13 | 2.2–3.3 / 2.0–3.3 |
 
-## 音（Web Audio API のみ・外部音源なし）
-- **BPM 130**（`beat-grid.ts` の1か所で定義）。
+## 音（既定：合成BGM・Web Audio API のみ）
+- **BPM 130**（既定曲。`beat-grid.ts` の `BPM`。拍グリッドは曲ごとに `SongDefinition.bpm` から作る）。
 - **リズム予告（cue）**：各ターゲットに「タン・タン・ドン」。`RHYTHM_PATTERNS`（A〜G）をデータ駆動で持ち、
   セクションの sequence pool から選んだ譜面シーケンスを順番に消化。直前と同じシーケンスは避ける。
   追加パターン：E＝タン タタ タン ドン／F＝タン 休 タタ ドン／G＝タン タン ・タ ・ドン（裏拍入力）。どれも刻みを聞けばドンが予測できる。
@@ -160,6 +160,24 @@
 - **cue 最優先**：BGM は cue より明確に小さい（BGM マスター 0.5、ドンの音量はキックより大きい）。
   さらに accent（ドン）の −80ms〜+120ms だけ BGM を約 −5dB ダッキングする。
 
+## 外部音源の曲（曲同期モード・基盤のみ）
+- `SongDefinition.audio` がある曲は、合成BGMの代わりに**音源ファイルを拍グリッドに同期して**流す（AudioBufferSourceNode）。
+  **曲の拍 = CHAOS BEAT の正解タイミング**：transport の拍 n（`n × 60/bpm` 秒）＝ファイル内 `startAt + offset + n × 60/bpm` 秒。
+  cue（タン・ドン）・hitAt・リング・判定はすべて同じ拍グリッドなので、曲のキック／スネアの位置で押すと PERFECT になる。
+- `bpm`：曲のテンポ（一定のみ）。`startAt`：ファイルのどこから 60 秒を使うか（サビ前などの切り出し）。
+  `offset`：`startAt` から最初の拍頭までの秒（エンコーダの無音・拍頭の微調整）。`volume`：曲の音量。`tail`：終了後のフェード秒。
+- カウントイン（タン×4）は曲の前（拍 −4〜−1）に鳴り、拍0で曲が始まる。60秒（`duration`）で曲はフェードアウトし、合成の終止音（キック＋クラッシュ・音程なし）。
+- 音源が読めない／デコードできない（4秒でタイムアウト）ときは、同じ拍グリッドで**合成BGMにフォールバック**（ゲームは止めない）。
+- 外部音源モードでは、コンボ層は**音程のない最小限**だけ足す（コンボ5+：8分ハット、10+：16分の小さな刻み、FEVER：オープンハット＋突入クラッシュ）。
+  曲とぶつかる和音・ベース・メロディ・FEVER リードは足さない。判定音の音階は `song.harmony`（曲のキーの和音）があればそれを使う。
+- ダッキング：ドンの瞬間は曲も下げる（外部音源は ×0.42 ≒ −7.5dB。合成BGMは従来どおり ×0.55）。
+- 作者表記（`credit`）をゲームの下に小さく表示（URL があればリンク）。
+- 手書き譜面（`beatmap`：`{ beat, pattern }`）：指定の拍でそのパターンを必ず出す（拍はずらさない）。間はセクションの譜面で埋める。
+  次のエントリは「前のエントリの入力拍 + 2」以上の拍から始める（それより早いと間に合わず飛ばされる）。
+- 曲の選択 UI は無い。`?song=<id>` で試す。**ランキングは既定曲のみ**（他の曲は登録しない。自己ベストは曲 id ごと）。
+- `?debug=1`：左上に Song/BPM・拍/位相・transport・次の入力拍・音源モード・ファイル内位置、右上に拍で光るメトロノーム四角
+  （小節頭は黄色）。外部音源の曲では `&bpm= &offset= &startAt=` で値を上書きして調整できる（四角と曲のキックが揃う値を song.ts に書く）。
+
 ## 計測（GA4・既存 analytics 経由）
 - `hit`：`kind / pts / score / combo / comboMult / maxCombo / distancePx / nearMissPx / timingOffsetMs / expired`。
 - `game_over`：`score / maxCombo / hits / perfectCount / greatCount / goodCount / nearCount / missCount / expiredCount /
@@ -167,6 +185,7 @@
 - `game_start` / `game_retry`（difficulty 付き）：`game_retry ÷ game_over` で終了後の再プレイ率を見る。
 - `section_change`：`section / elapsed / musicIntensity`（どのセクションで MISS が増えるかを hit と合わせて見る）。
 - `game_over` に `sectionReached` は付けない（全員60秒完走するため）。
+- 全イベントに `song_id`（既定曲は `normal60`）と `audio_mode`（`external` / `synth` / `silent`）。外部音源のフォールバック率はここで見る。
 - FEVER：`fever_start` と `fever_end { reason: miss|timeout|finish, duration, hits }`。`game_over` に
   `feverCount / feverDuration / feverHits / feverPerfects`。イベントの種類・回数は増やしていない。
 - **判定は変えない**。「音にぴったり合わせても PERFECT にならない」がデータで多いと分かった場合のみ、

@@ -115,6 +115,29 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
 - **cue の取り消し**：`scheduleRhythm` の先頭で、前パターンの未再生 cue（早押しで消えた的のドン等）を stop する。
 - `stopMusic()`：game_over で 0.3秒フェードアウト。ミュート時は BGM 0・cue/SE 無音（時計は動く）。
 
+## 外部音源の同期（song.ts / beat-grid.ts / audio.ts）
+- **拍グリッドは曲ごと**：`makeGrid(bpm)`、`gridOf(song)`（WeakMap キャッシュ）。エンジン（cue・hitAt・リング・セクション切替の小節頭）と
+  audio（BGM・外部音源・終止）が同じ `gridOf(song)` を使う。既定曲は `DEFAULT_GRID`（BPM 130）で従来と同一。
+- **ロード**：`preloadSong(song)`（ページ表示時に fetch → ArrayBuffer をキャッシュ）→ `startTransport` 内で `decodeAudioData`（AudioBuffer を
+  src ごとにキャッシュ。失敗したらキャッシュを消す）。デコードは **startTime を決める前**に待つ（最大 `DECODE_TIMEOUT_MS = 4000`、
+  初回だけ開始ボタンが「♪ LOADING…」）。タイムアウト／失敗は `extActive = false` で合成BGMに切り替え（同じ grid）。
+- **再生**：`t0 = audioTimeOf(0)`（= transport.startTime）に `src.start(t0, startAt + offset)`。以後 拍 n の音 ＝ ファイル位置 `startAt + offset + n·spb` が
+  `startTime + n·spb` に鳴る（sample 精度。JS タイマーに依存しない）。source は毎ゲーム新規（AudioBufferSourceNode は1回しか start できない）。
+  gain は t0 で 8ms フェードイン、`audioTimeOf(duration)` から `tail` 秒で 0 へ、`stop(end + tail + 0.05)` を予約。
+- **バス**：曲（外部音源 or 合成BGM）→ `bgmGain`（ダッキング・ミュート・前ゲームのフェード）→ `bgmOut` → destination ／
+  cue（タン・ドン・予兆）→ `cueBus` ／ 判定SE・演出SE → `sfxBus`。外部音源の音量は `musicBase()` = `song.audio.volume`。
+- **ダッキング**：`duckAt` が曲のベース音量 × `DUCK_EXTERNAL = 0.42`（合成BGMは ×0.55）。
+- **コンボ層**：`scheduleBgmBeat` は `extActive` なら `scheduleExternalBeat`（音程なしのハット・刻み・FEVER オープンハット／突入クラッシュ）だけ。
+- **止め方**：再戦・終了は `stopExternal(c, fade)`（50ms フェード→stop）。`stopMusic()` は外部音源中は何もしない（予約済みの終わりのフェードを活かす）。
+  `startTransport` の冒頭・例外時・時計停止（`fallbackToPerformance`）でも止める＝時計がずれた音源を鳴らし続けない。
+- **iOS**：resume 打ち切り・currentTime の前進確認・プレイ中の時計監視は従来どおり。performance 時計になった回は無音（外部音源も止める）。
+- **beatmap**（chaos-pendulum.ts `newTarget`）：`firstBeat + 5 > entry.beat` なら通常パターンより優先。入力拍が予測範囲（`PRED_HORIZON`）外なら
+  的を出さずに待つ（`waitingForMap`。ループが毎フレーム `newTarget` を呼び直す）。過ぎた・未知パターン・曲の終わりに収まらないエントリは飛ばす。
+- **debug**：`initGame({ debugInfo })` → `drawDebug()`（左上テキスト＋右上メトロノーム）。`audio.debugLines()` がモード・src・startAt/offset・ファイル内位置を返す。
+- **検証方法**（ヘッドレス Chromium・実 AudioContext）：BPM120 のクリック音源（ファイル 2.35s から 0.5s 間隔、0s/1s にデコイ）を
+  `?song=external_test&debug=1&bpm=120&startAt=2.0&offset=0.35` で流し、外部音源の出力を AudioWorklet で直接タップしてクリックの
+  audio 時刻を測る → transport 時刻に直して拍グリッド・`rhythm_pattern.hitTime` と比較。
+
 ## 判定音が育つ（audio.ts `judgment(kind, combo)`）
 - コンポーネントが hit ごとに `judgment(p.kind, p.combo)`（combo は判定後の値）を呼ぶ。
 - 段階 `step`：combo 1-2=0 / 3-4=1 / 5-6=2 / 7-9=3 / 10+=4 → 音 `[根音, 3度, 5度, 根音×2, 根音×2][step] × 2`。
