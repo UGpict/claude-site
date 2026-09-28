@@ -37,7 +37,11 @@ export interface GameAudio {
 	 */
 	judgment(kind: HitKind, combo?: number): void;
 	/** リズム予告（タン・タン・ドン）を transport 時刻で先読み予約（startTime + time。fps非依存）。accent 前後は BGM をダッキング */
-	scheduleRhythm(cues: ScheduledCue[]): void;
+	scheduleRhythm(cues: ScheduledCue[], chaos?: { hitTime: number; tell: number }): void;
+	/** CHAOS チャンスの予兆音を止める（叩いた瞬間に呼ぶ。鳴り途中のものも止める） */
+	stopChaosTell(): void;
+	/** ⚡ CHAOS PERFECT の炸裂音 */
+	chaosPerfect(): void;
 	/** CHAOS FEVER 突入の上昇音 */
 	fever(): void;
 	/** CHAOS FEVER 解除の短い「シュン…」（罰音ではなく、落差を作るための控えめな下降音） */
@@ -279,6 +283,31 @@ export function createAudio(): GameAudio {
 		toneAt(c, 180, at, 0.14, 'sine', 0.3, 120, true);
 		toneAt(c, 90, at, 0.16, 'triangle', 0.16, undefined, true);
 		duckAt(c, at);
+	}
+	// CHAOS 予兆音：加速する高いチッ・チッ＋かすかに上昇するサイン。ドン（180Hz）とは帯域が離れていて埋もれさせない。
+	let tellOscs: OscillatorNode[] = [];
+	function toneTell(c: AudioContext, freq: number, at: number, dur: number, type: OscillatorType, gain: number, freqTo?: number): void {
+		const osc = c.createOscillator();
+		const g = c.createGain();
+		osc.type = type;
+		osc.frequency.setValueAtTime(freq, at);
+		if (freqTo != null) osc.frequency.exponentialRampToValueAtTime(freqTo, at + dur);
+		g.gain.setValueAtTime(0.0001, at);
+		g.gain.exponentialRampToValueAtTime(gain, at + Math.min(0.01, dur / 3));
+		g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+		osc.connect(g).connect(c.destination);
+		osc.start(at);
+		osc.stop(at + dur + 0.02);
+		tellOscs.push(osc);
+	}
+	function scheduleChaosTell(c: AudioContext, hitAudio: number, tell: number): void {
+		const from = Math.max(c.currentTime, hitAudio - tell);
+		if (hitAudio - from < 0.05) return;
+		toneTell(c, 1800, from, hitAudio - from - 0.01, 'sine', 0.018, 3600); // 上昇するかすかな唸り
+		for (const k of [1, 0.69, 0.46, 0.29, 0.17, 0.09]) {
+			const at = hitAudio - tell * k;
+			if (at >= c.currentTime) toneTell(c, 3136, at, 0.025, 'sine', 0.03 + 0.03 * (1 - k)); // 加速する「チッ」
+		}
 	}
 	/** タン（予告クリック） */
 	function tickAt(c: AudioContext, at: number): void {
@@ -531,7 +560,7 @@ export function createAudio(): GameAudio {
 			if (kind === 'near') tone(300, 0, 0.12, 'sawtooth', 0.12, 240); // 惜しい（軽く濁る）
 			else tone(180, 0, 0.16, 'sawtooth', 0.14, 150); // 低く少し濁った失敗音（不快すぎない）
 		},
-		scheduleRhythm(cues) {
+		scheduleRhythm(cues, chaos) {
 			// cue.time は transport 時刻（=beatTime(beatIndex)）。BGM の拍と同じ startTime + time に予約する。
 			const c = ctx;
 			if (!c || muted || !transport || transport.clock !== 'audio') return;
@@ -543,6 +572,34 @@ export function createAudio(): GameAudio {
 				if (cue.sound === 'accent') accentAt(c, at);
 				else tickAt(c, at);
 			}
+			if (chaos) scheduleChaosTell(c, audioTimeOf(chaos.hitTime), chaos.tell);
+		},
+		stopChaosTell() {
+			const c = ctx;
+			if (!c) return;
+			for (const o of tellOscs) {
+				try {
+					o.stop(c.currentTime);
+				} catch {
+					/* 停止済み */
+				}
+			}
+			tellOscs = [];
+		},
+		chaosPerfect() {
+			// 振り子が最も荒れた瞬間を叩き抜いた：クラック＋ザップ（下降）＋低い衝撃＋和音のきらめき
+			const c = ensureCtx();
+			if (!c || muted) return;
+			const now = c.currentTime;
+			const g = c.createGain();
+			g.gain.value = 1;
+			g.connect(c.destination);
+			bgmNoise(c, g, now, 0.08, 4000, 0.14); // バチッ
+			setTimeout(() => g.disconnect(), 600);
+			toneAt(c, 2400, now, 0.14, 'sawtooth', 0.08, 180); // ザップ
+			toneAt(c, 62, now, 0.28, 'sine', 0.3, 34); // ドスッ
+			const [r, t3, f5] = chordNow();
+			[r, t3, f5, r * 2, t3 * 2].forEach((x, i) => toneAt(c, x * 4, now + 0.04 + i * 0.03, 0.12, 'sine', 0.055));
 		},
 		fever() {
 			// 突入SE＝3層：低音インパクト ＋ 上昇ライザー ＋ 高音スパークル（約0.5秒で収まる。次の cue を覆わない長さ）

@@ -25,7 +25,11 @@ per-game イベント（game_start / game_over / game_retry）に `reward_stage`
 - [x] **① 音が育つ（reward_stage 1）**：GOOD 以上の判定音がコンボで 根音(1-2) → 3度(3-4) → 5度(5-6) → オクターブ(7-9) → ＋きらめき(10+)。
       音は「今の小節の和音」の構成音（伴奏パッドのある CLIMAX/FINAL は Dm–B♭–C–A に追従、それ以外は Dm）なので伴奏と濁らない。
       PERFECT は倍音つき、GREAT/GOOD は同じ音程で控えめ。コンボ3以上が NEAR/MISS/見逃しで切れると「プツッ」＋BGM が一瞬（~0.45秒）抜ける
-- [ ] ④ CHAOS PERFECT（予兆あり。的の生成時に hitAt の先端速度が分かる＝予兆は本当の情報。得点の尺度は変えない方向で設計）
+- [x] **④ CHAOS PERFECT（reward_stage 2）**：hitAt での先端速度 ≥ 7.5 u/s の的＝CHAOS チャンス（INTRO なし・2連続なし）。
+      hitAt の 0.35 秒前から予兆（電撃の輪＋火花・的の円が震える・軌跡が太く白く・加速する高い「チッ」＋上昇音）→ PERFECT で ⚡ CHAOS PERFECT
+      （白い閃光・電撃の粒子2段・シェイク・専用SE・バイブ）。得点は通常の PERFECT と同じ（ランキングの尺度を変えない）。
+      検証：1曲あたり normal 平均約3回（2〜5）・鬼約5回。拍どおりに押すボットで全チャンスが CHAOS PERFECT、同期・PERFECT 率・フレーム時間は不変。
+      計測：hit に chaos / chaosPerfect、game_over に chaosChances / chaosPerfectCount
 - [ ] ② 結果発表（一瞬の無音 → 高速加算 → PERFECT → CHAOS PERFECT → MAX COMBO → FEVER → ランク → NEW BEST 前後比較・「あと◯点で S」）
 
 ## 完了：CHAOS FEVER 強化（2026-09-27）

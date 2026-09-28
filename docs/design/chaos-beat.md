@@ -124,6 +124,18 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
   BGM 出口ノード `bgmOut` を 15ms で 0.15 まで下げ、0.45 秒で戻す。`bgmOut` は `bgmGain`（cue のダッキング）とは別ノードなので予約が干渉しない。
   combo 3 未満の NEAR/MISS は従来の短い濁り音。
 
+## ⚡ CHAOS PERFECT（chaos-pendulum.ts / audio.ts）
+- `newTarget()`：`tipAndSpeedAfterSteps(stepsUntil(hitAt))` で的の中心と hitAt の先端速度（次の1固定ステップとの差 ÷ FIXED_H）を同時に求める。
+  `chaos = speed ≥ CHAOS_SPEED(7.5) && section ≠ intro && !lastWasChaos`。`target.chaos` と `rhythm_pattern { chaos, chaosTell: 0.35 }` に載せる。
+  速度の分布（2000件/難易度）：7.5 以上は easy〜hard 約15%、鬼 約20%。
+- 予兆 `chaosTell()`：state==='playing' かつ hitAt−0.35〜hitAt+0.12 で 0→1。的の周りにジグザグの電撃の輪（半径ランダム揺れ）＋火花、
+  的の破線円の半径だけ ±1.6px 震える、軌跡の太さ +3〜3.5px・先端側を白に。的の中心・十字・判定は不変。reduced-motion は揺れ・火花なし。
+- 判定：`chaosPerfect = kind==='perfect' && target.chaos`。得点計算は変えない。ラベル「⚡ CHAOS PERFECT」（白⇔シアン明滅・画面幅に合わせ縮小）、
+  白い閃光 `chaosFlashT`、電撃色の粒子2段、シェイク 1.6 倍、`scorePop.sub = '⚡ CHAOS'`（FEVER 中は '⚡ CHAOS × FEVER ×2'）。
+- 音：`scheduleRhythm(cues, { hitTime, tell })` が hitTime の直前に予兆音（1800→3600Hz の弱い上昇サイン＋3136Hz の「チッ」を
+  −0.35/−0.24/−0.16/−0.10/−0.06/−0.03 秒に加速）を予約。`stopChaosTell()` を hit ごとに呼んで鳴り途中でも止める。
+  `chaosPerfect()`＝ノイズのクラック＋2400→180Hz のザップ＋62→34Hz の衝撃＋今の和音の構成音×4 のきらめき。
+
 ## CHAOS FEVER の演出（chaos-pendulum.ts の描画・audio.ts の音。物理・判定には触れない）
 - 定数は `FX`（`ENTRY_TIME 0.7` / `ENTRY_FLASH_ALPHA 0.6` / `ENTRY_ZOOM 0.05` / `BEAT_FLASH_ALPHA 0.12` / `OVERLAY_ALPHA_MAX 0.2` /
   `TRAIL_LEN 140` / `FEVER_TRAIL_MULT 1.8` / `TRAIL_CHUNKS 28` / `FEVER_PARTICLE_MULT 2` / `MAX_PARTICLES 320` / `SHAKE_PX 6` /

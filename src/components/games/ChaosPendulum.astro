@@ -265,7 +265,7 @@
 				window.clearTimeout(playHintTimer);
 				playHintTimer = window.setTimeout(() => playHint.classList.remove('show'), 6000);
 			};
-			const REWARD_STAGE = 1;
+			const REWARD_STAGE = 2;
 			let gameSerial = 0; // game_start ごとに増やす（遅延表示の取り消し用）
 			const RESULT_DELAY_MS = 1300;
 			const musicLevelOf = (combo: number) => (combo >= 10 ? 3 : combo >= 5 ? 2 : combo >= 3 ? 1 : 0);
@@ -303,13 +303,23 @@
 
 					if (name === 'hit') {
 						const p = payload as GameEventPayloads['hit'];
+						audio.stopChaosTell(); // 叩いた・見逃した瞬間に予兆音を止める
 						audio.judgment(p.kind, p.combo); // コンボで音階が上がる／切れたら「プツッ」
+						if (p.chaosPerfect) {
+							audio.chaosPerfect(); // ⚡ 振り子が最も荒れた瞬間を叩き抜いた
+							try {
+								navigator.vibrate?.([15, 30, 45]);
+							} catch {
+								/* 非対応は無視 */
+							}
+						}
 						audio.setMusicLevel(musicLevelOf(p.combo)); // コンボで層が増減（MISSでcombo0→drumだけ）
 					}
 
 					if (name === 'rhythm_pattern') {
 						const p = payload as GameEventPayloads['rhythm_pattern'];
-						audio.scheduleRhythm(p.cues); // transport 時刻（beatTime）で予約＝BGMの拍頭と同じ式
+						// transport 時刻（beatTime）で予約＝BGMの拍頭と同じ式。CHAOS チャンスなら hitTime 直前に予兆音も
+						audio.scheduleRhythm(p.cues, p.chaos ? { hitTime: p.hitTime, tell: p.chaosTell } : undefined);
 					}
 
 					if (name === 'fever_start') {

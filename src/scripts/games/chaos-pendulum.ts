@@ -85,6 +85,10 @@ export interface GameEventPayloads {
 		timingOffsetMs: number;
 		/** 寿命切れの MISS（押していない）なら true */
 		expired: boolean;
+		/** この的が CHAOS チャンス（hitAt に先端が最も荒れている＝速い瞬間）だったか */
+		chaos: boolean;
+		/** CHAOS チャンスを PERFECT で叩き抜いた（⚡ CHAOS PERFECT）。得点は通常の PERFECT と同じ（ランキングの尺度を変えない） */
+		chaosPerfect: boolean;
 	};
 	/**
 	 * リズム予告のスケジュール。時刻は全部 transport 時刻（秒・拍0=0）＝ beatTime(beatIndex)。
@@ -97,6 +101,10 @@ export interface GameEventPayloads {
 		/** 入力拍の transport 時刻（= target.hitAt） */
 		hitTime: number;
 		cues: { beat: number; time: number; sound: CueSound }[];
+		/** CHAOS チャンスの的か（audio は hitTime の直前に予兆音を予約する） */
+		chaos: boolean;
+		/** 予兆を hitTime の何秒前から出すか（映像の予兆と同じ長さ） */
+		chaosTell: number;
 	};
 	/** 曲のセクションが変わった（小節頭。INTRO は拍0で通知） */
 	section_change: {
@@ -134,6 +142,9 @@ export interface GameEventPayloads {
 		feverHits: number;
 		/** うち PERFECT */
 		feverPerfects: number;
+		/** CHAOS チャンスの的の数と、そのうち CHAOS PERFECT で叩き抜いた数 */
+		chaosChances: number;
+		chaosPerfectCount: number;
 	};
 	game_retry: undefined;
 }
@@ -195,6 +206,12 @@ export function initGame(options: InitGameOptions): GameHandle {
 	const FEVER_STREAK = 3; // PERFECT 連続でフィーバー発火
 	const FEVER_TIME = 5; // フィーバー継続（実秒）
 	const FEVER_MULT = 2; // フィーバー中の得点倍率（速度は変えない＝リズム整合のため）
+	// CHAOS PERFECT：hitAt の瞬間に先端が速い（＝振り子が最も荒れている）的は「チャンス」。PERFECT で叩き抜くと特別な報酬。
+	// 速さは的の生成時に物理から確定するので、予兆は本当の情報（ランダム演出ではない）。
+	// 7.5 u/s ≒ 的の約15%（鬼は約20%）。INTRO には出さず、2連続では出さない → 1曲に 3〜4 回。
+	// 先端が速いほど PERFECT の時間幅（0.35R ÷ 速さ）が狭くなる＝判定を厳しくしなくても自然に「上手い人なら拾える」。
+	const CHAOS_SPEED = 7.5;
+	const CHAOS_TELL = 0.35; // hitAt の何秒前から予兆（軌跡が太る・円が震える・高い予兆音）を出すか
 
 	// --- FEVER 演出（表示のみ。物理・判定・target/hitAt・beat grid・timeScale には一切触れない） ---
 	const FX = {
@@ -300,6 +317,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 		hitAt: number;
 		/** この時刻を過ぎたら見逃し */
 		expireAt: number;
+		/** CHAOS チャンス（hitAt での先端速度 ≥ CHAOS_SPEED） */
+		chaos: boolean;
 	}
 	let s: Vec; // [θ1, θ2, ω1, ω2]
 	let trail: [number, number][] = [];
@@ -336,7 +355,12 @@ export function initGame(options: InitGameOptions): GameHandle {
 	let feverHits = 0;
 	let feverPerfects = 0;
 	let shakeT = 0;
-	let scorePop: { text: string; big: boolean; t: number } | null = null;
+	let scorePop: { text: string; big: boolean; t: number; sub?: string } | null = null;
+	// CHAOS PERFECT（表示・集計のみ）
+	let lastWasChaos = false;
+	let chaosChances = 0;
+	let chaosPerfectCount = 0;
+	let chaosFlashT = 0; // 叩き抜いた瞬間の白い閃光＋電撃（1→0）
 	let pendingBursts: { t: number; x: number; y: number }[] = [];
 	// 譜面シーケンス：今のセクションの sequencePool から1つ選び順番に消化 → 別のを選ぶ（直前と同じは避ける）。
 	// セクションが変わってプール外になったシーケンスは途中でも切り上げ、新セクションの譜面に替える。
@@ -449,6 +473,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 	function comboMult(c: number): number {
 		return c >= 10 ? 2.0 : c >= 5 ? 1.5 : c >= 3 ? 1.2 : 1;
 	}
+	const CHAOS_LABEL = '⚡ CHAOS PERFECT';
 	const LABEL: Record<HitKind, string> = {
 		perfect: 'PERFECT',
 		great: 'GREAT',
@@ -472,6 +497,14 @@ export function initGame(options: InitGameOptions): GameHandle {
 		for (let i = 0; i < n; i++) sim = rk4(sim, FIXED_H);
 		const [, , x2, y2] = tips(sim);
 		return [x2, y2];
+	}
+	/** tipAfterSteps と同じ点＋その瞬間の先端の速さ（次の1ステップとの差。ワールド単位/秒） */
+	function tipAndSpeedAfterSteps(n: number): { x: number; y: number; speed: number } {
+		let sim = s.slice();
+		for (let i = 0; i < n; i++) sim = rk4(sim, FIXED_H);
+		const [, , x2, y2] = tips(sim);
+		const [, , nx, ny] = tips(rk4(sim, FIXED_H));
+		return { x: x2, y: y2, speed: Math.hypot(nx - x2, ny - y2) / FIXED_H };
 	}
 	/**
 	 * transport 時刻 t に対応する「現在の s から何ステップ先か」。
@@ -516,22 +549,27 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 		// 的の中心＝hitAt の時刻に実際の物理が通る点。hitAt まで同じ固定ステップ列で直接積分して求める
 		// （以前の「13ms 間隔でサンプルした軌道から最寄り点」だと ±2 ステップ≒±7ms の量子化誤差が出て、小さい的ほど目立った）。
-		const [tx, ty] = tipAfterSteps(stepsUntil(hitAt));
+		const at = tipAndSpeedAfterSteps(stepsUntil(hitAt));
+		// CHAOS チャンス：先端が最も荒れている瞬間の的。INTRO には出さず、直前の的がチャンスなら出さない（希少性）
+		const chaos = at.speed >= CHAOS_SPEED && sec.id !== 'intro' && !lastWasChaos;
+		lastWasChaos = chaos;
+		if (chaos) chaosChances++;
 		target = {
-			x: tx,
-			y: ty,
+			x: at.x,
+			y: at.y,
 			r: TARGET_R * sec.targetScale, // セクションで的の大きさを少し変える（INTRO は大きめ）
 			bornAt: gameTime,
 			hitBeat,
 			hitAt,
 			expireAt: hitAt + BEAT * 1.2, // 入力拍＋約1.2拍で見逃し
+			chaos,
 		};
 
 		// 予告音（transport 時刻で渡す）。既に過ぎた cue と入力拍より後の cue は捨てる。
 		const cues = pat.cues
 			.map((c) => ({ beat: startBeat + c.beat, time: beatTime(startBeat + c.beat), sound: c.sound }))
 			.filter((c) => c.time >= gameTime && c.beat <= hitBeat);
-		emit('rhythm_pattern', { patternId: pat.id, hitBeat, hitTime: hitAt, cues });
+		emit('rhythm_pattern', { patternId: pat.id, hitBeat, hitTime: hitAt, cues, chaos, chaosTell: CHAOS_TELL });
 	}
 
 	function newGame() {
@@ -566,6 +604,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 		shakeT = 0;
 		scorePop = null;
 		pendingBursts = [];
+		lastWasChaos = false;
+		chaosChances = 0;
+		chaosPerfectCount = 0;
+		chaosFlashT = 0;
 		curSeq = null;
 		seqIdx = 0;
 		lastSeqId = '';
@@ -703,6 +745,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 			if (kind === 'perfect') feverPerfects++;
 		}
 		if (scoring && wasFever) feverStreak++;
+		const chaosPerfect = kind === 'perfect' && target.chaos;
+		if (chaosPerfect) chaosPerfectCount++;
 
 		const nearMissPx = kind === 'near' ? Math.round((d - R) * scale) : 0;
 		// 予定入力時刻（拍）とのズレ。負=早押し／正=遅押し。
@@ -712,7 +756,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		sumAbsOffsetMs += Math.abs(timingOffsetMs);
 		sumOffsetMs += timingOffsetMs;
 		lastHit = { d, kind };
-		resultLabel = LABEL[kind];
+		resultLabel = chaosPerfect ? CHAOS_LABEL : LABEL[kind];
 		popT = 1;
 		flash = scoring ? 1 : 0.5;
 		if (scoring) {
@@ -730,12 +774,21 @@ export function initGame(options: InitGameOptions): GameHandle {
 				burst(tx, ty, kind === 'perfect');
 				if (kind === 'perfect') burst(gx, gy, true);
 			}
-			if (fever) scorePop = { text: `+${add}`, big: kind === 'perfect', t: 1 };
+			if (fever) scorePop = { text: `+${add}`, big: kind === 'perfect', t: 1, sub: `FEVER ×${FEVER_MULT}` };
+			if (chaosPerfect) {
+				// ⚡ CHAOS PERFECT：振り子が最も荒れた瞬間を叩き抜いた。白い閃光＋電撃の粒子＋描画だけのシェイク（得点は通常どおり）
+				burst(gx, gy, true, { mult: FX.FEVER_PARTICLE_MULT * 1.5, palette: ['#ffffff', '#7FE3F0', '#F2D06B'], speed: 2.1 });
+				pendingBursts.push({ t: 0.08, x: gx, y: gy });
+				chaosFlashT = 1;
+				shakeT = FX.SHAKE_TIME * 1.6;
+				scorePop = { text: `+${add}`, big: true, t: 1.2, sub: fever ? `⚡ CHAOS × FEVER ×${FEVER_MULT}` : '⚡ CHAOS' };
+			}
 			$msg.textContent = fever
 				? `+${add}（×${mult}・FEVER ×${FEVER_MULT}）`
 				: mult > 1
 					? `+${add}（×${mult}）`
 					: `+${add}`;
+			if (chaosPerfect) $msg.textContent = `⚡ CHAOS PERFECT！ ${$msg.textContent}`;
 		} else if (kind === 'near') {
 			// 惜しい：距離ではなく拍とのタイミングのズレを見せる（「もう一回」を誘発）
 			const sec = Math.abs(timingOffsetMs) / 1000;
@@ -755,6 +808,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 			nearMissPx,
 			timingOffsetMs,
 			expired: false,
+			chaos: target.chaos,
+			chaosPerfect,
 		});
 
 		// 叩いたら必ずスロー → 次の的
@@ -788,6 +843,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 			nearMissPx: 0,
 			timingOffsetMs: 0,
 			expired: true,
+			chaos: target.chaos,
+			chaosPerfect: false,
 		});
 		newTarget();
 	}
@@ -821,6 +878,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 			feverDuration: Math.round(feverTime * 10) / 10,
 			feverHits,
 			feverPerfects,
+			chaosChances,
+			chaosPerfectCount,
 		});
 	}
 
@@ -869,6 +928,13 @@ export function initGame(options: InitGameOptions): GameHandle {
 		return `rgb(${c0.map((v, k) => Math.round(v + (c1[k] - v) * f)).join(',')})`;
 	}
 	const easeOut = (x: number) => 1 - (1 - x) * (1 - x);
+	/** CHAOS チャンスの予兆の強さ 0→1（hitAt の CHAOS_TELL 秒前から立ち上がり、hitAt を少し過ぎたら消える）。的の位置・判定には無関係 */
+	function chaosTell(): number {
+		if (state !== 'playing' || !target || !target.chaos) return 0;
+		const until = target.hitAt - gameTime;
+		if (until > CHAOS_TELL || until < -0.12) return 0;
+		return Math.min(1, Math.max(0, 1 - until / CHAOS_TELL));
+	}
 	/** 判定ラベルの高さ。FEVER 中は上部の FEVER 見出し・ゲージと重ならないよう少し下げる */
 	const labelY = () => Math.max(H * 0.16, cy - scale * 1.7) + (fever ? Math.min(W, H) * 0.12 : 0);
 
@@ -971,30 +1037,40 @@ export function initGame(options: InitGameOptions): GameHandle {
 		// 判定ラベル（叩いた直後だけポップ）。FEVER 中の PERFECT は虹色でさらに大きく、下に巨大な「+xxx / FEVER ×2」。
 		// 的・リング・振り子より奥に描く（次の的に重なっても的が隠れない）。FEVER 突入の瞬間は突入演出が主役なので出さない。
 		if (resultLabel && (state === 'slowmo' || popT > 0) && feverEntryT === 0) {
+			const isChaos = resultLabel === CHAOS_LABEL;
 			const feverPerfect = fever && resultLabel === 'PERFECT';
-			const pop = 1 + popT * (feverPerfect ? 0.8 : resultLabel === 'PERFECT' ? 0.6 : 0.3);
-			const baseSize = m * (feverPerfect ? 0.12 : 0.1);
+			const pop = 1 + popT * (isChaos ? 0.9 : feverPerfect ? 0.8 : resultLabel === 'PERFECT' ? 0.6 : 0.3);
+			const baseSize = m * (isChaos || feverPerfect ? 0.12 : 0.1);
 			const ly = labelY();
 			ctx!.save();
-			const color = feverPerfect
-				? rainbowAt(gameTime * 2)
-				: resultLabel === 'PERFECT'
-					? col.yellow
-					: resultLabel === 'MISS'
-						? col.blue
-						: col.chalk;
-			centeredText(resultLabel, cx, ly, baseSize * pop, color, 600);
+			const color = isChaos
+				? Math.floor(gameTime * 18) % 2 === 0
+					? '#ffffff'
+					: '#7FE3F0' // 電撃のように白⇔シアンで明滅
+				: feverPerfect
+					? rainbowAt(gameTime * 2)
+					: resultLabel === 'PERFECT'
+						? col.yellow
+						: resultLabel === 'MISS'
+							? col.blue
+							: col.chalk;
+			// 長いラベル（⚡ CHAOS PERFECT）はスマホ幅に収まるよう縮める
+			let size = baseSize * pop;
+			ctx!.font = `600 ${Math.round(size)}px "Klee One", sans-serif`;
+			const w = ctx!.measureText(resultLabel).width;
+			if (w > W * 0.92) size *= (W * 0.92) / w;
+			centeredText(resultLabel, cx, ly, size, color, 600);
 			ctx!.restore();
 		}
 		if (scorePop && state !== 'over' && feverEntryT === 0) {
-			// 表示する点数は ×2 適用後の加算値。下に「FEVER ×2」と添える
+			// 表示する点数は倍率適用後の加算値。下に「FEVER ×2」「⚡ CHAOS」などを添える
 			const k = Math.max(0, scorePop.t);
 			const size = m * (scorePop.big ? 0.11 : 0.065) * (1 + 0.4 * k);
 			const ly = labelY() + m * (scorePop.big ? 0.13 : 0.1);
 			ctx!.save();
 			ctx!.globalAlpha = Math.min(1, k * 2);
 			centeredText(scorePop.text, cx, ly, size, scorePop.big ? col.yellow : col.chalk);
-			centeredText(`FEVER ×${FEVER_MULT}`, cx, ly + size * 0.62, size * 0.32, col.chalk, 600);
+			if (scorePop.sub) centeredText(scorePop.sub, cx, ly + size * 0.62, size * 0.32, col.chalk, 600);
 			ctx!.restore();
 		}
 
@@ -1020,9 +1096,45 @@ export function initGame(options: InitGameOptions): GameHandle {
 				ctx!.stroke();
 			}
 
+			// CHAOS チャンスの予兆：hitAt の直前だけ、的の周りに電撃の輪＋火花、的の円がわずかに震える。
+			// 中心（十字）と的の位置は動かさない＝狙う場所は変わらない。reduced-motion では震え・火花なしで輪だけ。
+			const tell = chaosTell();
+			if (tell > 0) {
+				const segs = 28;
+				const R0 = baseR * (1.3 + 0.12 * (1 - tell));
+				ctx!.save();
+				ctx!.globalAlpha = 0.35 + 0.6 * tell;
+				ctx!.strokeStyle = Math.floor(gameTime * 24) % 2 === 0 ? '#ffffff' : '#7FE3F0';
+				ctx!.lineWidth = 1.5 + 1.8 * tell;
+				ctx!.beginPath();
+				for (let i = 0; i <= segs; i++) {
+					const a = (i / segs) * Math.PI * 2;
+					const jr = reducedMotion ? 0 : (Math.random() * 2 - 1) * (2 + 4 * tell);
+					const x = tx + Math.cos(a) * (R0 + jr);
+					const y = ty + Math.sin(a) * (R0 + jr);
+					if (i === 0) ctx!.moveTo(x, y);
+					else ctx!.lineTo(x, y);
+				}
+				ctx!.stroke();
+				if (!reducedMotion && tell > 0.4) {
+					ctx!.lineWidth = 1.5;
+					for (let i = 0; i < 4; i++) {
+						const a = Math.random() * Math.PI * 2;
+						const r1 = R0 + 2;
+						const r2 = R0 + 6 + Math.random() * 10 * tell;
+						ctx!.beginPath();
+						ctx!.moveTo(tx + Math.cos(a) * r1, ty + Math.sin(a) * r1);
+						ctx!.lineTo(tx + Math.cos(a + 0.12) * r2, ty + Math.sin(a + 0.12) * r2);
+						ctx!.stroke();
+					}
+				}
+				ctx!.restore();
+			}
+
 			// 的本体（入力拍が近いほど明るく＋拍で脈動）
 			const near = Math.min(1, prog); // 0→1
-			const rDraw = baseR * (1 + 0.18 * beatPulse());
+			const quiver = tell > 0 && !reducedMotion ? (Math.random() * 2 - 1) * 1.6 * tell : 0; // 予兆の震え（半径のみ）
+			const rDraw = baseR * (1 + 0.18 * beatPulse()) + quiver;
 			ctx!.globalAlpha = (0.4 + 0.6 * near) * Math.min(1, remain / 0.5);
 			ctx!.strokeStyle = targetCol;
 			ctx!.lineWidth = 2.5 + (1.5 + 2 * near) * beatPulse() + (fever ? 1 : 0);
@@ -1043,6 +1155,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		// 軌跡。FEVER 中は約1.8倍の長さ・太く・濃く、pink → yellow → cyan のグラデーション。
 		// 描画コール数を抑えるため TRAIL_CHUNKS 区間にまとめて stroke する。
 		{
+			const tellT = chaosTell(); // CHAOS 予兆中は軌跡が太く、先端側が白く光る
 			const len = fever ? trail.length : Math.min(trail.length, FX.TRAIL_LEN);
 			const start = trail.length - len;
 			const chunks = Math.max(1, Math.min(FX.TRAIL_CHUNKS, len - 1));
@@ -1055,11 +1168,15 @@ export function initGame(options: InitGameOptions): GameHandle {
 				if (fever) {
 					ctx!.strokeStyle = k < 0.5 ? col.pink : k < 0.8 ? col.yellow : RAINBOW[2];
 					ctx!.globalAlpha = 0.25 + 0.75 * k;
-					ctx!.lineWidth = 2 + 3 * k;
+					ctx!.lineWidth = 2 + 3 * k + 3 * tellT * k;
 				} else {
 					ctx!.strokeStyle = col.pink;
 					ctx!.globalAlpha = k * 0.8;
-					ctx!.lineWidth = 2;
+					ctx!.lineWidth = 2 + 3.5 * tellT * k;
+				}
+				if (tellT > 0 && k > 0.75) {
+					ctx!.strokeStyle = '#E8FBFF'; // 先端側が白く光る
+					ctx!.globalAlpha = Math.max(ctx!.globalAlpha, 0.5 + 0.5 * tellT);
 				}
 				ctx!.beginPath();
 				ctx!.moveTo(...P(trail[i0][0], trail[i0][1]));
@@ -1109,6 +1226,14 @@ export function initGame(options: InitGameOptions): GameHandle {
 		if (flash > 0) {
 			ctx!.globalAlpha = flash * 0.32 * flashMult();
 			ctx!.fillStyle = resultLabel === 'PERFECT' ? col.yellow : col.chalk;
+			ctx!.fillRect(-20, -20, W + 40, H + 40);
+			ctx!.globalAlpha = 1;
+		}
+
+		// ⚡ CHAOS PERFECT の閃光（白。reduced-motion では控えめ）
+		if (chaosFlashT > 0) {
+			ctx!.globalAlpha = 0.42 * chaosFlashT * flashMult();
+			ctx!.fillStyle = '#ffffff';
 			ctx!.fillRect(-20, -20, W + 40, H + 40);
 			ctx!.globalAlpha = 1;
 		}
@@ -1289,6 +1414,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		if (sectionFlashT > 0) sectionFlashT = Math.max(0, sectionFlashT - dt);
 		if (feverEntryT > 0) feverEntryT = Math.max(0, feverEntryT - dt / FX.ENTRY_TIME);
 		if (feverDropT > 0) feverDropT = Math.max(0, feverDropT - dt / FX.DROP_TIME);
+		if (chaosFlashT > 0) chaosFlashT = Math.max(0, chaosFlashT - dt * 2.2);
 		if (shakeT > 0) shakeT = Math.max(0, shakeT - dt);
 		if (scorePop) {
 			scorePop.t -= dt * 1.6;
