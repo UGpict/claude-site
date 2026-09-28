@@ -71,6 +71,10 @@
 | MISS | d > 1.25R、または寿命切れ | **0点** | 「MISS」／寿命切れは「見逃し…」 |
 
 - `NEAR MISS / MISS は 0 点`（部分点は連打ゲー化するため）。
+- **押した瞬間 = 入力イベントの時刻**（`PointerEvent` / `KeyboardEvent` の `timeStamp`）。ハンドラが遅れて動いても遅押しにならない。
+  AudioContext の `getOutputTimestamp()` で「押した瞬間に耳に届いていた音の時刻」に換算して transport 時刻にする
+  （使えない環境は currentTime＋経過時間、音の時計が無い／止まったら performance 時計）。異常な timeStamp は使わず従来のハンドラ実行時刻。
+- 判定位置はその時刻の振り子の位置（固定ステップ 1/300 秒＋端数だけ最後に1回積分＝時刻の量子化なし）。的の配置と同じ計算。
 
 ## コンボ
 - GOOD 以上で +1、NEAR MISS / MISS（寿命切れ含む）で 0。

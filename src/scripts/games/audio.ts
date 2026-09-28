@@ -76,6 +76,12 @@ export interface GameAudio {
 	debugLines(): string[];
 	/** 現在の transport 時刻（秒。拍0で 0、カウントイン中は負）。エンジンの時計に渡す。 */
 	now(): number;
+	/**
+	 * 入力イベントの時刻（event.timeStamp：performance.now と同じ基準のミリ秒）→ transport 時刻（秒）。エンジンの eventTime に渡す。
+	 * 優先順：① getOutputTimestamp（押した瞬間に鳴っていた音の時刻）② currentTime＋経過時間（出力遅延がわかれば差し引く）
+	 * ③ performance 時計（音の時計が使えない／止まった）。transport が無ければ null。
+	 */
+	eventTimeToTransport(eventTimeStamp: number): { t: number; mode: 'outputTimestamp' | 'audioClock' | 'performance'; contextTime?: number } | null;
 	/** BGM停止（ゲーム終了時。短くフェードアウト） */
 	stopMusic(): void;
 	/**
@@ -331,6 +337,7 @@ export function createAudio(): GameAudio {
 	let lastAudioT = -1;
 	let lastAudioAdvanceAt = 0; // perfNow() 基準
 	let lastTransportT = 0;
+	let lastInputClock: { mode: string; latencyMs: number } | null = null; // ?debug=1：最後の入力をどの方法で換算したか
 	const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 	/** currentTime が実際に進むか（'running' 以外＝interrupted/suspended/closed は不可） */
 	async function clockAdvances(c: AudioContext): Promise<boolean> {
@@ -959,6 +966,8 @@ export function createAudio(): GameAudio {
 		},
 		debugLines() {
 			const lines = [`audio: ${api.audioMode()}${muted ? ' (muted)' : ''}  clock: ${transport?.clock ?? '-'}`];
+			if (lastInputClock) lines.push(`CLOCK input: ${lastInputClock.mode}  out latency: ${lastInputClock.latencyMs.toFixed(1)}ms`);
+			if (ctx) lines.push(`audio context: ${ctx.currentTime.toFixed(3)}`);
 			if (song.audio) {
 				lines.push(`src: ${song.audio.src.split('/').pop()}`);
 				lines.push(`startAt: ${song.audio.startAt}  offset: ${song.audio.offset}`);
@@ -984,6 +993,45 @@ export function createAudio(): GameAudio {
 				fallbackToPerformance(); // 音の時計が止まった：ゲームは止めずに performance 時計で続ける
 			}
 			return perfNow() - transport.startTime;
+		},
+		eventTimeToTransport(eventTimeStamp: number) {
+			if (!transport || !Number.isFinite(eventTimeStamp)) return null;
+			// performance 時計のとき（音の時計が使えない／止まった）：event.timeStamp も performance.now と同じ基準なのでそのまま
+			if (transport.clock !== 'audio' || !ctx || ctx.state !== 'running') {
+				return { t: eventTimeStamp / 1000 - transport.startTime, mode: 'performance' };
+			}
+			const c = ctx;
+			const pNow = performance.now();
+			// ① getOutputTimestamp()：「いま出力（耳に届く側）で鳴っている AudioContext 時刻」と、その performance 時刻の組。
+			//    event.timeStamp をこの組で AudioContext 時刻へ換算する＝押した瞬間に鳴っていた音の時刻（出力遅延の分も含めて正しい）
+			try {
+				const ts = typeof c.getOutputTimestamp === 'function' ? c.getOutputTimestamp() : null;
+				const ct = ts?.contextTime;
+				const pt = ts?.performanceTime;
+				if (
+					ct != null &&
+					pt != null &&
+					Number.isFinite(ct) &&
+					Number.isFinite(pt) &&
+					ct > 0 &&
+					pt > 0 &&
+					ct <= c.currentTime + 0.05 && // 出力時刻は処理時刻（currentTime）より少し前のはず
+					ct >= c.currentTime - 1 &&
+					Math.abs(pNow - pt) < 1000 // 古い／基準の違う値は使わない
+				) {
+					const contextTime = ct + (eventTimeStamp - pt) / 1000;
+					lastInputClock = { mode: 'outputTimestamp', latencyMs: (c.currentTime - ct) * 1000 };
+					return { t: contextTime - transport.startTime, mode: 'outputTimestamp', contextTime };
+				}
+			} catch {
+				/* 未対応・例外は ② へ */
+			}
+			// ② getOutputTimestamp が無い：いまの currentTime から「イベントからの経過」を引き、出力遅延（わかれば）も引く（① と同じ基準に揃える）
+			const lat = (Number.isFinite(c.baseLatency) ? c.baseLatency : 0) + (Number.isFinite((c as AudioContext & { outputLatency?: number }).outputLatency) ? ((c as AudioContext & { outputLatency?: number }).outputLatency ?? 0) : 0);
+			const latency = lat > 0 && lat < 0.5 ? lat : 0;
+			const contextTime = c.currentTime - (pNow - eventTimeStamp) / 1000 - latency;
+			lastInputClock = { mode: 'audioClock', latencyMs: latency * 1000 };
+			return { t: contextTime - transport.startTime, mode: 'audioClock', contextTime };
 		},
 		stopMusic() {
 			if (musicTimer) {

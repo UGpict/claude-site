@@ -65,17 +65,30 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
   的の位置・判定位置の計算も同じ FIXED_H・同じ rk4 で積分するので、予測と実機が**完全一致**する（補間・別積分は混ぜない）。
 - `dt = now() − 前フレーム` を **0.25秒まで**追従（1フレーム最大90ステップ）。小さくクランプすると物理が transport から恒久的に遅れて的を通らなくなる。
   それを超える停止（タブ非表示など）は、的が寿命切れ→次の的で予測し直すので自然に再同期する。
-- **時刻 → ステップ数の対応**：物理状態 `s` は `gameTime − acc` の時点にある（`acc` = 未消化の固定ステップ時間）。
-  transport 時刻 t の先端は `stepsUntil(t) = round((t − gameTime + acc) / FIXED_H)` ステップ先。的が生きている間は timeScale=1 なので、
-  この対応は的の生成から判定まで一定（slowmo 明けに作る的も、次フレーム以降は等速で進むので同じ式でよい）。
-- **的の中心（`newTarget()`）**：`tipAfterSteps(stepsUntil(hitAt))` ＝ `s` のコピーを hitAt まで固定ステップで**直接積分**した先端。
-  以前は 4 ステップ（≈13ms）ごとにサンプルした `predictPath()` から最寄り点を拾っており、±2 ステップの量子化誤差（p95 ≈3.7px）があった。
-  予測の上限は `PRED_HORIZON = 2.6` 秒（範囲チェックのみ）。計算量は最大 ~690 ステップ＝以前の 780 ステップより軽い。
-- **判定位置（`hit()`）**：押した瞬間の transport 時刻 `pressT = now()`（`gameTime`〜`gameTime + 0.25` に丸める）で
-  `tipAfterSteps(stepsUntil(pressT))` を使う。`s` 自体は変えない（実機の物理列はそのまま）。
-  以前は「最後に描いたフレームの `s`」で判定しており、押した瞬間より最大 1 フレーム＋acc（60fps で ~20ms）遅れた位置＝
-  常に「まだ届いていない」側にズレていた（px では全難易度同じ ~11px p95 だが、的が小さい難しい・鬼ほど PERFECT を外す）。
-  `timingOffsetMs` も `pressT − hitAt` で計る。判定しきい値（0.35R/0.7R/R/1.25R）・targetR は不変。
+- **任意時刻の物理（`stateAtTime(t)` / `tipAtTime(t)`）**：物理状態 `s` は `gameTime − acc` の時点にある（`acc` = 未消化の固定ステップ時間）。
+  t までを `n = floor((t − 起点)/FIXED_H)` 回の固定ステップ＋**最後に1回だけ `rk4(残り)`**（残り < 3.33ms）で積分する。
+  ゲームの物理は 300Hz 固定のまま（`s` は変えない）、判定・予測だけ任意の時刻で求める。
+  **的の配置（hitAt の中心）・CHAOS の先端速度・押した瞬間の判定位置はすべてこの関数**。起点のループも FIXED_H 刻みで進むので、
+  hitAt と pressT が同じ時刻なら同じ計算列＝`pressT = hitAt` ちょうどなら先端は的の中心（以前の `round` による ±1.67ms の量子化は無い）。
+- **スナップショット（`physHist`）**：押した瞬間（イベントの時刻）が最後のフレームより前のことがあるので、`playing` 中は毎フレーム
+  （と的を出した瞬間に）`{ t: gameTime − acc, s }` を記録し、`t` 以前で最新のものを起点にする（0.6秒ぶん保持）。
+  スロー（timeScale ≠ 1）に入ったら捨てる（物理時間と transport の対応が変わるため）。巻き戻せない場合は最古の状態の時刻で打ち切る（debug に表示）。
+- **押した瞬間（`resolvePress(event.timeStamp)`）**：
+  1. `options.eventTime(event.timeStamp)`（= `audio.eventTimeToTransport`）で transport 時刻に換算。
+  2. 妥当性：timeStamp が有限／ハンドラまでの遅れが −5ms〜500ms（基準の違う timeStamp を捨てる）／換算結果が
+     `now − 0.5秒 〜 now + 0.02秒`。どれかが外れたら従来どおり `pressT = clamp(now(), gameTime, gameTime + 0.25)`（source=handler）。
+  3. 的が出る前（`pressT < target.bornAt`＝スロー中の入力ロック中）の操作は入力として扱わない。
+  `timingOffsetMs = pressT − hitAt`（GA4 の hit / game_over の平均も同じ定義のまま精度だけ上がる）。判定しきい値・targetR は不変。
+- **`eventTimeToTransport`（audio.ts）**：
+  ① `getOutputTimestamp()` の `{contextTime, performanceTime}`（出力＝耳に届いている音の時刻と、その performance 時刻）で
+  `contextTime + (event.timeStamp − performanceTime)/1000 − startTime`。値の妥当性（有限・0 より大・currentTime の 1 秒以内・
+  performance 時刻が 1 秒以内）を満たさなければ ② へ。
+  ② `currentTime − (performance.now() − event.timeStamp)/1000 − (baseLatency + outputLatency)`（出力遅延が取れなければ 0）。① と同じ「耳の時刻」に揃える。
+  ③ transport が performance 時計（音の時計なし・停止）なら `event.timeStamp/1000 − startTime`。
+  「耳の時刻」を使う理由：音（ドン）は出力遅延ぶん遅れて聞こえ、画面も表示遅延ぶん遅れて見える。currentTime（処理時刻）で押下を測ると
+  音で押す人は出力遅延ぶん遅押し判定になる（ヘッドレスで +39ms）。出力側の時刻で測ると音にはぴったり、画面とは表示遅延と出力遅延が相殺する方向。
+- **debug**（`?debug=1`）：INPUT（event / handler の時刻・queue lag・換算方法）、ctx・press、HIT（expected・offset・ハンドラ時刻だった場合の offset）、
+  phys remainder。`onInputDebug` で `window.__cbLastInput` にも出す（検証スクリプト用）。本番表示には出ない。
 
 ### timeScale（リズム整合）
 - 的が生きている `playing` 中は **timeScale = 1**。`slowmo`（0.15）は叩いた直後の的が無い間だけ。
@@ -185,7 +198,7 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
   combo 3 未満の NEAR/MISS は従来の短い濁り音。
 
 ## ⚡ CHAOS PERFECT（chaos-pendulum.ts / audio.ts）
-- `newTarget()`：`tipAndSpeedAfterSteps(stepsUntil(hitAt))` で的の中心と hitAt の先端速度（次の1固定ステップとの差 ÷ FIXED_H）を同時に求める。
+- `newTarget()`：`tipAtTime(hitAt)` で的の中心と hitAt の先端速度（次の1固定ステップとの差 ÷ FIXED_H）を同時に求める。
   `chaos = speed ≥ CHAOS_SPEED(7.5) && section ≠ intro && !lastWasChaos`。`target.chaos` と `rhythm_pattern { chaos, chaosTell: 0.35 }` に載せる。
   速度の分布（2000件/難易度）：7.5 以上は easy〜hard 約15%、鬼 約20%。
 - 予兆 `chaosTell()`：state==='playing' かつ hitAt−0.35〜hitAt+0.12 で 0→1。的の周りにジグザグの電撃の輪（半径ランダム揺れ）＋火花、
