@@ -3,22 +3,44 @@
 
 type DiffKey = 'easy' | 'normal' | 'hard' | 'oni';
 // CHAOS BEAT はスコア基準が変わったので旧キー(cp:best:*)とは別名にする。
-const bestKey = (difficulty: DiffKey) => `cb:best:${difficulty}`;
+// さらに曲の尺（60秒1曲版）ごとに分ける。30秒版の自己ベスト(cb:best:*)とは比較できないので読まない。
+const SONG_KEY = '60';
+// 内蔵曲以外（外部音源の曲）は曲 id ごとに別の自己ベスト（曲が違えば点の基準も違う）
+const bestKey = (difficulty: DiffKey, songKey = SONG_KEY) => `cb:best:${songKey}:${difficulty}`;
 
 export interface PersonalBest {
 	bestScore: number;
+	/** 自己ベスト（スコア）を出したゲームの最大コンボ */
 	bestMaxCombo: number;
 	bestRecordedAt: string; // ISO8601
+	/** この難易度で出した最大コンボの記録（スコアと別に更新。古いデータは bestMaxCombo で代用） */
+	topCombo: number;
+	/** この難易度で S ランクを取ったことがあるか（FIRST S RANK! 用） */
+	gotS: boolean;
 }
 
 export interface GameResultSummary {
 	score: number;
 	maxCombo: number;
+	/** 今回のランク（S なら gotS を立てる） */
+	rank?: string;
 }
 
-export function getBest(difficulty: DiffKey = 'normal'): PersonalBest | null {
+export interface BestUpdate {
+	isNewBest: boolean;
+	best: PersonalBest;
+	/** 更新前の自己ベスト（初回は null） */
+	prevBestScore: number | null;
+	/** 最大コンボ記録の更新（初回は false） */
+	isNewTopCombo: boolean;
+	prevTopCombo: number;
+	/** この難易度で初めての S */
+	isFirstS: boolean;
+}
+
+export function getBest(difficulty: DiffKey = 'normal', songKey?: string): PersonalBest | null {
 	try {
-		const raw = localStorage.getItem(bestKey(difficulty));
+		const raw = localStorage.getItem(bestKey(difficulty, songKey));
 		if (!raw) return null;
 		const parsed = JSON.parse(raw) as Partial<PersonalBest>;
 		if (typeof parsed.bestScore !== 'number') return null;
@@ -26,29 +48,36 @@ export function getBest(difficulty: DiffKey = 'normal'): PersonalBest | null {
 			bestScore: parsed.bestScore,
 			bestMaxCombo: parsed.bestMaxCombo ?? 0,
 			bestRecordedAt: parsed.bestRecordedAt ?? '',
+			topCombo: parsed.topCombo ?? parsed.bestMaxCombo ?? 0,
+			gotS: parsed.gotS ?? false,
 		};
 	} catch {
 		return null;
 	}
 }
 
-/** 今回の結果で自己ベストを更新する（スコアが上回ったときだけ NEW BEST 扱い）。 */
-export function updateBest(
-	result: GameResultSummary,
-	difficulty: DiffKey = 'normal',
-): { isNewBest: boolean; best: PersonalBest } {
-	const prev = getBest(difficulty);
+/**
+ * 今回の結果で自己ベストを更新する（スコアが上回ったときだけ NEW BEST 扱い）。
+ * 最大コンボの記録と「S を取ったことがあるか」はスコアとは別に更新する。
+ */
+export function updateBest(result: GameResultSummary, difficulty: DiffKey = 'normal', songKey?: string): BestUpdate {
+	const prev = getBest(difficulty, songKey);
 	const isNewBest = !prev || result.score > prev.bestScore;
-	if (!isNewBest && prev) return { isNewBest: false, best: prev };
+	const prevTopCombo = prev?.topCombo ?? 0;
+	const isNewTopCombo = !!prev && result.maxCombo > prevTopCombo;
+	const isS = result.rank === 'S';
+	const isFirstS = isS && !(prev?.gotS ?? false);
 	const best: PersonalBest = {
-		bestScore: result.score,
-		bestMaxCombo: result.maxCombo,
-		bestRecordedAt: new Date().toISOString(),
+		bestScore: isNewBest ? result.score : prev!.bestScore,
+		bestMaxCombo: isNewBest ? result.maxCombo : prev!.bestMaxCombo,
+		bestRecordedAt: isNewBest ? new Date().toISOString() : prev!.bestRecordedAt,
+		topCombo: Math.max(prevTopCombo, result.maxCombo),
+		gotS: (prev?.gotS ?? false) || isS,
 	};
 	try {
-		localStorage.setItem(bestKey(difficulty), JSON.stringify(best));
+		localStorage.setItem(bestKey(difficulty, songKey), JSON.stringify(best));
 	} catch {
 		/* 保存できなくても表示は行う */
 	}
-	return { isNewBest: true, best };
+	return { isNewBest, best, prevBestScore: prev ? prev.bestScore : null, isNewTopCombo, prevTopCombo, isFirstS };
 }

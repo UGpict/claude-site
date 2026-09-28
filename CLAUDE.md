@@ -20,3 +20,8 @@ Consult these guides before working on related tasks:
 - [Adding or managing content](https://docs.astro.build/en/guides/content-collections/)
 - [Adding styles or using Tailwind](https://docs.astro.build/en/guides/styling/)
 - [Supporting multiple languages](https://docs.astro.build/en/guides/internationalization/)
+
+## CHAOS BEAT（`/games/chaos-pendulum/`）のルール
+
+- **ランキング（D1 `chaos_pendulum_scores`）は初期化・削除しない。** 他の人が遊んでいるため、DELETE・テーブル再作成・リセット用 migration は行わない（2026-09-28 オーナー決定）。
+- 仕様・設計・計画は `docs/specs|design|plans/chaos-beat.md`。変更前に読むこと。

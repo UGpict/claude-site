@@ -12,6 +12,7 @@
 				<div class="cp-stats">
 					<span>SCORE <b data-cp-score>0</b></span>
 					<span>COMBO <b data-cp-combo>0</b></span>
+					<span class="cp-timetext">TIME <b data-cp-timetext>60</b></span>
 				</div>
 				<button type="button" class="cp-mute" data-cp-mute aria-pressed="false" title="効果音のオン/オフ">
 					🔊 音オン
@@ -30,46 +31,75 @@
 		<div class="cp-timebar" aria-hidden="true"><i data-cp-time></i></div>
 		<div class="cp-stage">
 			<canvas data-cp-canvas aria-label="二重振り子のゲーム画面"></canvas>
+			<!-- ゲーム中の最小説明（開始後しばらくで消える。操作の邪魔をしない） -->
+			<p class="cp-play-hint" data-cp-play-hint aria-hidden="true"><b>ドン！</b>でタップ</p>
 			<div class="cp-start" data-cp-start>
 				<div class="cp-start-inner">
 					<p class="cp-start-title">CHAOS BEAT</p>
-					<p class="cp-start-sub">音を聞いてタイミングを狙え</p>
-					<button type="button" class="cp-start-btn" data-cp-start-btn>▶ 音ありでスタート</button>
-					<p class="cp-start-hint">スペースキーでもスタート</p>
+					<!-- モード：QUICK（60秒・合成BGM・ランキングあり）/ FULL（Burning Heart 1曲まるごと）。ページを切り替える -->
+					<p class="cp-mode" data-cp-mode role="group" aria-label="モードを選ぶ">
+						<a class="cp-mode-btn" href="?" data-mode="normal60"><b>QUICK</b><small>60秒</small></a>
+						<a class="cp-mode-btn" href="?song=burning-heart" data-mode="burning-heart"><b>FULL</b><small>Burning Heart 5:00</small></a>
+					</p>
+					<p class="cp-start-sound">🔊 音あり推奨</p>
+					<p class="cp-start-rule">
+						<span class="cp-start-ticks">タン・タン・タン・</span>
+						<span class="cp-start-don"><b>ドン！</b>でタップ</span>
+					</p>
+					<button type="button" class="cp-start-btn" data-cp-start-btn>▶ TAP TO START</button>
+					<p class="cp-start-hint" data-cp-start-hint>タップ / クリック / Space ・ 1プレイ約60秒</p>
 				</div>
 			</div>
 		</div>
 		<footer class="cp-footer">
 			<p data-cp-msg aria-live="polite">
-				拍に合わせて、先端を黄色い丸で叩け！ 画面タップ／スペースで叩けます。
+				「ドン！」の瞬間にタップ（PC はスペース）。振り子の先端が黄色い丸に重なるほど高得点。
 			</p>
 		</footer>
+		<!-- 外部音源の曲のクレジット（曲に credit があるときだけ表示） -->
+		<p class="cp-credit" data-cp-credit hidden></p>
 	</div>
 
-	<!-- 結果パネル（30秒終了後に表示） -->
+	<!-- 結果パネル（1曲60秒の終了後に表示） -->
 	<section class="cp-result" data-cp-result hidden aria-live="polite">
+		<!-- 結果発表：スコア高速加算 → PERFECT → CHAOS PERFECT → MAX COMBO → FEVER → ランク → NEW BEST → あと◯点で次のランク。
+		     「もう一回！」は演出を待たずに最初から押せる（再戦の邪魔をしない） -->
 		<div class="cp-result-head">
-			<div class="cp-score-block">
-				<span class="cp-score-label">スコア</span>
-				<span class="cp-score-value"><b data-cp-final>0</b></span>
-			</div>
-			<div class="cp-best-block">
-				<span class="cp-best-label">最大コンボ</span>
-				<span class="cp-best-value"><b data-cp-final-combo>0</b></span>
-			</div>
-			<div class="cp-best-block">
-				<span class="cp-best-label">自己ベスト（この難易度）</span>
-				<span class="cp-best-value"><b data-cp-best>0</b></span>
-			</div>
-			<span class="cp-newbest" data-cp-newbest hidden>NEW BEST!</span>
+			<p class="cp-finish">FINISH!</p>
+			<p class="cp-res-song" data-cp-res-song hidden></p>
+			<p class="cp-score-value"><b data-cp-final>0</b><span class="cp-score-unit">点</span></p>
+			<ul class="cp-res-stats">
+				<li class="cp-reveal" data-cp-reveal><span>PERFECT</span><b data-cp-st-perfect>0</b></li>
+				<li class="cp-reveal cp-res-chaos" data-cp-reveal><span>⚡ CHAOS PERFECT</span><b data-cp-st-chaos>0</b></li>
+				<li class="cp-reveal" data-cp-reveal><span>MAX COMBO</span><b data-cp-final-combo>0</b></li>
+				<li class="cp-reveal" data-cp-reveal><span>🔥 FEVER</span><b data-cp-st-fever>0秒</b></li>
+			</ul>
+			<p class="cp-first-s" data-cp-first-s hidden>FIRST S RANK!</p>
+			<p class="cp-rank cp-reveal" data-cp-rank-wrap>
+				<span class="cp-rank-label">RANK</span><b class="cp-rank-letter" data-cp-rank>C</b>
+			</p>
+			<p class="cp-newbest" data-cp-newbest hidden>
+				NEW BEST! <span class="cp-newbest-diff" data-cp-best-diff></span>
+				<span class="cp-newbest-up" data-cp-best-up></span>
+			</p>
+			<p class="cp-newcombo" data-cp-newcombo hidden></p>
+			<!-- NEXT GOAL：次の1プレイで狙うことを1つだけ（次のランク → 自己ベスト → 最大コンボ） -->
+			<p class="cp-next-goal" data-cp-next hidden>
+				<span class="cp-next-label">NEXT GOAL</span>
+				<span class="cp-so-close" data-cp-close hidden>SO CLOSE!</span>
+				<b class="cp-next-text" data-cp-next-text></b>
+			</p>
+			<p class="cp-best-line">自己ベスト（この難易度）<b data-cp-best>0</b></p>
 		</div>
 
 		<div class="cp-again">
 			<button type="button" class="cp-again-btn" data-cp-again>もう一回！</button>
 			<span class="cp-retry-hint">スペースキーでも、もう一回</span>
+			<a class="cp-mode-link" data-cp-mode-link href="?song=burning-heart">▶ FULL（Burning Heart・約5分）に挑戦</a>
 		</div>
 
-		<div class="cp-submit">
+		<p class="cp-submit-off" data-cp-submit-off hidden>FULL はランキング対象外です（自己ベストは曲ごとに記録されます）</p>
+		<div class="cp-submit" data-cp-submit-wrap>
 			<p class="cp-submit-head">スコアをランキングに残す（任意）</p>
 			<div class="cp-submit-row">
 				<input
@@ -86,8 +116,11 @@
 		</div>
 	</section>
 
+	<!-- ページ側の「遊び方・FEVER」をゲームとランキングの間に差し込む（ランキングは説明より下） -->
+	<slot name="guide" />
+
 	<!-- ランキング -->
-	<section class="cp-ranking" data-cp-ranking>
+	<section class="cp-ranking" data-cp-ranking id="ranking">
 		<div class="cp-ranking-head">
 			<h3>ランキング</h3>
 			<div class="cp-tabs" role="tablist">
@@ -122,13 +155,44 @@
 	} from '../../scripts/games/chaos-pendulum';
 	import { trackGameEvent } from '../../scripts/games/analytics';
 	import { createAudio } from '../../scripts/games/audio';
+	import { COUNTIN_BEATS } from '../../scripts/games/beat-grid';
+	import { DEFAULT_SONG, SONGS, type SongDefinition } from '../../scripts/games/song';
 	import { updateBest } from '../../scripts/games/storage';
+	import { nextGoal, rankOf, type NextGoal, type ResultRank } from '../../scripts/games/result-rank';
 	import {
 		getRanking,
 		submitScore,
 		type RankingEntry,
 		type RankingPeriod,
 	} from '../../scripts/games/ranking';
+
+	// 遊ぶ曲：既定は内蔵の合成BGM曲。?song=<id> で外部音源の曲を試せる（曲選択 UI はまだ無い）
+	const urlParams = new URLSearchParams(location.search);
+	const BASE_SONG = SONGS[urlParams.get('song') ?? ''] ?? DEFAULT_SONG;
+	const IS_DEFAULT_SONG = BASE_SONG === DEFAULT_SONG;
+	const DEBUG = urlParams.get('debug') === '1';
+	/**
+	 * 同期の調整用（?debug=1 のときだけ）：外部音源の曲の bpm / offset / startAt を URL で上書きできる。
+	 * 例：?song=external_test&debug=1&offset=0.183 → メトロノーム四角と曲のキックが揃う値を探して song.ts に書き戻す。
+	 */
+	const num = (k: string) => {
+		const v = urlParams.get(k);
+		return v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : undefined;
+	};
+	const SONG: SongDefinition =
+		DEBUG && BASE_SONG.audio
+			? {
+					...BASE_SONG,
+					bpm: num('bpm') ?? BASE_SONG.bpm,
+					audio: {
+						...BASE_SONG.audio,
+						offset: num('offset') ?? BASE_SONG.audio.offset,
+						startAt: num('startAt') ?? BASE_SONG.audio.startAt,
+					},
+				}
+			: BASE_SONG;
+	/** 自己ベストのキー：内蔵曲は従来どおり、外部音源の曲は曲 id ごと */
+	const SONG_KEY = IS_DEFAULT_SONG ? undefined : SONG.id;
 
 	const root = document.querySelector<HTMLElement>('[data-cp-root]');
 	if (root) {
@@ -138,6 +202,7 @@
 		const scoreEl = q('[data-cp-score]');
 		const comboEl = q('[data-cp-combo]');
 		const timeEl = q('[data-cp-time]');
+		const timeTextEl = q('[data-cp-timetext]');
 		const msg = q('[data-cp-msg]');
 		const muteBtn = q<HTMLButtonElement>('[data-cp-mute]');
 		const startOverlay = q('[data-cp-start]');
@@ -147,6 +212,18 @@
 		const finalComboEl = q('[data-cp-final-combo]');
 		const bestEl = q('[data-cp-best]');
 		const newBestBadge = q('[data-cp-newbest]');
+		const bestDiffEl = q('[data-cp-best-diff]');
+		const statPerfectEl = q('[data-cp-st-perfect]');
+		const statChaosEl = q('[data-cp-st-chaos]');
+		const statFeverEl = q('[data-cp-st-fever]');
+		const rankEl = q('[data-cp-rank]');
+		const nextRankEl = q('[data-cp-next]');
+		const nextTextEl = q('[data-cp-next-text]');
+		const soCloseEl = q('[data-cp-close]');
+		const bestUpEl = q('[data-cp-best-up]');
+		const newComboEl = q('[data-cp-newcombo]');
+		const firstSEl = q('[data-cp-first-s]');
+		const revealEls = Array.from(root.querySelectorAll<HTMLElement>('[data-cp-reveal], [data-cp-rank-wrap]'));
 		const nickInput = q<HTMLInputElement>('[data-cp-nick]');
 		const submitBtn = q<HTMLButtonElement>('[data-cp-submit]');
 		const againBtn = q<HTMLButtonElement>('[data-cp-again]');
@@ -160,6 +237,57 @@
 
 		if (canvas && scoreEl && comboEl && timeEl && msg) {
 			const audio = createAudio();
+			audio.preloadSong(SONG); // 外部音源なら取得だけ先に始める（デコードは初回スタート時。以後キャッシュ）
+			// --- モード（QUICK / FULL）の表示 ---
+			const IS_FULL = SONG.duration >= 100;
+			const fmtClock = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.round(sec) % 60).padStart(2, '0')}`;
+			root.querySelectorAll<HTMLAnchorElement>('[data-mode]').forEach((a) => {
+				const on = a.dataset.mode === SONG.id || (IS_DEFAULT_SONG && a.dataset.mode === DEFAULT_SONG.id);
+				a.classList.toggle('active', on);
+				if (on) a.setAttribute('aria-current', 'true');
+				// オーバーレイ全体が TAP TO START なので、モード切替のリンクは開始のクリックに伝えない
+				a.addEventListener('click', (e) => e.stopPropagation());
+			});
+			const startHint = q('[data-cp-start-hint]');
+			if (IS_FULL) {
+				if (startHint) startHint.textContent = `♪ ${SONG.title}（フル尺 ${fmtClock(SONG.duration)}）・ タップ / クリック / Space`;
+				if (timeTextEl) timeTextEl.textContent = fmtClock(SONG.duration);
+			}
+			const resSongEl = q('[data-cp-res-song]');
+			if (resSongEl && !IS_DEFAULT_SONG) {
+				resSongEl.hidden = false;
+				resSongEl.textContent = `♪ ${SONG.title}${SONG.modeLabel ? ` ・ ${SONG.modeLabel}` : ''}`;
+			}
+			const modeLink = q<HTMLAnchorElement>('[data-cp-mode-link]');
+			if (modeLink && !IS_DEFAULT_SONG) {
+				modeLink.href = '?';
+				modeLink.textContent = '◀ QUICK（60秒）に戻る';
+			}
+			// ランキングは内蔵の60秒曲のみ（外部音源の曲は送らない）。登録欄の代わりに一言
+			if (!IS_DEFAULT_SONG) {
+				const wrap = q('[data-cp-submit-wrap]');
+				if (wrap) wrap.hidden = true;
+				const off = q('[data-cp-submit-off]');
+				if (off) {
+					off.hidden = false;
+					if (!IS_FULL) off.textContent = 'この曲はランキングの対象外です（テスト曲）';
+				}
+			}
+
+			const creditEl = q('[data-cp-credit]');
+			if (creditEl && SONG.credit) {
+				creditEl.hidden = false;
+				if (SONG.credit.url) {
+					const a = document.createElement('a');
+					a.href = SONG.credit.url;
+					a.target = '_blank';
+					a.rel = 'noopener';
+					a.textContent = SONG.credit.label;
+					creditEl.append(a);
+				} else {
+					creditEl.textContent = SONG.credit.label;
+				}
+			}
 
 			// --- ミュートボタン ---
 			const renderMute = () => {
@@ -250,40 +378,235 @@
 				perfectCount: number;
 			} | null = null;
 			let submitted = false;
+			// ゲーム中の最小説明「ドン！でタップ」：開始（カウントイン）から約6秒だけ出して消す
+			const playHint = q('[data-cp-play-hint]');
+			let playHintTimer = 0;
+			const showPlayHint = () => {
+				if (!playHint) return;
+				playHint.classList.add('show');
+				window.clearTimeout(playHintTimer);
+				playHintTimer = window.setTimeout(() => playHint.classList.remove('show'), 6000);
+			};
+			const REWARD_STAGE = 3;
+
+			// --- 結果発表（60秒の報酬）：一瞬の無音 → スコア高速加算 → PERFECT → CHAOS PERFECT → MAX COMBO → FEVER →
+			//     ランクのハンコ → NEW BEST（前 → 後）→「あと◯点で次のランク」。タップで飛ばせる。reduced-motion は一度に表示 ---
+			type ResultData = {
+				score: number;
+				rank: ResultRank;
+				isNewBest: boolean;
+				isNewTopCombo: boolean;
+				isFirstS: boolean;
+				stamped: boolean;
+				bested: boolean;
+			};
+			let resultData: ResultData | null = null;
+			let resultTimers: number[] = [];
+			let countRaf = 0;
+			const fmt = (n: number) => n.toLocaleString('ja-JP');
+			const cancelResultShow = () => {
+				resultTimers.forEach((t) => window.clearTimeout(t));
+				resultTimers = [];
+				cancelAnimationFrame(countRaf);
+			};
+			const prepareResultShow = (
+				g: GameEventPayloads['game_over'],
+				rank: ResultRank,
+				up: ReturnType<typeof updateBest>,
+				goal: NextGoal,
+			) => {
+				cancelResultShow();
+				const isNewBest = up.isNewBest;
+				const prevBest = up.prevBestScore ?? 0;
+				resultData = {
+					score: g.score,
+					rank,
+					isNewBest,
+					isNewTopCombo: up.isNewTopCombo,
+					isFirstS: up.isFirstS,
+					stamped: false,
+					bested: false,
+				};
+				if (finalEl) finalEl.textContent = '0';
+				if (statPerfectEl) statPerfectEl.textContent = String(g.perfectCount);
+				if (statChaosEl) statChaosEl.textContent = g.chaosChances ? `${g.chaosPerfectCount} / ${g.chaosChances}` : '—';
+				if (finalComboEl) finalComboEl.textContent = String(g.maxCombo);
+				if (statFeverEl) statFeverEl.textContent = `${g.feverDuration.toFixed(1)}秒`;
+				if (rankEl) {
+					rankEl.textContent = rank;
+					rankEl.dataset.rank = rank;
+				}
+				revealEls.forEach((el) => el.classList.remove('shown'));
+				if (newBestBadge) newBestBadge.hidden = true;
+				if (bestDiffEl) bestDiffEl.textContent = prevBest > 0 ? `${fmt(prevBest)} → ${fmt(g.score)}` : '初記録';
+				if (bestUpEl) {
+					bestUpEl.textContent = prevBest > 0 ? `+${fmt(g.score - prevBest)}` : ''; // 改善幅
+					bestUpEl.hidden = prevBest <= 0; // 初記録では出さない
+				}
+				if (newComboEl) {
+					newComboEl.hidden = true;
+					newComboEl.textContent = `NEW MAX COMBO! ${up.prevTopCombo} → ${g.maxCombo}`;
+				}
+				if (firstSEl) firstSEl.hidden = true;
+				if (nextRankEl) nextRankEl.hidden = true;
+				if (nextTextEl) nextTextEl.textContent = goal.text;
+				if (soCloseEl) soCloseEl.hidden = !goal.close;
+				nextRankEl?.classList.toggle('close', goal.close);
+				// 再戦ボタンの一言：あと少し／自己ベスト更新で変える（それ以外は「もう一回！」）
+				if (againBtn) againBtn.textContent = goal.close ? 'あと少し！もう一回' : isNewBest && prevBest > 0 ? 'さらに更新する！' : 'もう一回！';
+			};
+			/** 残りを一度に表示（スキップ・reduced-motion・演出の最後） */
+			const finishResultShow = (withSound: boolean) => {
+				cancelResultShow();
+				if (!resultData) return;
+				if (finalEl) finalEl.textContent = fmt(resultData.score);
+				revealEls.forEach((el) => el.classList.add('shown'));
+				if (withSound && !resultData.stamped) audio.rankStamp(resultData.rank);
+				if (resultData.isNewBest && newBestBadge) {
+					newBestBadge.hidden = false;
+					if (withSound && !resultData.bested) window.setTimeout(() => audio.best(), 350);
+				}
+				if (resultData.isNewTopCombo && newComboEl) newComboEl.hidden = false;
+				if (resultData.isFirstS && firstSEl) firstSEl.hidden = false;
+				if (nextRankEl) nextRankEl.hidden = false;
+				resultData = null;
+			};
+			const playResultShow = () => {
+				if (!resultData) return;
+				const d = resultData;
+				if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+					finishResultShow(true);
+					return;
+				}
+				const at = (ms: number, fn: () => void) => resultTimers.push(window.setTimeout(fn, ms));
+				const SILENCE = 250; // 一瞬の無音
+				const COUNT = 900; // スコア高速加算
+				at(SILENCE, () => {
+					const t0 = performance.now();
+					let lastTick = 0;
+					const step = (now: number) => {
+						const p = Math.min(1, (now - t0) / COUNT);
+						const e = 1 - Math.pow(1 - p, 3);
+						if (finalEl) finalEl.textContent = fmt(Math.round(d.score * e));
+						if (now - lastTick > 65 && p < 1) {
+							lastTick = now;
+							audio.resultTick(p);
+						}
+						if (p < 1) countRaf = requestAnimationFrame(step);
+					};
+					countRaf = requestAnimationFrame(step);
+				});
+				const stats = revealEls.filter((el) => el.hasAttribute('data-cp-reveal'));
+				stats.forEach((el, i) =>
+					at(SILENCE + COUNT + 120 + i * 220, () => {
+						el.classList.add('shown');
+						audio.resultPop(i);
+					}),
+				);
+				const rankAt = SILENCE + COUNT + 120 + stats.length * 220 + 250;
+				at(rankAt, () => {
+					revealEls.find((el) => el.hasAttribute('data-cp-rank-wrap'))?.classList.add('shown');
+					d.stamped = true;
+					audio.rankStamp(d.rank);
+					if (d.isFirstS && firstSEl) firstSEl.hidden = false;
+				});
+				if (d.isNewBest || d.isNewTopCombo)
+					at(rankAt + 550, () => {
+						// 主役はスコアの NEW BEST。最大コンボ記録の更新は同時に小さく
+						if (d.isNewBest && newBestBadge) newBestBadge.hidden = false;
+						if (d.isNewTopCombo && newComboEl) newComboEl.hidden = false;
+						d.bested = true;
+						if (d.isNewBest) audio.best();
+						else audio.resultPop(4);
+					});
+				// 最後に NEXT GOAL（合計 約3.3 秒以内）
+				at(rankAt + (d.isNewBest || d.isNewTopCombo ? 950 : 500), () => finishResultShow(false));
+			};
+			// 結果の数字部分をタップしたら演出を飛ばして全部表示（ボタンはそのまま）
+			root.querySelector('.cp-result-head')?.addEventListener('click', () => {
+				if (resultData) finishResultShow(true);
+			});
+			let gameSerial = 0; // game_start ごとに増やす（遅延表示の取り消し用）
+			const RESULT_DELAY_MS = 1300;
 			const musicLevelOf = (combo: number) => (combo >= 10 ? 3 : combo >= 5 ? 2 : combo >= 3 ? 1 : 0);
 
 			const handle = initGame({
 				canvas,
-				elements: { score: scoreEl, combo: comboEl, time: timeEl, msg },
+				elements: { score: scoreEl, combo: comboEl, time: timeEl, timeText: timeTextEl, msg },
+				song: SONG, // 曲（尺・BPM・セクション・譜面）。audio にも同じ曲を渡す＝同じ beat grid
+				debugInfo: DEBUG ? () => audio.debugLines() : undefined, // ?debug=1 の同期確認表示
 				difficulty: currentDifficulty,
 				now: () => audio.now(), // 共通トランスポート時計（BGM/cue と同じ原点）
 				autostart: false, // TAP TO START を待つ
 				onEvent(name: GameEventName, payload: GameEventPayloads[GameEventName]) {
-					trackGameEvent(name, (payload as Record<string, unknown>) ?? {});
+					const params = (payload as Record<string, unknown>) ?? {};
+					// ゲーム単位のイベントには難易度を付けて送る（リトライ率・判定分布を難易度別に見るため）
+					const perGame = name === 'game_start' || name === 'game_over' || name === 'game_retry';
+					// reward_stage：報酬設計の段階（0=導入前 / 1=音階＋プツッ / 2=＋CHAOS PERFECT / 3=＋結果発表）。
+					// 段階ごとに game_retry ÷ game_over（結果画面からの再戦率）を比べるための目印（古いキャッシュのプレイも分けられる）
+					// game_over は結果（ランク・自己ベスト更新）を計算してから下で送る
+					if (name !== 'game_over')
+						trackGameEvent(
+							name,
+							perGame
+								? { ...params, difficulty: currentDifficulty, reward_stage: REWARD_STAGE, song_id: SONG.id, audio_mode: audio.audioMode() }
+								: params,
+						);
 
 					if (name === 'game_start') {
+						cancelResultShow();
+						showPlayHint();
+						// プレイ中はスマホ下部に浮くシェアバーを隠す（盤面の下端に重なって誤タップしないように）
+						document.documentElement.classList.add('cp-playing');
 						submitted = false;
+						gameSerial++;
 						if (resultPanel) resultPanel.hidden = true;
+						root.classList.remove('is-final');
+					}
+
+					if (name === 'section_change') {
+						const p = payload as GameEventPayloads['section_change'];
+						// FINAL は残り時間表示・バーを強調（キャンバス側は 5→1 カウント＋枠の明滅）
+						root.classList.toggle('is-final', p.section === 'final');
 					}
 
 					if (name === 'hit') {
 						const p = payload as GameEventPayloads['hit'];
-						audio.judgment(p.kind);
+						audio.stopChaosTell(); // 叩いた・見逃した瞬間に予兆音を止める
+						audio.judgment(p.kind, p.combo); // コンボで音階が上がる／切れたら「プツッ」
+						if (p.chaosPerfect) {
+							audio.chaosPerfect(); // ⚡ 振り子が最も荒れた瞬間を叩き抜いた
+							try {
+								navigator.vibrate?.([15, 30, 45]);
+							} catch {
+								/* 非対応は無視 */
+							}
+						}
 						audio.setMusicLevel(musicLevelOf(p.combo)); // コンボで層が増減（MISSでcombo0→drumだけ）
 					}
 
 					if (name === 'rhythm_pattern') {
 						const p = payload as GameEventPayloads['rhythm_pattern'];
-						audio.scheduleRhythm(p.cues);
+						// transport 時刻（beatTime）で予約＝BGMの拍頭と同じ式。CHAOS チャンスなら hitTime 直前に予兆音も
+						audio.scheduleRhythm(p.cues, p.chaos ? { hitTime: p.hitTime, tell: p.chaosTell } : undefined);
 					}
 
 					if (name === 'fever_start') {
-						audio.setFever(true);
-						audio.fever();
+						audio.setFever(true); // 次の拍頭からクラッシュ＋FEVER 層（lead/パッド/オクターブ）
+						audio.fever(); // 突入SE（インパクト＋ライザー＋スパークル）
+						try {
+							navigator.vibrate?.([25, 40, 60]); // 対応端末だけ軽く「ドドン」
+						} catch {
+							/* 非対応は無視 */
+						}
 					}
 
 					if (name === 'fever_end') {
-						audio.setFever(false);
+						const p = payload as GameEventPayloads['fever_end'];
+						audio.setFever(false); // 次の拍から FEVER 層が消える（MISS なら combo0 で基本アレンジだけに）
+						// 曲の終止まで FEVER を保った場合は解除音を鳴らさない（そのまま最も派手な終止音へ）
+						if (p.reason === 'miss') audio.feverEnd();
+						else if (p.reason === 'timeout') audio.resultPop(3); // 時間切れは「やり切った」：小さな明るい音
 					}
 
 					if (name === 'game_over') {
@@ -298,25 +621,51 @@
 							perfectCount: g.perfectCount,
 						};
 
-						const { isNewBest, best } = updateBest(
-							{ score: g.score, maxCombo: g.maxCombo },
-							currentDifficulty,
-						);
+						const rank = rankOf(g.score, currentDifficulty, SONG_KEY); // FULL は曲専用のランク基準
+						const up = updateBest({ score: g.score, maxCombo: g.maxCombo, rank }, currentDifficulty, SONG_KEY);
+						const isNewBest = up.isNewBest;
+						const goal = nextGoal({
+							score: g.score,
+							difficulty: currentDifficulty,
+							isNewBest,
+							bestScore: up.best.bestScore,
+							topCombo: up.best.topCombo,
+							songId: SONG_KEY,
+						});
+						trackGameEvent('game_over', {
+							...(payload as Record<string, unknown>),
+							difficulty: currentDifficulty,
+							reward_stage: REWARD_STAGE,
+							song_id: SONG.id,
+							audio_mode: audio.audioMode(),
+							result_rank: rank,
+							new_best: isNewBest,
+							score_delta: g.score - (up.prevBestScore ?? 0), // 自己ベスト（更新前）との差。初回は score
+							next_rank_need: goal.kind === 'rank' ? goal.need : 0,
+							max_combo_new_best: up.isNewTopCombo,
+							first_s_rank: up.isFirstS,
+						});
 
-						if (finalEl) finalEl.textContent = String(g.score);
-						if (finalComboEl) finalComboEl.textContent = String(g.maxCombo);
-						if (bestEl) bestEl.textContent = String(best.bestScore);
-						if (newBestBadge) newBestBadge.hidden = !isNewBest;
+						if (bestEl) bestEl.textContent = up.best.bestScore.toLocaleString('ja-JP');
+						prepareResultShow(g, rank, up, goal);
 						if (submitStatus) submitStatus.textContent = '';
 						if (submitBtn) submitBtn.disabled = false;
 						submitted = false;
-						if (resultPanel) {
-							resultPanel.hidden = false;
-							resultPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-						}
+						root.classList.remove('is-final');
+						document.documentElement.classList.remove('cp-playing');
+						// FINISH! と終止音を聞かせてから結果パネル（その間に次のゲームが始まったら出さない）
+						const serial = gameSerial;
+						window.setTimeout(() => {
+							if (serial !== gameSerial) return;
+							if (resultPanel) {
+								resultPanel.hidden = false;
+								// smooth にしない：iOS はスクロール中のタップを「スクロール停止」として扱い click が出ないため
+								resultPanel.scrollIntoView({ behavior: 'auto', block: 'center' });
+							}
+							playResultShow(); // 結果発表（一瞬の無音 → 高速加算 → 各項目 → ランク → NEW BEST）
+						}, RESULT_DELAY_MS);
 
 						if (isNewBest) {
-							window.setTimeout(() => audio.best(), 320);
 							trackGameEvent('personal_best', { score: g.score });
 						}
 
@@ -338,18 +687,65 @@
 				},
 			});
 
-			// --- 開始/リトライ：カウントイン付きで transport を張り直してから開始（ユーザー操作で resume） ---
-			const COUNTIN_BEATS = 4;
+			// --- 開始/リトライ：初回も retry も難易度変更も、必ずこの1経路を通す ---
+			// user start → AudioContext.resume → transport 決定（拍0）→ BGM scheduler → カウントイン → engine.start
 			let gameStarted = false;
-			const startGame = () => {
-				audio.startTransport(COUNTIN_BEATS); // ここで AudioContext を resume ＋ 拍0を確定
-				handle.setDifficulty(currentDifficulty); // 選択中の難易度でカウントインから開始
+			let starting = false;
+			let startToken = 0;
+			/**
+			 * 盤面（HUD〜判定メッセージ）が画面からはみ出していたら全体が見える位置へ。ゲーム開始の「後」に呼ぶ。
+			 * サイトのヘッダーは sticky なので、その高さぶん下げて HUD が隠れないようにする。
+			 * behavior は 'auto'（スマホで smooth スクロール中のタップが握りつぶされる・開始処理と競合するのを避ける）。
+			 */
+			const revealGame = (behavior: ScrollBehavior = 'auto') => {
+				const game = root.querySelector<HTMLElement>('.cp-game');
+				if (!game) return;
+				const headerH = document.querySelector('body > header')?.getBoundingClientRect().height ?? 0;
+				const r = game.getBoundingClientRect();
+				if (r.top < headerH || r.bottom > window.innerHeight) {
+					const room = window.innerHeight - headerH;
+					const offset = r.height <= room ? headerH + (room - r.height) / 2 : headerH + 4;
+					window.scrollTo({ top: window.scrollY + r.top - offset, behavior });
+				}
+			};
+			const startGame = async (retry = false) => {
+				if (starting) return; // 開始処理中の連打は無視（1タップ = 1スタート）
+				starting = true;
+				const token = ++startToken;
+				// タップした瞬間に反応が分かるように、結果パネルは待たずに隠す
+				if (retry && resultPanel) resultPanel.hidden = true;
+				try {
+					// ユーザー操作の同期部分で resume を要求する。startTransport はどの状態でも有限時間で resolve し、
+					// 音の時計が使えなければ performance 時計で返す（ここで止まらない）。念のため例外も握る。
+					// 外部音源の初回はデコードに少しかかることがあるので、押したことが分かる表示に
+					if (!retry && SONG.audio && startBtn) startBtn.textContent = `♪ ${SONG.title}  LOADING…`;
+					await audio.startTransport(COUNTIN_BEATS, SONG);
+				} catch {
+					/* 音なしでもゲームは始める（audio.now() は performance 時計で進む） */
+				} finally {
+					starting = false;
+					if (startBtn) startBtn.textContent = '▶ TAP TO START';
+				}
+				if (token !== startToken) return;
+				handle.start({ difficulty: currentDifficulty, retry }); // gameTime<0 のカウントインから開始
+				requestAnimationFrame(() => revealGame('auto')); // スクロールはゲーム開始の後に分離
 				gameStarted = true;
 				if (startOverlay) startOverlay.hidden = true;
 				rankDifficulty = currentDifficulty;
 				setRankDiffTab(currentDifficulty);
 			};
-			startBtn?.addEventListener('click', startGame);
+			// オーバーレイ全体が TAP TO START（ボタンだけでなくどこを押しても開始）
+			startOverlay?.addEventListener('click', () => void startGame(false));
+			const isResultShown = () => !!resultPanel && !resultPanel.hidden;
+
+			// ページ上部の ▶ PLAY から：ゲームを画面に入れて TAP TO START にフォーカスするだけ（ここでは開始しない）。
+			// 開始（AudioContext の解除→transport→カウントイン）は、盤面を見た状態での TAP TO START に任せる。
+			document.addEventListener('chaospendulum:focus', () => {
+				const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+				revealGame(reduce ? 'auto' : 'smooth');
+				const target = startOverlay && !startOverlay.hidden ? startBtn : isResultShown() ? againBtn : null;
+				target?.focus({ preventScroll: true });
+			});
 
 			// --- 難易度の切り替え ---
 			diffBtns.forEach((btn) =>
@@ -362,28 +758,43 @@
 					rankDifficulty = level;
 					setRankDiffTab(level);
 					loadRanking(currentPeriod);
-					if (gameStarted) startGame(); // 開始済みなら新難易度でやり直し
+					if (gameStarted) void startGame(false); // 開始済みなら新難易度でやり直し（同じ start 経路）
 				}),
 			);
 
 			// --- 「もう一回」：カウントインから再戦（ボタン or スペース/Enter） ---
-			againBtn?.addEventListener('click', () => {
-				startGame();
-				root.querySelector('[data-cp-canvas]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			// click のみ（touch と二重登録しない）。開始処理中はボタンを無効にして 1タップ = 1スタート。
+			againBtn?.addEventListener('click', async () => {
+				if (againBtn.disabled) return;
+				againBtn.disabled = true;
+				try {
+					await startGame(true);
+				} finally {
+					againBtn.disabled = false;
+				}
 			});
 			window.addEventListener('keydown', (e) => {
 				if (e.code !== 'Space' && e.code !== 'Enter') return;
+				// 入力欄・ボタン・リンク・アコーディオンでは各要素の本来の動作を優先（ニックネームに空白を打てる／
+				// ▶ PLAY を Enter で押しても開始はしない。TAP TO START 等のボタンは自分の click で動く）
+				const el = e.target as HTMLElement | null;
+				if (el?.closest?.('input, textarea, select, button, a, summary, [contenteditable="true"]')) return;
 				// スタート前、または結果パネル表示中は、スペース/Enter で開始・再戦
-				const canStart = !gameStarted || (resultPanel && !resultPanel.hidden);
-				if (canStart) {
+				const retry = gameStarted && isResultShown();
+				if (!gameStarted || retry) {
 					e.preventDefault();
-					startGame();
+					void startGame(retry);
 				}
 			});
 
 			// --- ランキング登録（希望したときだけ・自動送信しない） ---
 			submitBtn?.addEventListener('click', async () => {
 				if (!lastResult || submitted) return;
+				// ランキングは内蔵曲のみ（外部音源のテスト曲は点の基準が違うので混ぜない）
+				if (!IS_DEFAULT_SONG) {
+					if (submitStatus) submitStatus.textContent = 'この曲はランキングの対象外です（テスト曲）';
+					return;
+				}
 				const nickname = (nickInput?.value ?? '').trim() || '名無し';
 				submitBtn.disabled = true;
 				if (submitStatus) submitStatus.textContent = '登録中…';
@@ -544,6 +955,24 @@
 		background: var(--yellow);
 		transition: width 0.1s linear;
 	}
+	/* プレイ中はサイト共通の浮きシェアバー（スマホ下部）を隠す */
+	:global(html.cp-playing .rail-left) {
+		visibility: hidden !important;
+		pointer-events: none !important;
+	}
+	.cp-timetext b {
+		display: inline-block;
+		min-width: 2ch;
+		text-align: right;
+	}
+	/* FINAL（最後のセクション）：残り時間を強調 */
+	.is-final .cp-timebar i {
+		background: var(--pink);
+	}
+	.is-final .cp-timetext b {
+		color: var(--pink);
+		font-weight: 800;
+	}
 
 	.cp-stage {
 		position: relative;
@@ -560,14 +989,30 @@
 		cursor: pointer;
 		touch-action: manipulation;
 	}
+	/* 外部音源のクレジット（小さく・盤面の下） */
+	.cp-credit {
+		margin: 0;
+		padding: 0 20px 10px;
+		font-size: 0.75rem;
+		color: var(--chalk);
+		opacity: 0.75;
+		text-align: right;
+	}
+	/* リンクは JS で作るのでスコープ外（:global）。盤面の色に合わせる */
+	.cp-credit :global(a) {
+		color: inherit;
+		text-underline-offset: 2px;
+	}
+
 	/* TAP TO START オーバーレイ */
 	.cp-start {
 		position: absolute;
 		inset: 0;
+		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: rgba(20, 26, 22, 0.72);
+		background: rgba(20, 26, 22, 0.8); /* 静止プレビューの振り子が文字に被っても読めるように */
 		z-index: 2;
 	}
 	.cp-start[hidden] {
@@ -584,11 +1029,6 @@
 		letter-spacing: 0.08em;
 		margin: 0 0 0.3em;
 	}
-	.cp-start-sub {
-		font-size: 0.95rem;
-		opacity: 0.85;
-		margin: 0 0 1.2em;
-	}
 	.cp-start-btn {
 		font: inherit;
 		font-weight: 800;
@@ -604,6 +1044,95 @@
 	.cp-start-btn:focus-visible {
 		outline: 3px solid #ffffff;
 		outline-offset: 3px;
+	}
+	.cp-start-sound {
+		margin: 0 0 0.7em;
+		font-size: 0.85rem;
+		opacity: 0.85;
+	}
+	/* モード切替（QUICK / FULL）。選んでいる方を黄色に */
+	.cp-mode {
+		display: flex;
+		justify-content: center;
+		gap: 0.5rem;
+		margin: 0 0 0.8em;
+	}
+	.cp-mode-btn {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		min-width: 7.5em;
+		padding: 0.35em 0.9em;
+		border: 1.5px solid var(--chalk-dim);
+		border-radius: 12px;
+		color: var(--chalk);
+		text-decoration: none;
+		line-height: 1.2;
+	}
+	.cp-mode-btn b {
+		font-size: 0.95rem;
+		letter-spacing: 0.08em;
+	}
+	.cp-mode-btn small {
+		font-size: 0.72rem;
+		opacity: 0.8;
+	}
+	.cp-mode-btn.active {
+		border-color: var(--yellow);
+		color: var(--yellow);
+		background: rgba(242, 208, 107, 0.1);
+	}
+	.cp-mode-btn:focus-visible {
+		outline: 3px solid var(--yellow);
+		outline-offset: 2px;
+	}
+	/* 何をすればいいかを1つだけ大きく：「ドン！でタップ」 */
+	.cp-start-rule {
+		margin: 0 0 1.1em;
+		line-height: 1.35;
+	}
+	.cp-start-ticks {
+		display: block;
+		font-size: 1rem;
+		opacity: 0.75;
+		letter-spacing: 0.04em;
+	}
+	.cp-start-don {
+		display: block;
+		font-size: clamp(1.5rem, 6.5vw, 2rem);
+		font-weight: 800;
+	}
+	.cp-start-don b {
+		color: var(--yellow);
+	}
+	/* ゲーム中の最小説明：盤面下端に小さく。開始から約6秒で消える（操作は透過） */
+	.cp-play-hint {
+		position: absolute;
+		left: 50%;
+		bottom: 12px;
+		transform: translateX(-50%);
+		margin: 0;
+		padding: 4px 14px;
+		border-radius: 999px;
+		background: rgba(20, 26, 22, 0.6);
+		color: var(--chalk);
+		font-size: 0.9rem;
+		font-weight: 700;
+		white-space: nowrap;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.6s ease;
+	}
+	.cp-play-hint b {
+		color: var(--yellow);
+	}
+	.cp-play-hint.show {
+		opacity: 1;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.cp-play-hint {
+			transition: none;
+		}
 	}
 	.cp-start-hint {
 		font-size: 0.8rem;
@@ -636,36 +1165,251 @@
 	}
 	.cp-result-head {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
-		gap: 1.6rem;
-		flex-wrap: wrap;
+		text-align: center;
+		gap: 0.15rem;
 	}
-	.cp-score-label,
-	.cp-best-label {
-		display: block;
+	.cp-result-head p {
+		margin: 0;
+	}
+	.cp-finish {
+		font-size: 0.9rem;
+		font-weight: 800;
+		letter-spacing: 0.12em;
+		color: rgb(var(--gray));
+	}
+	.cp-score-value {
+		font-variant-numeric: tabular-nums;
+		line-height: 1.1;
+	}
+	.cp-score-value b {
+		font-size: clamp(2.4rem, 11vw, 3.2rem);
+		color: var(--accent);
+	}
+	.cp-score-unit {
+		font-size: 1rem;
+		font-weight: 700;
+		margin-left: 0.15em;
+		color: rgb(var(--gray-dark));
+	}
+	/* 結果発表の各項目（順番に出る） */
+	.cp-res-stats {
+		list-style: none;
+		margin: 0.5rem auto 0.2rem;
+		padding: 0;
+		width: min(100%, 300px);
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+	.cp-res-stats li {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 1rem;
+		font-weight: 700;
+		font-size: 0.95rem;
+		color: rgb(var(--gray-dark));
+		border-bottom: 1px dashed rgb(var(--gray-light));
+		padding: 0.15rem 0;
+	}
+	.cp-res-stats b {
+		font-size: 1.15rem;
+		font-variant-numeric: tabular-nums;
+		color: #222222;
+	}
+	.cp-res-chaos span,
+	.cp-res-chaos b {
+		color: #1f7f97;
+	}
+	.cp-reveal {
+		opacity: 0;
+		transform: translateY(6px);
+		transition:
+			opacity 0.18s ease,
+			transform 0.18s ease;
+	}
+	.cp-reveal.shown {
+		opacity: 1;
+		transform: none;
+	}
+	/* ランクのハンコ */
+	.cp-rank {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		margin: 0.5rem 0 0.1rem !important;
+	}
+	.cp-rank-label {
+		font-size: 0.8rem;
+		font-weight: 800;
+		letter-spacing: 0.16em;
+		color: rgb(var(--gray));
+	}
+	.cp-rank-letter {
+		display: inline-grid;
+		place-items: center;
+		width: 3.2rem;
+		height: 3.2rem;
+		border-radius: 50%;
+		border: 4px solid currentColor;
+		font-size: 2rem;
+		font-weight: 900;
+		line-height: 1;
+		transform: rotate(-8deg);
+	}
+	.cp-rank-letter[data-rank='S'] {
+		color: #c9971a;
+	}
+	.cp-rank-letter[data-rank='A'] {
+		color: #b0476a;
+	}
+	.cp-rank-letter[data-rank='B'] {
+		color: #2f6f8a;
+	}
+	.cp-rank-letter[data-rank='C'] {
+		color: #6b6b6b;
+	}
+	.cp-rank.shown .cp-rank-letter {
+		animation: cp-stamp 0.32s cubic-bezier(0.2, 1.4, 0.4, 1);
+	}
+	@keyframes cp-stamp {
+		from {
+			transform: rotate(-8deg) scale(2.2);
+			opacity: 0;
+		}
+		to {
+			transform: rotate(-8deg) scale(1);
+			opacity: 1;
+		}
+	}
+	.cp-newbest-diff {
+		margin-left: 0.4em;
+		font-variant-numeric: tabular-nums;
+	}
+	.cp-newbest-up {
+		margin-left: 0.5em;
+		padding: 1px 8px;
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.22);
+		font-variant-numeric: tabular-nums;
+	}
+	.cp-newcombo {
+		font-size: 0.85rem;
+		font-weight: 700;
+		color: #b0476a;
+	}
+	/* NEXT GOAL：次の1プレイで狙うこと（1つだけ） */
+	.cp-next-goal {
+		margin-top: 0.45rem !important;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.1rem;
+		padding: 0.45rem 1.2rem 0.55rem;
+		border: 2px solid var(--accent);
+		border-radius: 12px;
+		color: var(--accent);
+	}
+	.cp-next-label {
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.16em;
+		opacity: 0.8;
+	}
+	.cp-next-text {
+		font-size: 1.1rem;
+		font-variant-numeric: tabular-nums;
+	}
+	/* あと少し（〜300点）：黄色で強調して脈打つ */
+	.cp-next-goal.close {
+		border-color: #d9a400;
+		background: #fff7d6;
+		color: #8a6400;
+		animation: cp-close 1s ease-in-out infinite;
+	}
+	.cp-next-goal.close .cp-next-text {
+		font-size: 1.3rem;
+	}
+	.cp-so-close {
+		font-size: 0.95rem;
+		font-weight: 900;
+		letter-spacing: 0.08em;
+		color: #d98200;
+	}
+	@keyframes cp-close {
+		0%,
+		100% {
+			transform: scale(1);
+		}
+		50% {
+			transform: scale(1.04);
+		}
+	}
+	/* S ランクだけ特別：金のグラデーション＋光の帯 */
+	.cp-rank-letter[data-rank='S'] {
+		color: #fff8dc;
+		border-color: #e6b422;
+		background: radial-gradient(circle at 35% 30%, #ffe38a, #e0a800 70%);
+		box-shadow:
+			0 0 0 3px #fff3c4,
+			0 0 18px rgba(230, 180, 34, 0.75);
+		text-shadow: 0 1px 2px rgba(120, 80, 0, 0.6);
+		position: relative;
+		overflow: hidden;
+	}
+	.cp-rank.shown .cp-rank-letter[data-rank='S']::after {
+		content: '';
+		position: absolute;
+		inset: -20%;
+		background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.85) 50%, transparent 60%);
+		animation: cp-shine 1.2s 0.3s ease-out;
+		transform: translateX(-120%);
+	}
+	@keyframes cp-shine {
+		to {
+			transform: translateX(120%);
+		}
+	}
+	.cp-first-s {
+		font-size: 0.95rem;
+		font-weight: 900;
+		letter-spacing: 0.1em;
+		color: #c9971a;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.cp-reveal {
+			transition: none;
+		}
+		.cp-rank.shown .cp-rank-letter,
+		.cp-next-goal.close,
+		.cp-rank.shown .cp-rank-letter[data-rank='S']::after {
+			animation: none;
+		}
+	}
+	.cp-best-line {
 		font-size: 0.8rem;
 		color: rgb(var(--gray));
 	}
-	.cp-score-value,
-	.cp-best-value {
+	.cp-best-line b {
+		margin-left: 0.4em;
 		font-variant-numeric: tabular-nums;
 	}
-	.cp-score-value b {
-		font-size: 2rem;
-		color: var(--accent);
-	}
-	.cp-best-value b {
-		font-size: 1.4rem;
-	}
 	.cp-newbest {
-		margin-left: auto;
-		font-weight: 700;
+		margin: 0.35rem 0 0.1rem !important;
+		font-weight: 800;
 		font-size: 0.95rem;
 		color: #ffffff;
 		background: var(--accent);
 		border-radius: 999px;
-		padding: 6px 14px;
+		padding: 6px 16px;
 		animation: cp-pop 0.35s ease;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.cp-newbest {
+			animation: none;
+		}
 	}
 	@keyframes cp-pop {
 		from {
@@ -703,18 +1447,25 @@
 		border: 1px solid rgb(var(--gray-light));
 		border-radius: 8px;
 	}
+	/* 副導線：もう一回（塗り）より控えめな枠線ボタン */
 	.cp-submit-btn {
 		font: inherit;
 		font-weight: 700;
-		background: var(--accent);
-		color: #ffffff;
-		border: none;
+		background: #ffffff;
+		color: var(--accent);
+		border: 2px solid var(--accent);
 		border-radius: 8px;
-		padding: 10px 20px;
+		padding: 8px 18px;
+		min-height: 44px;
 		cursor: pointer;
+	}
+	.cp-submit-btn:focus-visible {
+		outline: 3px solid var(--accent);
+		outline-offset: 2px;
 	}
 	.cp-submit-btn:disabled {
 		background: rgb(var(--gray-light));
+		border-color: rgb(var(--gray-light));
 		color: #888888;
 		cursor: not-allowed;
 	}
@@ -735,6 +1486,25 @@
 	}
 	.cp-retry-hint {
 		font-size: 0.8rem;
+		color: rgb(var(--gray));
+	}
+	.cp-mode-link {
+		font-size: 0.85rem;
+		font-weight: 700;
+		color: var(--accent);
+	}
+	.cp-submit-off {
+		margin: 1.3rem 0 0;
+		padding-top: 1rem;
+		border-top: 1px solid rgb(var(--gray-light));
+		font-size: 0.85rem;
+		color: rgb(var(--gray));
+		text-align: center;
+	}
+	.cp-res-song {
+		margin: 0.1rem 0 0;
+		font-size: 0.85rem;
+		font-weight: 700;
 		color: rgb(var(--gray));
 	}
 	.cp-again-btn {
@@ -880,10 +1650,54 @@
 	}
 
 	@media (max-width: 520px) {
-		.cp-header {
-			padding: 12px 14px 0;
+		/* スマホ：ページ見出しと重複するタイトルを隠し、HUD と難易度を詰めて盤面をすぐ見せる */
+		.cp-title {
+			display: none;
 		}
-		.cp-timebar {
+		.cp-header {
+			padding: 10px 12px 0;
+		}
+		.cp-head-right {
+			width: 100%;
+			justify-content: space-between;
+			gap: 8px;
+		}
+		.cp-stats {
+			gap: 12px;
+			font-size: 0.9rem;
+		}
+		.cp-mute {
+			padding: 4px 10px;
+			font-size: 0.8rem;
+		}
+		.cp-diff {
+			padding: 8px 12px 0;
+		}
+		.cp-diff-label {
+			display: none;
+		}
+		.cp-diff-btns {
+			width: 100%;
+			flex-wrap: nowrap;
+		}
+		.cp-diff-btn {
+			flex: 1 1 0;
+			padding: 6px 0;
+			font-size: 0.85rem;
+		}
+		.cp-stage {
+			height: min(60vh, 520px);
+		}
+		/* スタート画面は盤面の上寄せ：スマホの初期表示で TAP TO START まで見えるように */
+		.cp-start {
+			align-items: flex-start;
+			padding-top: 14px;
+		}
+		.cp-start-title {
+			font-size: 1.35rem;
+			margin-bottom: 0.2em;
+		}
+			.cp-timebar {
 			margin: 8px 14px 0;
 		}
 		.cp-footer {

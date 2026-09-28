@@ -19,7 +19,10 @@ interface Env {
 }
 type Ctx = { request: Request; env: Env };
 
-const MAX_SCORE = 20000; // 30秒でコンボ×2でも届かない緩い上限
+// 60秒1曲版：1ヒット最大 100×2.0(コンボ)×2(FEVER)=400点。拍どおりなら的は約1.4秒ごと（≒43個）で理論上限≒17,000、
+// 最悪ケース（反応猶予0.5秒＋スロー0.2秒ごとに当て続ける）でも ≒85個×400≒34,000。
+// 余裕を見て 40000（明らかな改ざん値だけ弾く緩い上限）。
+const MAX_SCORE = 40000;
 const MAX_HITS = 200;
 const NICK_MAX = 20;
 const DIFFICULTIES = ['easy', 'normal', 'hard', 'oni'];
