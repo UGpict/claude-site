@@ -30,7 +30,13 @@ per-game イベント（game_start / game_over / game_retry）に `reward_stage`
       （白い閃光・電撃の粒子2段・シェイク・専用SE・バイブ）。得点は通常の PERFECT と同じ（ランキングの尺度を変えない）。
       検証：1曲あたり normal 平均約3回（2〜5）・鬼約5回。拍どおりに押すボットで全チャンスが CHAOS PERFECT、同期・PERFECT 率・フレーム時間は不変。
       計測：hit に chaos / chaosPerfect、game_over に chaosChances / chaosPerfectCount
-- [ ] ② 結果発表（一瞬の無音 → 高速加算 → PERFECT → CHAOS PERFECT → MAX COMBO → FEVER → ランク → NEW BEST 前後比較・「あと◯点で S」）
+- [x] **② 結果発表（reward_stage 3）**：一瞬の無音（0.25秒）→ スコア高速加算（0.9秒・刻み音）→ PERFECT → ⚡ CHAOS PERFECT（取った数 / チャンス数）
+      → MAX COMBO → 🔥 FEVER 秒 → ランクのハンコ（S/A/B/C）→ NEW BEST（前 → 後）→「あと◯点で（次のランク）」。約3秒。
+      「もう一回！」は最初から押せる（演出で再戦を待たせない）。数字部分のタップで飛ばせる。reduced-motion は一度に表示。
+      ランクのしきい値は難易度別（人間らしい押しズレ σ15/30/50ms の自動プレイの得点から）：
+      easy S10000/A8000/B5000・normal S9000/A6500/B4000・hard S6000/A4200/B2500・鬼 S4000/A2500/B1500。
+      計測：game_over に result_rank / new_best（reward_stage 3）
+- [ ] 次：段階ごとの `game_retry ÷ game_over`（reward_stage 別）と、難易度別の result_rank 分布を見てしきい値を調整
 
 ## 完了：CHAOS FEVER 強化（2026-09-27）
 ルール（PERFECT3連・5秒・×2・MISS/NEAR解除）は据え置き。演出と音だけ。

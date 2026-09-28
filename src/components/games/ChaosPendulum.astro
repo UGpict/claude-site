@@ -55,12 +55,24 @@
 
 	<!-- 結果パネル（1曲60秒の終了後に表示） -->
 	<section class="cp-result" data-cp-result hidden aria-live="polite">
-		<!-- 優先順位：スコア → 最大コンボ → NEW BEST → もう一回 → ランキング登録（副導線） -->
+		<!-- 結果発表：スコア高速加算 → PERFECT → CHAOS PERFECT → MAX COMBO → FEVER → ランク → NEW BEST → あと◯点で次のランク。
+		     「もう一回！」は演出を待たずに最初から押せる（再戦の邪魔をしない） -->
 		<div class="cp-result-head">
 			<p class="cp-finish">FINISH!</p>
 			<p class="cp-score-value"><b data-cp-final>0</b><span class="cp-score-unit">点</span></p>
-			<p class="cp-combo-line">MAX COMBO <b data-cp-final-combo>0</b></p>
-			<p class="cp-newbest" data-cp-newbest hidden>NEW BEST!</p>
+			<ul class="cp-res-stats">
+				<li class="cp-reveal" data-cp-reveal><span>PERFECT</span><b data-cp-st-perfect>0</b></li>
+				<li class="cp-reveal cp-res-chaos" data-cp-reveal><span>⚡ CHAOS PERFECT</span><b data-cp-st-chaos>0</b></li>
+				<li class="cp-reveal" data-cp-reveal><span>MAX COMBO</span><b data-cp-final-combo>0</b></li>
+				<li class="cp-reveal" data-cp-reveal><span>🔥 FEVER</span><b data-cp-st-fever>0秒</b></li>
+			</ul>
+			<p class="cp-rank cp-reveal" data-cp-rank-wrap>
+				<span class="cp-rank-label">RANK</span><b class="cp-rank-letter" data-cp-rank>C</b>
+			</p>
+			<p class="cp-newbest" data-cp-newbest hidden>
+				NEW BEST! <span class="cp-newbest-diff" data-cp-best-diff></span>
+			</p>
+			<p class="cp-next-rank" data-cp-next hidden></p>
 			<p class="cp-best-line">自己ベスト（この難易度）<b data-cp-best>0</b></p>
 		</div>
 
@@ -127,7 +139,8 @@
 	import { createAudio } from '../../scripts/games/audio';
 	import { COUNTIN_BEATS } from '../../scripts/games/beat-grid';
 	import { DEFAULT_SONG as SONG } from '../../scripts/games/song';
-	import { updateBest } from '../../scripts/games/storage';
+	import { getBest, updateBest } from '../../scripts/games/storage';
+	import { nextRank, rankOf, type ResultRank } from '../../scripts/games/result-rank';
 	import {
 		getRanking,
 		submitScore,
@@ -153,6 +166,13 @@
 		const finalComboEl = q('[data-cp-final-combo]');
 		const bestEl = q('[data-cp-best]');
 		const newBestBadge = q('[data-cp-newbest]');
+		const bestDiffEl = q('[data-cp-best-diff]');
+		const statPerfectEl = q('[data-cp-st-perfect]');
+		const statChaosEl = q('[data-cp-st-chaos]');
+		const statFeverEl = q('[data-cp-st-fever]');
+		const rankEl = q('[data-cp-rank]');
+		const nextRankEl = q('[data-cp-next]');
+		const revealEls = Array.from(root.querySelectorAll<HTMLElement>('[data-cp-reveal], [data-cp-rank-wrap]'));
 		const nickInput = q<HTMLInputElement>('[data-cp-nick]');
 		const submitBtn = q<HTMLButtonElement>('[data-cp-submit]');
 		const againBtn = q<HTMLButtonElement>('[data-cp-again]');
@@ -265,7 +285,106 @@
 				window.clearTimeout(playHintTimer);
 				playHintTimer = window.setTimeout(() => playHint.classList.remove('show'), 6000);
 			};
-			const REWARD_STAGE = 2;
+			const REWARD_STAGE = 3;
+
+			// --- 結果発表（60秒の報酬）：一瞬の無音 → スコア高速加算 → PERFECT → CHAOS PERFECT → MAX COMBO → FEVER →
+			//     ランクのハンコ → NEW BEST（前 → 後）→「あと◯点で次のランク」。タップで飛ばせる。reduced-motion は一度に表示 ---
+			type ResultData = { score: number; rank: ResultRank; isNewBest: boolean; prevBest: number; stamped: boolean; bested: boolean };
+			let resultData: ResultData | null = null;
+			let resultTimers: number[] = [];
+			let countRaf = 0;
+			const fmt = (n: number) => n.toLocaleString('ja-JP');
+			const cancelResultShow = () => {
+				resultTimers.forEach((t) => window.clearTimeout(t));
+				resultTimers = [];
+				cancelAnimationFrame(countRaf);
+			};
+			const prepareResultShow = (g: GameEventPayloads['game_over'], rank: ResultRank, isNewBest: boolean, prevBest: number) => {
+				cancelResultShow();
+				resultData = { score: g.score, rank, isNewBest, prevBest, stamped: false, bested: false };
+				const resultDifficulty = currentDifficulty;
+				if (finalEl) finalEl.textContent = '0';
+				if (statPerfectEl) statPerfectEl.textContent = String(g.perfectCount);
+				if (statChaosEl) statChaosEl.textContent = g.chaosChances ? `${g.chaosPerfectCount} / ${g.chaosChances}` : '—';
+				if (finalComboEl) finalComboEl.textContent = String(g.maxCombo);
+				if (statFeverEl) statFeverEl.textContent = `${g.feverDuration.toFixed(1)}秒`;
+				if (rankEl) {
+					rankEl.textContent = rank;
+					rankEl.dataset.rank = rank;
+				}
+				revealEls.forEach((el) => el.classList.remove('shown'));
+				if (newBestBadge) newBestBadge.hidden = true;
+				if (bestDiffEl) bestDiffEl.textContent = prevBest > 0 ? `${fmt(prevBest)} → ${fmt(g.score)}` : '初記録';
+				const nx = nextRank(g.score, resultDifficulty);
+				if (nextRankEl) {
+					nextRankEl.hidden = true;
+					nextRankEl.textContent = nx ? `あと ${fmt(nx.need)} 点で ${nx.rank}` : 'MAX RANK S！';
+				}
+			};
+			/** 残りを一度に表示（スキップ・reduced-motion・演出の最後） */
+			const finishResultShow = (withSound: boolean) => {
+				cancelResultShow();
+				if (!resultData) return;
+				if (finalEl) finalEl.textContent = fmt(resultData.score);
+				revealEls.forEach((el) => el.classList.add('shown'));
+				if (withSound && !resultData.stamped) audio.rankStamp(resultData.rank);
+				if (resultData.isNewBest && newBestBadge) {
+					newBestBadge.hidden = false;
+					if (withSound && !resultData.bested) window.setTimeout(() => audio.best(), 350);
+				}
+				if (nextRankEl) nextRankEl.hidden = false;
+				resultData = null;
+			};
+			const playResultShow = () => {
+				if (!resultData) return;
+				const d = resultData;
+				if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+					finishResultShow(true);
+					return;
+				}
+				const at = (ms: number, fn: () => void) => resultTimers.push(window.setTimeout(fn, ms));
+				const SILENCE = 250; // 一瞬の無音
+				const COUNT = 900; // スコア高速加算
+				at(SILENCE, () => {
+					const t0 = performance.now();
+					let lastTick = 0;
+					const step = (now: number) => {
+						const p = Math.min(1, (now - t0) / COUNT);
+						const e = 1 - Math.pow(1 - p, 3);
+						if (finalEl) finalEl.textContent = fmt(Math.round(d.score * e));
+						if (now - lastTick > 65 && p < 1) {
+							lastTick = now;
+							audio.resultTick(p);
+						}
+						if (p < 1) countRaf = requestAnimationFrame(step);
+					};
+					countRaf = requestAnimationFrame(step);
+				});
+				const stats = revealEls.filter((el) => el.hasAttribute('data-cp-reveal'));
+				stats.forEach((el, i) =>
+					at(SILENCE + COUNT + 120 + i * 220, () => {
+						el.classList.add('shown');
+						audio.resultPop(i);
+					}),
+				);
+				const rankAt = SILENCE + COUNT + 120 + stats.length * 220 + 250;
+				at(rankAt, () => {
+					revealEls.find((el) => el.hasAttribute('data-cp-rank-wrap'))?.classList.add('shown');
+					d.stamped = true;
+					audio.rankStamp(d.rank);
+				});
+				if (d.isNewBest)
+					at(rankAt + 550, () => {
+						if (newBestBadge) newBestBadge.hidden = false;
+						d.bested = true;
+						audio.best();
+					});
+				at(rankAt + (d.isNewBest ? 950 : 500), () => finishResultShow(false));
+			};
+			// 結果の数字部分をタップしたら演出を飛ばして全部表示（ボタンはそのまま）
+			root.querySelector('.cp-result-head')?.addEventListener('click', () => {
+				if (resultData) finishResultShow(true);
+			});
 			let gameSerial = 0; // game_start ごとに増やす（遅延表示の取り消し用）
 			const RESULT_DELAY_MS = 1300;
 			const musicLevelOf = (combo: number) => (combo >= 10 ? 3 : combo >= 5 ? 2 : combo >= 3 ? 1 : 0);
@@ -283,9 +402,12 @@
 					const perGame = name === 'game_start' || name === 'game_over' || name === 'game_retry';
 					// reward_stage：報酬設計の段階（0=導入前 / 1=音階＋プツッ / 2=＋CHAOS PERFECT / 3=＋結果発表）。
 					// 段階ごとに game_retry ÷ game_over（結果画面からの再戦率）を比べるための目印（古いキャッシュのプレイも分けられる）
-					trackGameEvent(name, perGame ? { ...params, difficulty: currentDifficulty, reward_stage: REWARD_STAGE } : params);
+					// game_over は結果（ランク・自己ベスト更新）を計算してから下で送る
+					if (name !== 'game_over')
+						trackGameEvent(name, perGame ? { ...params, difficulty: currentDifficulty, reward_stage: REWARD_STAGE } : params);
 
 					if (name === 'game_start') {
+						cancelResultShow();
 						showPlayHint();
 						// プレイ中はスマホ下部に浮くシェアバーを隠す（盤面の下端に重なって誤タップしないように）
 						document.documentElement.classList.add('cp-playing');
@@ -351,15 +473,22 @@
 							perfectCount: g.perfectCount,
 						};
 
+						const prevBest = getBest(currentDifficulty)?.bestScore ?? 0; // 更新前（NEW BEST の「前 → 後」用）
 						const { isNewBest, best } = updateBest(
 							{ score: g.score, maxCombo: g.maxCombo },
 							currentDifficulty,
 						);
+						const rank = rankOf(g.score, currentDifficulty);
+						trackGameEvent('game_over', {
+							...(payload as Record<string, unknown>),
+							difficulty: currentDifficulty,
+							reward_stage: REWARD_STAGE,
+							result_rank: rank,
+							new_best: isNewBest,
+						});
 
-						if (finalEl) finalEl.textContent = g.score.toLocaleString('ja-JP');
-						if (finalComboEl) finalComboEl.textContent = String(g.maxCombo);
 						if (bestEl) bestEl.textContent = best.bestScore.toLocaleString('ja-JP');
-						if (newBestBadge) newBestBadge.hidden = !isNewBest;
+						prepareResultShow(g, rank, isNewBest, prevBest);
 						if (submitStatus) submitStatus.textContent = '';
 						if (submitBtn) submitBtn.disabled = false;
 						submitted = false;
@@ -374,7 +503,7 @@
 								// smooth にしない：iOS はスクロール中のタップを「スクロール停止」として扱い click が出ないため
 								resultPanel.scrollIntoView({ behavior: 'auto', block: 'center' });
 							}
-							if (isNewBest) audio.best();
+							playResultShow(); // 結果発表（一瞬の無音 → 高速加算 → 各項目 → ランク → NEW BEST）
 						}, RESULT_DELAY_MS);
 
 						if (isNewBest) {
@@ -846,16 +975,113 @@
 		margin-left: 0.15em;
 		color: rgb(var(--gray-dark));
 	}
-	.cp-combo-line {
-		font-size: 1rem;
-		font-weight: 700;
-		letter-spacing: 0.04em;
-		color: rgb(var(--gray-dark));
+	/* 結果発表の各項目（順番に出る） */
+	.cp-res-stats {
+		list-style: none;
+		margin: 0.5rem auto 0.2rem;
+		padding: 0;
+		width: min(100%, 300px);
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
 	}
-	.cp-combo-line b {
-		font-size: 1.35rem;
-		margin-left: 0.2em;
+	.cp-res-stats li {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 1rem;
+		font-weight: 700;
+		font-size: 0.95rem;
+		color: rgb(var(--gray-dark));
+		border-bottom: 1px dashed rgb(var(--gray-light));
+		padding: 0.15rem 0;
+	}
+	.cp-res-stats b {
+		font-size: 1.15rem;
 		font-variant-numeric: tabular-nums;
+		color: #222222;
+	}
+	.cp-res-chaos span,
+	.cp-res-chaos b {
+		color: #1f7f97;
+	}
+	.cp-reveal {
+		opacity: 0;
+		transform: translateY(6px);
+		transition:
+			opacity 0.18s ease,
+			transform 0.18s ease;
+	}
+	.cp-reveal.shown {
+		opacity: 1;
+		transform: none;
+	}
+	/* ランクのハンコ */
+	.cp-rank {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		margin: 0.5rem 0 0.1rem !important;
+	}
+	.cp-rank-label {
+		font-size: 0.8rem;
+		font-weight: 800;
+		letter-spacing: 0.16em;
+		color: rgb(var(--gray));
+	}
+	.cp-rank-letter {
+		display: inline-grid;
+		place-items: center;
+		width: 3.2rem;
+		height: 3.2rem;
+		border-radius: 50%;
+		border: 4px solid currentColor;
+		font-size: 2rem;
+		font-weight: 900;
+		line-height: 1;
+		transform: rotate(-8deg);
+	}
+	.cp-rank-letter[data-rank='S'] {
+		color: #c9971a;
+	}
+	.cp-rank-letter[data-rank='A'] {
+		color: #b0476a;
+	}
+	.cp-rank-letter[data-rank='B'] {
+		color: #2f6f8a;
+	}
+	.cp-rank-letter[data-rank='C'] {
+		color: #6b6b6b;
+	}
+	.cp-rank.shown .cp-rank-letter {
+		animation: cp-stamp 0.32s cubic-bezier(0.2, 1.4, 0.4, 1);
+	}
+	@keyframes cp-stamp {
+		from {
+			transform: rotate(-8deg) scale(2.2);
+			opacity: 0;
+		}
+		to {
+			transform: rotate(-8deg) scale(1);
+			opacity: 1;
+		}
+	}
+	.cp-newbest-diff {
+		margin-left: 0.4em;
+		font-variant-numeric: tabular-nums;
+	}
+	.cp-next-rank {
+		font-size: 0.95rem;
+		font-weight: 700;
+		color: var(--accent);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.cp-reveal {
+			transition: none;
+		}
+		.cp-rank.shown .cp-rank-letter {
+			animation: none;
+		}
 	}
 	.cp-best-line {
 		font-size: 0.8rem;

@@ -46,6 +46,12 @@ export interface GameAudio {
 	fever(): void;
 	/** CHAOS FEVER 解除の短い「シュン…」（罰音ではなく、落差を作るための控えめな下降音） */
 	feverEnd(): void;
+	/** 結果発表：スコア高速加算の刻み（progress 0→1 で少しずつ音程が上がる） */
+	resultTick(progress: number): void;
+	/** 結果発表：項目が1つ出るたびの軽いポップ（index で少しずつ上がる） */
+	resultPop(index: number): void;
+	/** 結果発表：ランクのハンコ（S が一番派手） */
+	rankStamp(rank: 'S' | 'A' | 'B' | 'C'): void;
 	/** 自己ベスト更新の特別な音 */
 	best(): void;
 	/** ランキング上位入りの祝福音 */
@@ -726,6 +732,29 @@ export function createAudio(): GameAudio {
 			if (active && !feverOn) feverCrashPending = true;
 			if (!active) feverCrashPending = false;
 			feverOn = active;
+		},
+		resultTick(progress: number) {
+			tone(1200 + 900 * progress, 0, 0.025, 'square', 0.025);
+		},
+		resultPop(index: number) {
+			const f = [659.25, 739.99, 880, 987.77, 1174.66][Math.max(0, Math.min(4, index))];
+			tone(f, 0, 0.09, 'triangle', 0.1);
+			tone(f * 2, 0.02, 0.07, 'sine', 0.04);
+		},
+		rankStamp(rank) {
+			// ハンコ：低い衝撃＋和音。S は駆け上がるきらめき付き、C は控えめ
+			const c = ensureCtx();
+			if (!c || muted) return;
+			const strong = rank === 'S' ? 1 : rank === 'A' ? 0.8 : rank === 'B' ? 0.6 : 0.45;
+			tone(70, 0, 0.3, 'sine', 0.32 * strong, 34);
+			const g = c.createGain();
+			g.gain.value = 1;
+			g.connect(c.destination);
+			bgmNoise(c, g, c.currentTime, 0.06, 1500, 0.1 * strong);
+			setTimeout(() => g.disconnect(), 400);
+			const chord = rank === 'C' ? [293.66, 349.23, 440] : [293.66, 369.99, 440, 587.33]; // C は短調、それ以外は長調
+			chord.forEach((f) => tone(f, 0.02, 0.6, 'triangle', 0.07 * strong));
+			if (rank === 'S') [1174.66, 1479.98, 1760, 2349.32].forEach((f, i) => tone(f, 0.08 + i * 0.05, 0.14, 'sine', 0.06));
 		},
 		best() {
 			// 特別感のある3音アルペジオ

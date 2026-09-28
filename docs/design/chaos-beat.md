@@ -136,6 +136,16 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
   −0.35/−0.24/−0.16/−0.10/−0.06/−0.03 秒に加速）を予約。`stopChaosTell()` を hit ごとに呼んで鳴り途中でも止める。
   `chaosPerfect()`＝ノイズのクラック＋2400→180Hz のザップ＋62→34Hz の衝撃＋今の和音の構成音×4 のきらめき。
 
+## 結果発表（ChaosPendulum.astro / result-rank.ts / audio.ts）
+- `result-rank.ts`：`RANK_THRESHOLDS[difficulty]`（S/A/B/C の最低点）、`rankOf(score, difficulty)`、`nextRank(score, difficulty)`（あと何点で次か）。
+  しきい値は正規分布の押しズレ σ=15/30/50ms の自動プレイ（2ゲームずつ）の得点から：S ≒ 上手い人（σ15）の典型値を少し超える、B ≒ 平均（σ30）。
+- game_over で `getBest()`（更新前）→ `updateBest()` → `rankOf()` を計算し、`game_over` を `result_rank` / `new_best` 付きで送る（他のイベントは従来どおり先に送る）。
+- `prepareResultShow()` が数値を入れて各項目を非表示（`.cp-reveal` から `.shown` を外す。場所は確保＝レイアウトが跳ねない）、
+  パネル表示時に `playResultShow()`：無音 250ms → rAF でスコア加算 900ms（ease-out・65ms ごとに `resultTick(p)`）→ 各項目 220ms 間隔で `.shown`＋`resultPop(i)`
+  → 250ms 後にランク `.shown`（ハンコのアニメ）＋`rankStamp(rank)` → NEW BEST なら 550ms 後に表示＋`best()` → `finishResultShow()`。
+  タイマーは `game_start` で `cancelResultShow()`（演出中の再戦で残らない）。結果の数字部分クリックで `finishResultShow(true)`（音は二重に鳴らさない）。
+- 音：`resultTick`（1200→2100Hz の短い矩形波）、`resultPop`（E5→D6 の三角波）、`rankStamp`（低い衝撃＋ノイズ＋和音。S はきらめき、C は短調で控えめ）。
+
 ## CHAOS FEVER の演出（chaos-pendulum.ts の描画・audio.ts の音。物理・判定には触れない）
 - 定数は `FX`（`ENTRY_TIME 0.7` / `ENTRY_FLASH_ALPHA 0.6` / `ENTRY_ZOOM 0.05` / `BEAT_FLASH_ALPHA 0.12` / `OVERLAY_ALPHA_MAX 0.2` /
   `TRAIL_LEN 140` / `FEVER_TRAIL_MULT 1.8` / `TRAIL_CHUNKS 28` / `FEVER_PARTICLE_MULT 2` / `MAX_PARTICLES 320` / `SHAKE_PX 6` /
