@@ -127,6 +127,16 @@ per-game イベント（game_start / game_over / game_retry）に `reward_stage`
       ダッキング量、画面ロック・アプリ切替（時計停止 → 無音で継続）、5分通しのメモリ
 - [ ] GA4（song_id=burning-heart）の score / result_rank / 区間ごとの MISS で、ランクしきい値・区間の密度を調整
 
+### 入力タイミング精度（押した瞬間を同じ transport に載せる）2026-09-28
+- [x] 押下時刻 = `event.timeStamp`（pointerdown / keydown）→ `audio.eventTimeToTransport`（① getOutputTimestamp ② currentTime＋経過 ③ performance）
+- [x] 異常な timeStamp（NaN・Infinity・未来・古すぎる・基準違い）は従来のハンドラ実行時刻へ。スロー中（的が出る前）の操作は無視
+- [x] 判定・的の配置・CHAOS 速度を共通の `tipAtTime(t)`（固定ステップ＋端数1回の RK4）に。物理本体は 300Hz のまま。スナップショットで少し前の時刻にも対応
+- [x] `?debug=1`：event / handler / queue lag / 換算方法 / 出力遅延 / press / expected / offset / phys remainder
+- [x] 検証（ヘッドレス Chromium・実 AudioContext）：ドンが耳に届く瞬間に押すボットで offset 中央 +2.0ms（修正前 +40ms）・PERFECT 13〜14/14（修正前 4/14）、
+      ハンドラを 20ms 遅らせても offset は +2.2ms（修正前は +59ms＝+20ms 悪化）。getOutputTimestamp 無し +4.3ms、時計停止→performance で継続、
+      異常 timeStamp 5 種はすべてハンドラ時刻へ、iPhone 相当の実タップ（queue lag 27ms）も event 時刻で判定。偽時計の自動プレイの得点は修正前と同等
+- [ ] 実機（iPhone / Android / Bluetooth イヤホン）で `?debug=1` の out latency と offset を確認（Bluetooth は getOutputTimestamp の精度次第）
+
 ## Next
 - [ ] **playtest tuning（60秒版）**：セクション境界ごとの判定分布（hit × section_change）、FEVER の発生回数（多ければ終了後の短いクールダウンを検討）、
       INTRO/CLIMAX の的サイズ倍率、BUILD のフィルや CLIMAX のパッドの音量。実機 20〜30 回＋GA4 の `averageTimingOffsetMs`・判定分布で、カウントイン長・音量・ダッキング量・

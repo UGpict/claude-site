@@ -537,6 +537,14 @@
 				debugInfo: DEBUG ? () => audio.debugLines() : undefined, // ?debug=1 の同期確認表示
 				difficulty: currentDifficulty,
 				now: () => audio.now(), // 共通トランスポート時計（BGM/cue と同じ原点）
+				// 押した瞬間＝入力イベントの時刻（event.timeStamp）を同じ transport 時刻に換算（ハンドラの遅れを判定に混ぜない）
+				eventTime: (ts: number) => audio.eventTimeToTransport(ts),
+				// ?debug=1：最後の入力の内訳を window.__cbLastInput に（検証用）
+				onInputDebug: DEBUG
+					? (info) => {
+							(window as unknown as { __cbLastInput?: unknown }).__cbLastInput = info;
+						}
+					: undefined,
 				autostart: false, // TAP TO START を待つ
 				onEvent(name: GameEventName, payload: GameEventPayloads[GameEventName]) {
 					const params = (payload as Record<string, unknown>) ?? {};

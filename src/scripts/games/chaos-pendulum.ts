@@ -162,6 +162,41 @@ export interface GameElements {
 	msg: HTMLElement;
 }
 
+/** 入力イベントの時刻を transport 時刻にしたもの（mode は換算方法：outputTimestamp / audioClock / performance） */
+export interface EventClockTime {
+	t: number;
+	mode: string;
+	/** AudioContext の時刻に直した値（音の時計のときだけ） */
+	contextTime?: number | null;
+}
+/** 押した瞬間の時刻の内訳（resolvePress の結果） */
+export interface PressInfo {
+	/** 判定に使う押下時刻（transport 秒） */
+	t: number;
+	/** ハンドラ実行時の時計による押下時刻（従来の方式。比較用） */
+	handlerT: number;
+	/** event = イベントの時刻を使った / handler = 使えなかったので従来の時計 */
+	source: 'event' | 'handler';
+	mode: string;
+	/** event.timeStamp（ms）と、ハンドラ実行時の performance.now()（ms） */
+	eventMs: number | null;
+	handlerMs: number;
+	/** イベント発生 → ハンドラ実行の遅れ（ms。計測用） */
+	queueLagMs: number | null;
+	contextTime: number | null;
+}
+export interface InputDebugInfo extends PressInfo {
+	hitAt: number;
+	/** 判定に使った押下時刻 − hitAt（ms） */
+	offsetMs: number;
+	/** 従来方式（ハンドラ実行時）だった場合の押下時刻 − hitAt（ms） */
+	handlerOffsetMs: number;
+	/** 押下時刻の物理：固定ステップのあとに端数で進めた量（ms、0〜3.33） */
+	remainderMs: number;
+	/** 巻き戻せる状態より前だったので打ち切った量（ms。通常 0） */
+	clampedMs: number;
+}
+
 export interface InitGameOptions {
 	canvas: HTMLCanvasElement;
 	elements: GameElements;
@@ -177,6 +212,13 @@ export interface InitGameOptions {
 	song?: SongDefinition;
 	/** 同期確認用のデバッグ表示（?debug=1）。追加で表示する行を返す。本番では渡さない */
 	debugInfo?: () => string[];
+	/**
+	 * 入力イベントの時刻（event.timeStamp：performance.now と同じ基準のミリ秒）→ transport 時刻（秒）。audio.eventTimeToTransport を渡す。
+	 * 省略時：now も省略なら performance 時計で換算、now だけ渡したなら換算しない（ハンドラ実行時の時計で判定）。
+	 */
+	eventTime?: (eventTimeStamp: number) => EventClockTime | null;
+	/** ?debug=1：押すたびに入力時刻の内訳を受け取る（検証用。本番では渡さない） */
+	onInputDebug?: (info: InputDebugInfo) => void;
 	onEvent?: <K extends GameEventName>(name: K, payload: GameEventPayloads[K]) => void;
 }
 
@@ -258,6 +300,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 	// 共通トランスポート時計（BGM/cue と同じ原点）。全部これで gameTime を測る。
 	let perfOrigin = performance.now() / 1000;
 	const clock = options.now ?? (() => performance.now() / 1000 - perfOrigin);
+	// 入力イベントの時刻 → transport 時刻（時計を渡されていなければ同じ performance 時計で換算）
+	const eventTimeOf: (ts: number) => EventClockTime | null =
+		options.eventTime ?? (options.now ? () => null : (ts) => ({ t: ts / 1000 - perfOrigin, mode: 'performance' }));
+	let lastInput: InputDebugInfo | null = null; // ?debug=1 の表示用
 	let started = options.autostart !== false;
 	let lastClock = 0;
 
@@ -513,32 +559,69 @@ export function initGame(options: InitGameOptions): GameHandle {
 	// 軌道が毎回同じ離散列になり、下の予測が実機と「完全一致」する（＝的が必ず通過する）。
 	const FIXED_H = 1 / 300;
 	const PRED_HORIZON = 2.6; // 的を置く未来の上限（秒）。カオスなので近い将来だけ信頼する（リズム量子化で最大~2.3秒先）
-	const MAX_PRESS_LAG = 0.25; // 押した瞬間まで進める上限（秒）。ループの dt 上限と同じ
+	const MAX_PRESS_LAG = 0.25; // 入力イベントの時刻が使えないとき：押した瞬間（ハンドラ実行時）まで進める上限（秒）。ループの dt 上限と同じ
+	// 入力イベントの時刻（event.timeStamp → transport）を信じる範囲。これより古い／未来のものは異常値として従来の clock() に戻す
+	// （音の出力遅延ぶん過去になるので MAX_PRESS_LAG より少し広い。スナップショットもこの長さだけ保持）
+	const MAX_EVENT_AGE = 0.5;
+	const MAX_EVENT_AHEAD = 0.02;
 
 	/**
-	 * 今の状態 s から、実際のゲームと同じ固定ステップ（FIXED_H・同じ rk4）で n ステップ進めた先端位置。
-	 * s 自体は変えない（コピーを進める）。サンプリングや補間はしない＝実機が通る離散列そのもの。
+	 * 物理状態のスナップショット（transport 時刻 t に s だった）。押した瞬間（イベントの時刻）が最後の描画フレームより前でも、
+	 * そこから同じ積分で進めて「その瞬間の位置」を出すため。timeScale = 1 の区間（playing）だけ記録し、スローに入ったら捨てる
+	 * （スロー中は物理時間と transport 時刻の対応が変わるので混ぜない）。
 	 */
-	function tipAfterSteps(n: number): [number, number] {
-		let sim = s.slice();
-		for (let i = 0; i < n; i++) sim = rk4(sim, FIXED_H);
-		const [, , x2, y2] = tips(sim);
-		return [x2, y2];
+	let physHist: { t: number; s: Vec }[] = [];
+	const physTimeNow = () => gameTime - acc; // s が表している transport 時刻（acc = 未消化の固定ステップ時間）
+	function recordPhys() {
+		const t = physTimeNow();
+		physHist.push({ t, s: s.slice() });
+		while (physHist.length > 2 && physHist[0].t < t - MAX_EVENT_AGE - 0.1) physHist.shift();
 	}
-	/** tipAfterSteps と同じ点＋その瞬間の先端の速さ（次の1ステップとの差。ワールド単位/秒） */
-	function tipAndSpeedAfterSteps(n: number): { x: number; y: number; speed: number } {
-		let sim = s.slice();
-		for (let i = 0; i < n; i++) sim = rk4(sim, FIXED_H);
-		const [, , x2, y2] = tips(sim);
-		const [, , nx, ny] = tips(rk4(sim, FIXED_H));
-		return { x: x2, y: y2, speed: Math.hypot(nx - x2, ny - y2) / FIXED_H };
-	}
+
 	/**
-	 * transport 時刻 t に対応する「現在の s から何ステップ先か」。
-	 * s は gameTime − acc の物理時刻にある（acc = 未消化の固定ステップ時間）ので、t − gameTime + acc を FIXED_H で丸める。
-	 * 的が生きている間は timeScale = 1 なので、この対応は的の生成から判定まで一定。
+	 * 任意の transport 時刻 t の物理状態（判定・未来位置予測の共通関数）。
+	 * 起点（現在の s、t が過去ならそれ以前で最新のスナップショット）から、ゲームと同じ固定ステップ（FIXED_H・同じ rk4）で
+	 * floor 回進め、残り（< FIXED_H）だけ最後に1回 rk4(残り) で進める。
+	 * ループは起点から FIXED_H 刻みで進むので、的を置いたとき（hitAt）と押したとき（pressT）で同じ時刻なら同じ計算列になる
+	 * （＝pressT = hitAt ちょうどなら先端は的の中心。以前の Math.round による ±1.67ms の量子化は無い）。
 	 */
-	const stepsUntil = (t: number) => Math.max(0, Math.round((t - gameTime + acc) / FIXED_H));
+	function stateAtTime(t: number): { s: Vec; remainder: number; clampedFrom: number } {
+		let base = s;
+		let bt = physTimeNow();
+		let clampedFrom = t;
+		if (t < bt) {
+			for (let i = physHist.length - 1; i >= 0; i--) {
+				if (physHist[i].t <= t + 1e-9) {
+					base = physHist[i].s;
+					bt = physHist[i].t;
+					break;
+				}
+			}
+			if (t < bt) {
+				// 巻き戻せる状態が無い（スナップショットより前）：持っている最古の状態の時刻で打ち切る
+				if (physHist.length) {
+					base = physHist[0].s;
+					bt = physHist[0].t;
+				}
+				t = bt;
+			}
+		}
+		clampedFrom = clampedFrom - t; // 打ち切った量（秒。通常 0）
+		const d = Math.max(0, t - bt);
+		const n = Math.floor(d / FIXED_H + 1e-9);
+		const remainder = d - n * FIXED_H;
+		let sim = base.slice();
+		for (let i = 0; i < n; i++) sim = rk4(sim, FIXED_H);
+		if (remainder > 1e-7) sim = rk4(sim, remainder);
+		return { s: sim, remainder: Math.max(0, remainder), clampedFrom };
+	}
+	/** 時刻 t の先端位置＋その瞬間の先端の速さ（次の1固定ステップとの差。ワールド単位/秒）。的の配置・CHAOS・判定で共通 */
+	function tipAtTime(t: number): { x: number; y: number; speed: number; remainder: number; clampedFrom: number } {
+		const st = stateAtTime(t);
+		const [, , x2, y2] = tips(st.s);
+		const [, , nx, ny] = tips(rk4(st.s, FIXED_H));
+		return { x: x2, y: y2, speed: Math.hypot(nx - x2, ny - y2) / FIXED_H, remainder: st.remainder, clampedFrom: st.clampedFrom };
+	}
 
 	// 的は「リズムパターンの入力拍」に対応する未来軌道点へ置く。
 	// = 音（タン・タン・ドン）でタイミングが分かり、振り子を見て微調整すると PERFECT。
@@ -620,9 +703,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 		const hitAt = grid.beatTime(hitBeat); // 入力すべき時刻（transport 時刻）
 		lastHitBeat = hitBeat;
 
-		// 的の中心＝hitAt の時刻に実際の物理が通る点。hitAt まで同じ固定ステップ列で直接積分して求める
-		// （以前の「13ms 間隔でサンプルした軌道から最寄り点」だと ±2 ステップ≒±7ms の量子化誤差が出て、小さい的ほど目立った）。
-		const at = tipAndSpeedAfterSteps(stepsUntil(hitAt));
+		// 的の中心＝hitAt の時刻に実際の物理が通る点。判定と同じ tipAtTime（固定ステップ＋最後に端数1回）で求める
+		// （判定も同じ関数なので、hitAt ちょうどに押せば先端は的の中心＝配置と判定の計算が一致）。
+		recordPhys(); // この的の区間の起点（押した瞬間が次の描画より前でも、ここから同じ積分で進められる）
+		const at = tipAtTime(hitAt);
 		// CHAOS チャンス：先端が最も荒れている瞬間の的。INTRO には出さず、直前の的がチャンスなら出さない（希少性）。
 		// サビは速度のしきい値を少し下げてチャンスを増やす（section.chaosSpeed）
 		const chaos = at.speed >= (sec.chaosSpeed ?? CHAOS_SPEED) && sec.id !== 'intro' && !lastWasChaos;
@@ -689,6 +773,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 		mapIdx = 0;
 		waitingForMap = false;
 		lastHitBeat = null;
+		physHist = [];
+		lastInput = null;
 		chaosChances = 0;
 		chaosPerfectCount = 0;
 		chaosFlashT = 0;
@@ -786,14 +872,51 @@ export function initGame(options: InitGameOptions): GameHandle {
 		emit('fever_end', { reason, duration: Math.round(dur * 10) / 10, hits: feverStreak });
 	}
 
-	/** プレイヤーが叩いた（state==='playing' のときだけ呼ばれる） */
-	function hit() {
+	/**
+	 * 押した瞬間の transport 時刻を決める。
+	 *   1. 入力イベントの時刻（event.timeStamp）を options.eventTime で transport 時刻に換算できて、妥当な範囲なら それ
+	 *      （＝指が触れた・キーが押された時刻。ハンドラが遅れて動いても遅押しにならない）
+	 *   2. 使えない（時刻が無い・NaN/Infinity・未来・古すぎる）なら従来どおり ハンドラ実行時の clock()（上限 MAX_PRESS_LAG）
+	 * 戻り値 null＝的が出る前（スロー中の入力ロック中）に押されていた → 入力として扱わない。
+	 */
+	function resolvePress(eventTs?: number): PressInfo | null {
+		const handlerMs = performance.now();
+		const now = clock();
+		const handlerT = Math.max(gameTime, Math.min(now, gameTime + MAX_PRESS_LAG)); // 従来の押下時刻
+		const info: PressInfo = { t: handlerT, handlerT, source: 'handler', mode: '-', eventMs: null, handlerMs, queueLagMs: null, contextTime: null };
+		if (eventTs == null || !Number.isFinite(eventTs)) return info;
+		info.eventMs = eventTs;
+		const lag = handlerMs - eventTs; // イベント発生 → ハンドラ実行の遅れ（計測用。判定の補正には使わない）
+		if (!(lag > -5 && lag < MAX_EVENT_AGE * 1000)) return info; // 基準の違う timeStamp（古い WebKit の epoch 等）は捨てる
+		info.queueLagMs = lag;
+		const ev = eventTimeOf(eventTs);
+		if (!ev || !Number.isFinite(ev.t)) return info;
+		if (ev.t > now + MAX_EVENT_AHEAD || ev.t < now - MAX_EVENT_AGE) return info; // transport のかなり未来／過去は信じない
+		info.mode = ev.mode;
+		info.contextTime = ev.contextTime ?? null;
+		if (target && ev.t < target.bornAt) return null; // 的が出る前（入力ロック中）の操作
+		info.t = ev.t;
+		info.source = 'event';
+		return info;
+	}
+
+	/** プレイヤーが叩いた（state==='playing' のときだけ呼ばれる）。press = 押した瞬間（resolvePress） */
+	function hit(press: PressInfo) {
 		if (!target) return;
-		// 押した瞬間の transport 時刻。判定は「最後に描いたフレームの物理状態」ではなく、その状態から同じ固定ステップ列で
-		// 押した瞬間まで進めた先端で行う（s は変えない）。以前は最大 1 フレーム＋acc（60fps で ~20ms）遅れた位置で判定しており、
-		// 的の中心がちょうど拍に来ていても「まだ届いていない」側にズレ、小さい的（難しい・鬼）ほど PERFECT を外していた。
-		const pressT = Math.max(gameTime, Math.min(clock(), gameTime + MAX_PRESS_LAG));
-		const [x2, y2] = tipAfterSteps(stepsUntil(pressT));
+		// 判定は「最後に描いたフレームの物理状態」ではなく、押した瞬間（pressT）の先端で行う。
+		// 的の配置と同じ tipAtTime（固定ステップ＋端数1回）で求める＝hitAt ちょうどなら的の中心（s は変えない）。
+		const pressT = press.t;
+		const tip = tipAtTime(pressT);
+		const [x2, y2] = [tip.x, tip.y];
+		lastInput = {
+			...press,
+			hitAt: target.hitAt,
+			offsetMs: (pressT - target.hitAt) * 1000,
+			handlerOffsetMs: (press.handlerT - target.hitAt) * 1000,
+			remainderMs: tip.remainder * 1000,
+			clampedMs: tip.clampedFrom * 1000,
+		};
+		options.onInputDebug?.(lastInput);
 		const d = Math.hypot(x2 - target.x, y2 - target.y);
 		const R = target.r;
 		let kind: HitKind;
@@ -940,6 +1063,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 		// 叩いたら必ずスロー → 次の的
 		state = 'slowmo';
+		physHist = []; // スロー中は物理時間と transport の対応が変わる → 次の的から記録し直す
 		slowmoT = SLOWMO_TIME;
 	}
 
@@ -1011,14 +1135,17 @@ export function initGame(options: InitGameOptions): GameHandle {
 	}
 
 	// --- 入力 ---
-	function act() {
+	/** eventTs = 入力イベントの timeStamp（performance.now と同じ基準のミリ秒）。無ければハンドラ実行時の時計で判定 */
+	function act(eventTs?: number) {
 		if (state !== 'playing' || !target) return; // slowmo/over 中・曲の終わり（的なし）はロック
-		hit();
+		const press = resolvePress(eventTs);
+		if (!press) return;
+		hit(press);
 	}
 	const onActClick = () => act();
 	const onPointerDown = (e: PointerEvent) => {
 		e.preventDefault();
-		act();
+		act(e.timeStamp);
 	};
 	const onKeyDown = (e: KeyboardEvent) => {
 		if (e.code !== 'Space' && e.code !== 'Enter') return;
@@ -1028,7 +1155,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		// ゲーム進行中だけキーを奪う。開始前・終了後はページのボタン（▶ PLAY・もう一回 等）の本来の Space/Enter を妨げない
 		if (state !== 'countin' && state !== 'playing' && state !== 'slowmo') return;
 		e.preventDefault();
-		act();
+		act(e.timeStamp);
 	};
 	cv.addEventListener('pointerdown', onPointerDown);
 	window.addEventListener('keydown', onKeyDown);
@@ -1540,13 +1667,23 @@ export function initGame(options: InitGameOptions): GameHandle {
 			`transport: ${gameTime.toFixed(3)}`,
 			...(target ? [`next hit: beat ${target.hitBeat} @ ${target.hitAt.toFixed(3)}`] : []),
 			...(options.debugInfo?.() ?? []),
+			...(lastInput
+				? [
+						`INPUT ${lastInput.source}  event: ${lastInput.eventMs != null ? (lastInput.eventMs / 1000).toFixed(3) : '-'}  handler: ${(lastInput.handlerMs / 1000).toFixed(3)}`,
+						`queue lag: ${lastInput.queueLagMs != null ? lastInput.queueLagMs.toFixed(1) + 'ms' : '-'}  clock: ${lastInput.mode}`,
+						`ctx: ${lastInput.contextTime != null ? lastInput.contextTime.toFixed(3) : '-'}  press: ${lastInput.t.toFixed(3)}`,
+						`HIT expected: ${lastInput.hitAt.toFixed(3)}  offset: ${lastInput.offsetMs >= 0 ? '+' : ''}${lastInput.offsetMs.toFixed(1)}ms`,
+						`(handler時刻なら ${lastInput.handlerOffsetMs >= 0 ? '+' : ''}${lastInput.handlerOffsetMs.toFixed(1)}ms)  phys remainder: ${lastInput.remainderMs.toFixed(2)}ms${lastInput.clampedMs > 0.01 ? `  clamp ${lastInput.clampedMs.toFixed(1)}ms` : ''}`,
+					]
+				: []),
 		];
 		ctx!.save();
 		ctx!.globalAlpha = 0.85;
-		ctx!.fillStyle = 'rgba(0,0,0,0.55)';
-		ctx!.fillRect(6, 6, 250, 16 * lines.length + 10);
-		ctx!.fillStyle = '#E8FBFF';
 		ctx!.font = '12px ui-monospace, monospace';
+		const boxW = Math.max(250, ...lines.map((l) => ctx!.measureText(l).width + 14));
+		ctx!.fillStyle = 'rgba(0,0,0,0.55)';
+		ctx!.fillRect(6, 6, boxW, 16 * lines.length + 10);
+		ctx!.fillStyle = '#E8FBFF';
 		ctx!.textAlign = 'start';
 		ctx!.textBaseline = 'top';
 		lines.forEach((l, i) => ctx!.fillText(l, 12, 11 + i * 16));
@@ -1586,6 +1723,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 				acc -= FIXED_H;
 				steps++;
 			}
+			// 押した瞬間が次のフレームより前（イベントの時刻）でも、その時刻の状態から進められるように（timeScale = 1 の間だけ）
+			if (state === 'playing') recordPhys();
 			const [, , x2, y2] = tips(s);
 			trail.push([x2, y2]);
 			// FEVER 用に長めに保持し、描画側で通常時は末尾 TRAIL_LEN 点だけ使う
