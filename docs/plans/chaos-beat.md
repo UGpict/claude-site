@@ -105,9 +105,27 @@ per-game イベント（game_start / game_over / game_retry）に `reward_stage`
       拍0 = ファイル 2.350s、クリック 123 個すべて拍グリッドから誤差 0.045ms 以内（サンプル丸め）、整数拍の入力拍はすべてクリックと 2ms 以内で一致、
       デコイ（0s/1s）は鳴らない、60秒後はフェード。再戦（2ゲーム目も同精度）・iPhone 13 エミュレーション＋タップ再戦・404 で合成BGMへフォールバック・
       beatmap（A@88→入力拍91、E@93→入力拍96）を確認
-- [ ] **Burning Heart（魔王魂）**：音源ファイル（`public/audio/chaos-beat/`）・利用規約とクレジット表記の確認はオーナーが用意。
-      受け取ったら `bpm` / `startAt`（使う60秒）/ `offset`（`?debug=1` のメトロノームで合わせる）/ セクション秒 / `harmony`（曲のキー）/ beatmap を決める
+- [x] Burning Heart の音源を受け取り → 下の「FULL：Burning Heart」で実装
 - [ ] 曲ごとのランキング（今は既定曲のみ。D1 は既存行を消さず、列追加＋既定値で互換にする設計から）
+
+### FULL：Burning Heart（原曲1曲まるごと）2026-09-28
+- [x] 実音源の解析（Chromium の decodeAudioData＝ゲームと同じデコーダ）：312.74 秒、BPM 142.000（一定）、拍0 = 0.8735 秒、
+      構成（クロマの自己相似＋帯域エネルギー＋中央定位）、決めどころ（16分グリッドのオンセット）、最後の和音 = 拍 708.25
+- [x] `BURNING_HEART_SONG`：フル尺（本編 300.0 秒＝拍710、余韻は tail 6.2 秒）、preroll（曲の頭をカウントイン中から）、ownEnding（合成の終止音なし）、
+      anchor（デコーダ差の自動補正）、credit「Music: 魔王魂」→ maou.audio
+- [x] セクション15（INTRO / CHORUS×3 / RIFF×2 / VERSE×2 / PRE-CHORUS×2 / BRIDGE / GUITAR SOLO / BREAK / FINAL CHORUS / OUTRO）を小節頭で
+- [x] 休符：`restBeats`（Aメロ 3〜4拍）、`autoFill: false`（INTRO・ブリッジ・ブレイク・アウトロは固定の一打だけ）
+- [x] 固定譜面 33 エントリ（サビ頭の決めフレーズ×4、リフのストップ、ブリッジのキメ、ソロ頭、ブレイクの一撃、ラスサビ後半のソロフレーズ、最後のドラム、FINAL）
+- [x] 追加パターン H（タン ドン）/ J（タン ・ドン）/ Z（FINAL：溜めて16分後）— FULL のみ
+- [x] サビ：密度UP・枠の明滅（hype）・CHAOS しきい値 6.8。ソロ：裏拍と短い連続。ラスサビ：総復習・約2.7拍に1回・的 ×0.9・しきい値 6.5
+- [x] FINAL PERFECT / FINAL HIT! 表示、m:ss の残り時間、FINAL カウント無し（`finalCountdown: false`）
+- [x] 外部音源の音：cue に「コッ」を重ねる、区間ごとのダッキング（0.36〜0.5）、区間ごとの和音（B / E♭ / D）、コンボ・FEVER の追加音をごく控えめに、FEVER 突入SE ×0.5
+- [x] 先読みデコード（ページ表示時に OfflineAudioContext）、LOADING に曲名、デコード待ちの上限を尺に比例（5分で7.5秒）
+- [x] FULL 専用ランク（仮値）・「あと少し」900点、自己ベストは曲 id ごと、ランキングに送らない（登録欄を出さない）
+- [x] スタート画面に QUICK / FULL の切替（ページの切替リンク）、結果に「♪ Burning Heart ・ FULL SONG」と QUICK/FULL への導線
+- [ ] 実機（iPhone・Android・イヤホン）で：拍0（`?debug=1` の decoder shift と、メトロノーム四角とキックの一致）、cue の聞こえ方、
+      ダッキング量、画面ロック・アプリ切替（時計停止 → 無音で継続）、5分通しのメモリ
+- [ ] GA4（song_id=burning-heart）の score / result_rank / 区間ごとの MISS で、ランクしきい値・区間の密度を調整
 
 ## Next
 - [ ] **playtest tuning（60秒版）**：セクション境界ごとの判定分布（hit × section_change）、FEVER の発生回数（多ければ終了後の短いクールダウンを検討）、

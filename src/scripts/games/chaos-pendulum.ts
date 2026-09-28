@@ -199,6 +199,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 	const grid = gridOf(song);
 	const duration = song.duration;
 	const finalIdx = song.sections.length - 1;
+	const hasFinalCount = song.finalCountdown !== false; // フル尺の曲はアウトロを聞かせる（5→1 のカウントを出さない）
 	// 最後のセクション（FINAL）を5カウントに等分（60秒版は10拍＝2拍ごとに 5→1。最終拍＝終止）
 	const FINAL_COUNT = 5;
 	const finalStart = sectionStart(song, finalIdx);
@@ -323,6 +324,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 		expireAt: number;
 		/** CHAOS チャンス（hitAt での先端速度 ≥ CHAOS_SPEED） */
 		chaos: boolean;
+		/** 曲の最後の一打（beatmap の final）。叩けたら FINAL PERFECT / FINAL HIT! */
+		final: boolean;
 	}
 	let s: Vec; // [θ1, θ2, ω1, ω2]
 	let trail: [number, number][] = [];
@@ -365,7 +368,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 	// 手書き譜面（曲ごと・任意）
 	const beatmap = song.beatmap ?? [];
 	let mapIdx = 0;
-	let waitingForMap = false;
+	let waitingForMap = false; // 的を出さずに待っている（手書き譜面のエントリ・休符・「聞く」区間）。ループが毎フレーム newTarget を呼ぶ
+	let lastHitBeat: number | null = null; // 直前の的の入力拍（休符の起点）
 	let chaosChances = 0;
 	let chaosPerfectCount = 0;
 	let chaosFlashT = 0; // 叩き抜いた瞬間の白い閃光＋電撃（1→0）
@@ -386,13 +390,18 @@ export function initGame(options: InitGameOptions): GameHandle {
 		lastSeqId = pick.id;
 		return pick;
 	}
-	function nextPattern(sec: GameSection): RhythmPattern {
+	/** 次に出すパターン（消費しない）。手書き譜面のエントリの前に収まるかを見るため */
+	function peekPattern(sec: GameSection): RhythmPattern {
 		if (!curSeq || seqIdx >= curSeq.patterns.length || !sec.sequencePool.includes(curSeq.id)) {
 			curSeq = pickSequence(sec);
 			seqIdx = 0;
 		}
-		const pid = curSeq.patterns[seqIdx++];
-		return PATTERN_BY_ID[pid] ?? RHYTHM_PATTERNS[0];
+		return PATTERN_BY_ID[curSeq.patterns[seqIdx]] ?? RHYTHM_PATTERNS[0];
+	}
+	function nextPattern(sec: GameSection): RhythmPattern {
+		const p = peekPattern(sec);
+		seqIdx++;
+		return p;
 	}
 
 	// 演出（表示のみ・物理/スコアに干渉しない）
@@ -489,6 +498,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		return c >= 10 ? 2.0 : c >= 5 ? 1.5 : c >= 3 ? 1.2 : 1;
 	}
 	const CHAOS_LABEL = '⚡ CHAOS PERFECT';
+	const FINAL_PERFECT_LABEL = 'FINAL PERFECT';
 	/** コンボ節目で解放される BGM の層（audio 側の musicLevel と同じ区切り） */
 	const LAYER_OF: Record<number, string> = { 3: '♪ BASS', 5: '♪ HAT', 10: '♪ MELODY' };
 	const LABEL: Record<HitKind, string> = {
@@ -538,11 +548,16 @@ export function initGame(options: InitGameOptions): GameHandle {
 		// パターンは「パターン先頭の拍」が属するセクションの譜面から順番に取り、先頭を次の拍頭に合わせる（beat grid と同期）。
 		// 以降、cue・hitAt・リングはすべてこの拍番号から grid.beatTime() で求める（=BGMの拍頭と同じ式）。
 		const firstBeat = grid.nextBeatIndex(gameTime);
-		const sec = song.sections[sectionIndexAt(song, grid.beatTime(firstBeat))];
+		// 休符（section.restBeats）：前の入力拍から指定の拍数あけてから次のパターンを始める（歌・ギターを聞かせる）
+		const restSec = song.sections[sectionIndexAt(song, grid.beatTime(firstBeat))];
+		// （restBeats が無い区間＝60秒版は従来どおり「次の拍頭」から。譜面の密度・得点の基準を変えない）
+		const rest = restSec.restBeats ?? 0;
+		const earliest = lastHitBeat == null || rest <= 0 ? firstBeat : Math.max(firstBeat, Math.ceil(lastHitBeat + 1 + rest - 1e-9));
+		const sec = song.sections[sectionIndexAt(song, grid.beatTime(earliest))];
 		const place = (p: RhythmPattern) => {
-			let sb = firstBeat;
+			let sb = earliest;
 			// 予測範囲を超えない・最低限の反応猶予を確保（ずらすときはパターンごと拍単位＝ドンと hitAt が離れない）
-			while (sb > 0 && grid.beatTime(sb + p.hitBeat) - gameTime > maxT) sb--;
+			while (sb > firstBeat && grid.beatTime(sb + p.hitBeat) - gameTime > maxT) sb--;
 			while (grid.beatTime(sb + p.hitBeat) - gameTime < 0.5) sb++;
 			return sb;
 		};
@@ -559,8 +574,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 		)
 			mapIdx++;
 		const entry = beatmap[mapIdx];
-		// 通常のパターン（最長4拍＋余裕1拍）が次のエントリより前に収まらないなら、エントリを優先する
-		if (entry && firstBeat + 5 > entry.beat) {
+		// 次の通常パターンを置くと、見逃したとき（入力拍＋1.2拍で消える＝次は入力拍＋2から）に次のエントリへ間に合わない
+		// → 「開始 + そのパターンの入力拍 + 2 > エントリ」ならエントリを優先する（短いパターンならエントリの直前まで詰められる）
+		const fitsBefore = (p: RhythmPattern) => place(p) + p.hitBeat + 2 <= (entry?.beat ?? Infinity);
+		if (entry && (sec.autoFill === false || !fitsBefore(peekPattern(sec)))) {
 			const ep = PATTERN_BY_ID[entry.pattern];
 			if (grid.beatTime(entry.beat + ep.hitBeat) - gameTime > maxT) {
 				// まだ予測範囲の外：的を出さずに待つ（ループが毎フレーム呼び直す）。曲のフレーズを優先して拍はずらさない
@@ -569,7 +586,14 @@ export function initGame(options: InitGameOptions): GameHandle {
 				return;
 			}
 			mapIdx++;
-			spawn(ep, entry.beat, sec);
+			spawn(ep, entry.beat, song.sections[sectionIndexAt(song, grid.beatTime(entry.beat))], entry.final);
+			return;
+		}
+		// 「聞く」区間（autoFill: false）：手書き譜面のエントリ以外は出さない。区間が変わるまで待つ
+		// 休符：開始できる拍がまだ予測範囲に入っていなければ待つ（ループが毎フレーム呼び直す）
+		if (sec.autoFill === false || grid.beatTime(earliest + 4) - gameTime > maxT) {
+			target = null;
+			waitingForMap = true;
 			return;
 		}
 
@@ -577,7 +601,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		let startBeat = place(pat);
 		if (grid.beatTime(startBeat + pat.hitBeat) > lastHitTime) {
 			// 曲の終わりに収まらない：入力拍が一番遅い「収まるパターン」に差し替え。無ければ的なし（終止を待つ）
-			const fit = [...RHYTHM_PATTERNS]
+			const fit = RHYTHM_PATTERNS.filter((p) => !p.fullOnly) // フル尺専用（H/J/Z）は使わない＝60秒版の終わり方は従来どおり
 				.sort((x, y) => y.hitBeat - x.hitBeat)
 				.find((p) => grid.beatTime(place(p) + p.hitBeat) <= lastHitTime);
 			if (!fit) {
@@ -591,15 +615,17 @@ export function initGame(options: InitGameOptions): GameHandle {
 	}
 
 	/** パターン pat を拍 startBeat から始める的を作り、予告音を通知する（hitAt = grid.beatTime(startBeat + hitBeat)） */
-	function spawn(pat: RhythmPattern, startBeat: number, sec: GameSection) {
+	function spawn(pat: RhythmPattern, startBeat: number, sec: GameSection, final = false) {
 		const hitBeat = startBeat + pat.hitBeat;
 		const hitAt = grid.beatTime(hitBeat); // 入力すべき時刻（transport 時刻）
+		lastHitBeat = hitBeat;
 
 		// 的の中心＝hitAt の時刻に実際の物理が通る点。hitAt まで同じ固定ステップ列で直接積分して求める
 		// （以前の「13ms 間隔でサンプルした軌道から最寄り点」だと ±2 ステップ≒±7ms の量子化誤差が出て、小さい的ほど目立った）。
 		const at = tipAndSpeedAfterSteps(stepsUntil(hitAt));
-		// CHAOS チャンス：先端が最も荒れている瞬間の的。INTRO には出さず、直前の的がチャンスなら出さない（希少性）
-		const chaos = at.speed >= CHAOS_SPEED && sec.id !== 'intro' && !lastWasChaos;
+		// CHAOS チャンス：先端が最も荒れている瞬間の的。INTRO には出さず、直前の的がチャンスなら出さない（希少性）。
+		// サビは速度のしきい値を少し下げてチャンスを増やす（section.chaosSpeed）
+		const chaos = at.speed >= (sec.chaosSpeed ?? CHAOS_SPEED) && sec.id !== 'intro' && !lastWasChaos;
 		lastWasChaos = chaos;
 		if (chaos) {
 			chaosChances++;
@@ -617,6 +643,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 			hitAt,
 			expireAt: hitAt + BEAT * 1.2, // 入力拍＋約1.2拍で見逃し
 			chaos,
+			final,
 		};
 
 		// 予告音（transport 時刻で渡す）。既に過ぎた cue と入力拍より後の cue は捨てる。
@@ -661,6 +688,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		lastWasChaos = false;
 		mapIdx = 0;
 		waitingForMap = false;
+		lastHitBeat = null;
 		chaosChances = 0;
 		chaosPerfectCount = 0;
 		chaosFlashT = 0;
@@ -714,7 +742,11 @@ export function initGame(options: InitGameOptions): GameHandle {
 	function updateTime() {
 		const played = Math.max(0, gameTime);
 		$time.style.width = Math.max(0, Math.min(1, 1 - played / duration)) * 100 + '%';
-		if ($timeText) $timeText.textContent = String(Math.max(0, Math.ceil(duration - played - 1e-6)));
+		if ($timeText) {
+			const left = Math.max(0, Math.ceil(duration - played - 1e-6));
+			// フル尺（100秒以上）は 4:38 のように分:秒。60秒版は従来どおり秒だけ
+			$timeText.textContent = duration >= 100 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : String(left);
+		}
 	}
 	function updateHUD() {
 		$score.textContent = String(score);
@@ -837,6 +869,11 @@ export function initGame(options: InitGameOptions): GameHandle {
 		sumOffsetMs += timingOffsetMs;
 		lastHit = { d, kind };
 		resultLabel = chaosPerfect ? CHAOS_LABEL : LABEL[kind];
+		// 曲の最後の一打（得点は通常どおり。表示だけ特別）
+		if (target.final && scoring) {
+			resultLabel = kind === 'perfect' ? FINAL_PERFECT_LABEL : 'FINAL HIT!';
+			resultSub = chaosPerfect ? '⚡ CHAOS PERFECT' : '';
+		}
 		popT = 1;
 		flash = scoring ? 1 : 0.5;
 		if (scoring) {
@@ -871,6 +908,13 @@ export function initGame(options: InitGameOptions): GameHandle {
 					? `+${add}（×${mult}）`
 					: `+${add}`;
 			if (chaosPerfect) $msg.textContent = `⚡ CHAOS PERFECT！ ${$msg.textContent}`;
+			if (target.final) {
+				// 最後の一打：曲の最後の和音と同時に虹の大爆発（表示のみ）
+				burst(gx, gy, true, { mult: FX.FEVER_PARTICLE_MULT * 2, palette: RAINBOW, speed: 1.8 });
+				pendingBursts.push({ t: 0.1, x: gx, y: gy });
+				shakeT = FX.SHAKE_TIME * 1.8;
+				$msg.textContent = `${resultLabel}！ ${$msg.textContent}`;
+			}
 		} else if (kind === 'near') {
 			// 惜しい：距離ではなく拍とのタイミングのズレを見せる（「もう一回」を誘発）
 			const sec = Math.abs(timingOffsetMs) / 1000;
@@ -1041,7 +1085,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		ctx!.lineJoin = 'round';
 		const m = Math.min(W, H);
 		const live = state === 'playing' || state === 'slowmo';
-		const inFinal = live && sectionIdx === finalIdx;
+		const inFinal = hasFinalCount && live && sectionIdx === finalIdx;
 		const entryP = feverEntryT > 0 ? 1 - feverEntryT : 1; // 突入演出の進み 0→1
 
 		// 描画だけのカメラ：FEVER 突入のズーム＋FEVER PERFECT のシェイク。物理・判定の座標は変えない。
@@ -1112,6 +1156,23 @@ export function initGame(options: InitGameOptions): GameHandle {
 			ctx!.restore();
 		}
 
+		// サビ（section.hype）：拍頭で枠が光る（1=サビ ピンク / 2=ラスサビ 黄色で強め＋背景もかすかに）。FEVER 中は FEVER の演出を優先
+		const hype = live && !fever && !inFinal && sectionIdx >= 0 ? (song.sections[sectionIdx].hype ?? 0) : 0;
+		if (hype > 0) {
+			const pulse = beatPulse();
+			ctx!.save();
+			if (hype >= 2) {
+				ctx!.globalAlpha = 0.05 * pulse * flashMult();
+				ctx!.fillStyle = col.yellow;
+				ctx!.fillRect(0, 0, W, H);
+			}
+			ctx!.globalAlpha = (hype >= 2 ? 0.2 + 0.45 * pulse : 0.12 + 0.3 * pulse) * flashMult();
+			ctx!.strokeStyle = hype >= 2 ? col.yellow : col.pink;
+			ctx!.lineWidth = hype >= 2 ? 6 : 4;
+			ctx!.strokeRect(3, 3, W - 6, H - 6);
+			ctx!.restore();
+		}
+
 		// FEVER 突入：巨大な CHAOS / FEVER / ×2 SCORE（的より奥に描く＝的とリングは常に手前で見える）
 		if (fever && feverEntryT > 0) {
 			const pop = 1 + 0.35 * (1 - easeOut(Math.min(1, entryP / 0.35)));
@@ -1127,7 +1188,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 		// 的・リング・振り子より奥に描く（次の的に重なっても的が隠れない）。FEVER 突入の瞬間は突入演出が主役なので出さない。
 		if (resultLabel && (state === 'slowmo' || popT > 0) && feverEntryT === 0) {
 			const isChaos = resultLabel === CHAOS_LABEL;
-			const feverPerfect = fever && resultLabel === 'PERFECT';
+			// FINAL PERFECT / FINAL HIT! は FEVER PERFECT と同じく虹色で大きく
+			const feverPerfect = (fever && resultLabel === 'PERFECT') || resultLabel === FINAL_PERFECT_LABEL || resultLabel === 'FINAL HIT!';
 			const pop = 1 + popT * (isChaos ? 0.9 : feverPerfect ? 0.8 : resultLabel === 'PERFECT' ? 0.6 : 0.3);
 			const baseSize = m * (isChaos || feverPerfect ? 0.12 : 0.1);
 			const ly = labelY();
@@ -1434,7 +1496,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		// セクション名（小節頭で一瞬。下端に小さく出して1秒でフェード）
 		if (sectionFlashT > 0 && sectionIdx >= 0 && state !== 'over') {
 			const sec = song.sections[sectionIdx];
-			const isFinal = sectionIdx === finalIdx;
+			const isFinal = hasFinalCount && sectionIdx === finalIdx;
 			ctx!.save();
 			ctx!.globalAlpha = Math.min(1, sectionFlashT * 1.5);
 			centeredText(isFinal ? `${sec.label} ${FINAL_COUNT}` : sec.label, cx, H * 0.9, m * (isFinal ? 0.07 : 0.05), isFinal ? col.yellow : col.chalk);

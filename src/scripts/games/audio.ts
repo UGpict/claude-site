@@ -232,10 +232,33 @@ export function createAudio(): GameAudio {
 		}
 		return p;
 	}
+	// フル尺の曲はデコードが重いので、ページ表示時に OfflineAudioContext で先にデコードしておく（ユーザー操作不要）。
+	// AudioBuffer はどの AudioContext でも再生できる（サンプルレートが違えば再生時に変換される＝拍の時刻は変わらない）。
+	const predecoded = new Map<string, Promise<AudioBuffer | null>>();
+	function predecode(src: string): Promise<AudioBuffer | null> | null {
+		let p = predecoded.get(src);
+		if (!p) {
+			const w = window as unknown as { OfflineAudioContext?: typeof OfflineAudioContext; webkitOfflineAudioContext?: typeof OfflineAudioContext };
+			const OAC = w.OfflineAudioContext ?? w.webkitOfflineAudioContext;
+			if (!OAC) return null;
+			p = fetchBytes(src).then(async (bytes) => {
+				if (!bytes) return null;
+				try {
+					return await new OAC(2, 1, 44100).decodeAudioData(bytes.slice(0));
+				} catch {
+					return null;
+				}
+			});
+			predecoded.set(src, p);
+		}
+		return p;
+	}
 	function loadBuffer(c: AudioContext, src: string): Promise<AudioBuffer | null> {
 		let p = bufferCache.get(src);
 		if (!p) {
-			p = fetchBytes(src).then(async (bytes) => {
+			p = (predecode(src) ?? Promise.resolve(null)).then(async (pre) => {
+				if (pre) return pre;
+				const bytes = await fetchBytes(src);
 				if (!bytes) return null;
 				try {
 					// decodeAudioData は ArrayBuffer を手放すのでコピーを渡す（キャッシュの bytes は残す）
@@ -251,7 +274,31 @@ export function createAudio(): GameAudio {
 		}
 		return p;
 	}
+	/**
+	 * デコーダ差の補正（秒）。song.audio.anchor（解析時のデコードで最初の鋭い立ち上がりがあった時刻）と、
+	 * このブラウザのデコード結果で同じ点がある時刻の差。±0.06 秒を超えるなら目印が見つからなかったとみなして 0。
+	 */
+	const anchorCache = new WeakMap<AudioBuffer, number>();
+	function anchorShift(buffer: AudioBuffer, a: SongDefinition['audio']): number {
+		if (!a?.anchor) return 0;
+		let v = anchorCache.get(buffer);
+		if (v == null) {
+			v = 0;
+			const ch = buffer.getChannelData(0);
+			const lim = Math.min(ch.length, Math.ceil((a.anchor.time + 0.2) * buffer.sampleRate));
+			for (let i = 0; i < lim; i++) {
+				if (Math.abs(ch[i]) > a.anchor.level) {
+					const d = i / buffer.sampleRate - a.anchor.time;
+					v = Math.abs(d) <= 0.06 ? d : 0;
+					break;
+				}
+			}
+			anchorCache.set(buffer, v);
+		}
+		return v;
+	}
 	let extSource: AudioBufferSourceNode | null = null;
+	let extShift = 0; // 今鳴らしている外部音源のデコーダ差の補正（debug 表示用）
 	let extActive = false; // 今のゲームが外部音源モードか
 	/** 外部音源を止める（再戦・時計停止・音なしへの切替時）。AudioBufferSourceNode は使い捨てなので次は作り直す */
 	function stopExternal(c: AudioContext | null, fade = 0.05): void {
@@ -361,7 +408,10 @@ export function createAudio(): GameAudio {
 		if (!bgmGain || muted) return;
 		const g = bgmGain.gain;
 		const base = musicBase();
-		const duck = extActive ? DUCK_EXTERNAL : DUCK;
+		// 外部音源は区間ごとの倍率（曲の音量差：サビ・ラスサビは音が厚いので深め、静かな区間は浅め）
+		const duck = extActive
+			? (song.sections[sectionIndexAt(song, at - (transport?.startTime ?? 0))]?.duck ?? DUCK_EXTERNAL)
+			: DUCK;
 		const t0 = Math.max(c.currentTime, at - 0.08);
 		g.setValueAtTime(base, t0);
 		g.linearRampToValueAtTime(base * duck, Math.max(t0 + 0.01, at - 0.03));
@@ -380,7 +430,17 @@ export function createAudio(): GameAudio {
 	function accentAt(c: AudioContext, at: number): void {
 		toneAt(c, 180, at, 0.14, 'sine', 0.3, 120, true, cueBusOf(c));
 		toneAt(c, 90, at, 0.16, 'triangle', 0.16, undefined, true, cueBusOf(c));
+		if (extActive) cueClick(c, at, 0.16);
 		duckAt(c, at);
+	}
+	/**
+	 * 外部音源モードの cue に重ねる「コッ」（ウッドブロック風の非整数倍音 2 つ）。
+	 * 原曲のベース・キック（〜200Hz）とギターの厚い中域に 180Hz のドン・720Hz のタンが埋もれやすいので、
+	 * 短い立ち上がりの高めの音で拍の位置をはっきりさせる（音程感は弱く、曲のキーとぶつからない）。
+	 */
+	function cueClick(c: AudioContext, at: number, gain: number): void {
+		toneAt(c, 1318, at, 0.045, 'sine', gain, undefined, true, cueBusOf(c));
+		toneAt(c, 2093 * 1.13, at, 0.03, 'sine', gain * 0.55, undefined, true, cueBusOf(c));
 	}
 	// CHAOS 予兆音：加速する高いチッ・チッ＋かすかに上昇するサイン。ドン（180Hz）とは帯域が離れていて埋もれさせない。
 	let tellOscs: OscillatorNode[] = [];
@@ -410,6 +470,7 @@ export function createAudio(): GameAudio {
 	/** タン（予告クリック） */
 	function tickAt(c: AudioContext, at: number): void {
 		toneAt(c, 720, at, 0.05, 'square', 0.1, undefined, true, cueBusOf(c));
+		if (extActive) cueClick(c, at, 0.07);
 	}
 	// BGM 用の単音（bgmGain 経由。cue/judgment より控えめにして予告を埋もれさせない）
 	function bgmTone(
@@ -474,7 +535,17 @@ export function createAudio(): GameAudio {
 	let lastCombo = 0;
 	function chordNow(): number[] {
 		if (!transport) return CHORDS[0];
-		const t = Math.max(0, api.now());
+		return chordAt(Math.max(0, api.now()));
+	}
+	/** transport 時刻 t の和音（判定音・外部音源の控えめな層に使う） */
+	function chordAt(t: number): number[] {
+		// セクションに和音の指定があれば、セクション頭から1小節ずつ順に（最後の和音を保持）。曲のキーが区間で変わる外部曲用
+		const si = sectionIndexAt(song, t);
+		const sh = song.sections[si].harmony;
+		if (sh?.length) {
+			const k = Math.floor((t - sectionStart(song, si)) / barSec() + 1e-6);
+			return sh[Math.max(0, Math.min(sh.length - 1, k))];
+		}
 		// 曲に和音の指定（harmony）があればそれを小節ごとに循環（外部音源の曲はキーに合わせる）
 		if (song.harmony?.length) {
 			const hb = Math.floor(t / barSec());
@@ -511,7 +582,11 @@ export function createAudio(): GameAudio {
 	 */
 	function startExternal(c: AudioContext, buffer: AudioBuffer, songDef: SongDefinition): void {
 		const a = songDef.audio!;
-		const t0 = audioTimeOf(0);
+		extShift = anchorShift(buffer, a);
+		const beat0File = a.startAt + a.offset + extShift; // 拍0 のファイル位置（デコーダ差を補正済み）
+		// preroll：拍0より前（カウントイン中）から曲の頭を鳴らす。拍0とファイル位置の対応は同じ（t0 - pre ↔ beat0File - pre）
+		const pre = Math.max(0, Math.min(a.preroll ?? 0, beat0File, audioTimeOf(0) - c.currentTime - 0.02));
+		const t0 = audioTimeOf(0) - pre;
 		const src = c.createBufferSource();
 		src.buffer = buffer;
 		const g = c.createGain();
@@ -519,33 +594,38 @@ export function createAudio(): GameAudio {
 		g.gain.exponentialRampToValueAtTime(1, t0 + 0.008);
 		const end = audioTimeOf(songDef.duration);
 		const tail = Math.max(0.05, a.tail ?? 1.5);
-		g.gain.setValueAtTime(1, end);
+		const fade = Math.min(tail, Math.max(0.05, a.fadeOut ?? tail));
+		g.gain.setValueAtTime(1, end + tail - fade);
 		g.gain.linearRampToValueAtTime(0.0001, end + tail);
 		src.connect(g).connect(ensureBgmGain(c));
-		src.start(t0, Math.max(0, a.startAt + a.offset));
+		src.start(t0, Math.max(0, beat0File - pre));
 		src.stop(end + tail + 0.05);
 		src.onended = () => g.disconnect();
 		extSource = src;
 	}
 	/**
-	 * 外部音源モードの拍ごとの追加音。原曲とキーがぶつからないよう音程のない音だけ・ごく控えめ：
-	 * コンボ5+ ハイハット8分 / 10+ シェイカー16分を少し / FEVER オープンハット＋突入のクラッシュ。
+	 * 外部音源モードの追加音。原曲そのものが主役なので「原曲 + cue + 判定音」が基本で、ここはごく控えめ：
+	 *   コンボ3 = 画面の演出だけ（音は足さない）/ 5+ = 小節頭にかすかなきらめき（今の和音の高い音）/
+	 *   10+ = さらに和音の根音・5度をごく小さくのばす / FEVER = 突入のクラッシュ（小さめ）と裏拍のオープンハットだけ。
+	 * 音程のある音は区間の和音（section.harmony）から取る＝曲のキーとぶつからない。すべて曲と同じバス（ダッキングが効く）。
 	 */
-	function scheduleExternalBeat(c: AudioContext, dest: AudioNode, time: number): void {
-		if (musicLevel >= 2) {
-			bgmNoise(c, dest, time, 0.025, 8000, 0.03);
-			bgmNoise(c, dest, time + grid.spb / 2, 0.025, 8000, 0.022);
+	function scheduleExternalBeat(c: AudioContext, dest: AudioNode, beat: number, time: number): void {
+		const b = ((beat % 4) + 4) % 4;
+		const chord = chordAt(Math.max(0, grid.beatTime(beat)));
+		if (musicLevel >= 2 && b === 0) {
+			bgmTone(c, dest, chord[2] * 8, time, 0.14, 'sine', 0.012);
+			bgmTone(c, dest, chord[0] * 8, time + grid.spb / 2, 0.12, 'sine', 0.008);
 		}
-		if (musicLevel >= 3) {
-			bgmNoise(c, dest, time + grid.spb / 4, 0.018, 10000, 0.012);
-			bgmNoise(c, dest, time + (grid.spb * 3) / 4, 0.018, 10000, 0.012);
+		if (musicLevel >= 3 && b === 0) {
+			bgmTone(c, dest, chord[0] * 2, time, barSec() * 0.9, 'triangle', 0.007);
+			bgmTone(c, dest, chord[2] * 2, time, barSec() * 0.9, 'triangle', 0.005);
 		}
 		if (feverOn) {
 			if (feverCrashPending) {
 				feverCrashPending = false;
-				bgmNoise(c, dest, time, 1.0, 3500, 0.07);
+				bgmNoise(c, dest, time, 0.8, 3500, 0.045);
 			}
-			bgmNoise(c, dest, time + grid.spb / 2, 0.05, 6000, 0.035);
+			bgmNoise(c, dest, time + grid.spb / 2, 0.04, 6000, 0.018);
 		}
 	}
 	function scheduleBgmBeat(beat: number, time: number): void {
@@ -553,7 +633,7 @@ export function createAudio(): GameAudio {
 		if (!c || !bgmGain) return;
 		const dest = bgmGain;
 		if (extActive) {
-			scheduleExternalBeat(c, dest, time);
+			scheduleExternalBeat(c, dest, beat, time);
 			return;
 		}
 		const tt = grid.beatTime(beat); // この拍の transport 時刻（cue/hitAt と同じ式）
@@ -645,6 +725,8 @@ export function createAudio(): GameAudio {
 	function scheduleFinish(time: number): void {
 		const c = ctx;
 		if (!c || muted) return;
+		// 曲自身にエンディングがある（フル尺）：合成の終止音を重ねず、原曲の最後の和音と余韻をそのまま聞かせる
+		if (extActive && song.audio?.ownEnding) return;
 		const g = c.createGain();
 		g.gain.value = 0.9;
 		g.connect(sfxBusOf(c));
@@ -764,15 +846,17 @@ export function createAudio(): GameAudio {
 			const c = ensureCtx();
 			if (!c || muted) return;
 			const now = c.currentTime;
-			toneAt(c, 70, now, 0.35, 'sine', 0.32, 32); // インパクト
+			// 外部音源（原曲）のときは半分の音量に（FEVER は主に画面の演出で見せる。原曲を邪魔しない）
+			const k = extActive ? 0.5 : 1;
+			toneAt(c, 70, now, 0.35, 'sine', 0.32 * k, 32); // インパクト
 			const g = c.createGain(); // ノイズの一撃
-			g.gain.value = 0.9;
+			g.gain.value = 0.9 * k;
 			g.connect(sfxBusOf(c));
 			bgmNoise(c, g, now, 0.18, 800, 0.12);
 			setTimeout(() => g.disconnect(), 800);
-			toneAt(c, 330, now + 0.02, 0.32, 'sawtooth', 0.12, 1320); // ライザー
-			toneAt(c, 660, now + 0.06, 0.28, 'triangle', 0.12, 1760);
-			[2093.0, 2637.02, 3135.96, 4186.01].forEach((f, i) => toneAt(c, f, now + 0.18 + i * 0.05, 0.14, 'sine', 0.07)); // スパークル
+			toneAt(c, 330, now + 0.02, 0.32, 'sawtooth', 0.12 * k, 1320); // ライザー
+			toneAt(c, 660, now + 0.06, 0.28, 'triangle', 0.12 * k, 1760);
+			[2093.0, 2637.02, 3135.96, 4186.01].forEach((f, i) => toneAt(c, f, now + 0.18 + i * 0.05, 0.14, 'sine', 0.07 * k)); // スパークル
 		},
 		feverEnd() {
 			// 「シュン…」：短い下降＋フィルタ感の弱いノイズ。罰ではなく「切れた」ことが分かるだけ
@@ -806,7 +890,9 @@ export function createAudio(): GameAudio {
 			let buffer: AudioBuffer | null = null;
 			stopExternal(c);
 			if (running && c && songDef.audio) {
-				buffer = await Promise.race([loadBuffer(c, songDef.audio.src), sleep(DECODE_TIMEOUT_MS).then(() => null)]);
+				// 長い曲ほどデコードに時間がかかるので待つ上限を伸ばす（5分の曲で約7.5秒。ふつうはページ表示時の先読みで済んでいる）
+				const limit = Math.max(DECODE_TIMEOUT_MS, songDef.duration * 25);
+				buffer = await Promise.race([loadBuffer(c, songDef.audio.src), sleep(limit).then(() => null)]);
 			}
 			extActive = !!buffer;
 			const lead = Math.max(0, Math.round(leadBeats));
@@ -863,7 +949,9 @@ export function createAudio(): GameAudio {
 			return transport;
 		},
 		preloadSong(songDef: SongDefinition) {
-			if (songDef.audio) void fetchBytes(songDef.audio.src);
+			if (!songDef.audio) return;
+			void fetchBytes(songDef.audio.src);
+			void predecode(songDef.audio.src); // スタートを押す前にデコードまで済ませておく（フル尺の LOADING 待ちを無くす）
 		},
 		audioMode() {
 			if (!transport || transport.clock !== 'audio') return 'silent';
@@ -876,7 +964,9 @@ export function createAudio(): GameAudio {
 				lines.push(`startAt: ${song.audio.startAt}  offset: ${song.audio.offset}`);
 				if (extActive && ctx && transport) {
 					// 今鳴っている音源ファイル内の位置（拍0 = startAt + offset）
-					lines.push(`file pos: ${(song.audio.startAt + song.audio.offset + ctx.currentTime - transport.startTime).toFixed(3)}`);
+					lines.push(
+						`file pos: ${(song.audio.startAt + song.audio.offset + extShift + ctx.currentTime - transport.startTime).toFixed(3)}  decoder shift: ${(extShift * 1000).toFixed(1)}ms`,
+					);
 				}
 			}
 			return lines;

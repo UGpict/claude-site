@@ -118,25 +118,62 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
 ## 外部音源の同期（song.ts / beat-grid.ts / audio.ts）
 - **拍グリッドは曲ごと**：`makeGrid(bpm)`、`gridOf(song)`（WeakMap キャッシュ）。エンジン（cue・hitAt・リング・セクション切替の小節頭）と
   audio（BGM・外部音源・終止）が同じ `gridOf(song)` を使う。既定曲は `DEFAULT_GRID`（BPM 130）で従来と同一。
-- **ロード**：`preloadSong(song)`（ページ表示時に fetch → ArrayBuffer をキャッシュ）→ `startTransport` 内で `decodeAudioData`（AudioBuffer を
-  src ごとにキャッシュ。失敗したらキャッシュを消す）。デコードは **startTime を決める前**に待つ（最大 `DECODE_TIMEOUT_MS = 4000`、
-  初回だけ開始ボタンが「♪ LOADING…」）。タイムアウト／失敗は `extActive = false` で合成BGMに切り替え（同じ grid）。
-- **再生**：`t0 = audioTimeOf(0)`（= transport.startTime）に `src.start(t0, startAt + offset)`。以後 拍 n の音 ＝ ファイル位置 `startAt + offset + n·spb` が
-  `startTime + n·spb` に鳴る（sample 精度。JS タイマーに依存しない）。source は毎ゲーム新規（AudioBufferSourceNode は1回しか start できない）。
-  gain は t0 で 8ms フェードイン、`audioTimeOf(duration)` から `tail` 秒で 0 へ、`stop(end + tail + 0.05)` を予約。
+- **ロード**：`preloadSong(song)`（ページ表示時に fetch → ArrayBuffer をキャッシュし、`OfflineAudioContext(2, 1, 44100)` で先にデコード＝
+  `predecoded`。ユーザー操作不要）→ `startTransport` 内の `loadBuffer` は先読みデコードの結果を使い、無ければ実 AudioContext でデコード
+  （src ごとにキャッシュ。失敗したらキャッシュを消す）。デコードは **startTime を決める前**に待つ（最大 `max(DECODE_TIMEOUT_MS=4000, duration×25ms)`、
+  初回だけ開始ボタンが「♪ 曲名 LOADING…」）。タイムアウト／失敗は `extActive = false` で合成BGMに切り替え（同じ grid。デコードは裏で続き次回使う）。
+- **再生**：拍0のファイル位置 `beat0File = startAt + offset + anchorShift`。`pre = min(preroll, beat0File)` 秒前から
+  `src.start(startTime − pre, beat0File − pre)`。以後 拍 n の音 ＝ ファイル位置 `beat0File + n·spb` が `startTime + n·spb` に鳴る
+  （sample 精度。JS タイマーに依存しない）。source は毎ゲーム新規（AudioBufferSourceNode は1回しか start できない）。
+  gain は頭で 8ms フェードイン、`audioTimeOf(duration) + tail − fadeOut` から `fadeOut` 秒で 0 へ、`stop(end + tail + 0.05)` を予約。
+- **anchorShift**（デコーダ差の補正）：`audio.anchor = { level, time }`＝解析時（Chromium のデコード）に左チャンネルが level を初めて超えた時刻。
+  実行時にデコード結果の左チャンネルを先頭から走査し、同じ条件の時刻との差を offset に足す（±60ms を超えたら目印が違うとみなして 0。WeakMap でキャッシュ）。
+  ギャップレス情報（LAME/Xing）の無い MP3 で、ブラウザのデコーダが先頭の遅延を削る／削らないの差（最大 1105 サンプル≒25ms）を吸収する。
 - **バス**：曲（外部音源 or 合成BGM）→ `bgmGain`（ダッキング・ミュート・前ゲームのフェード）→ `bgmOut` → destination ／
   cue（タン・ドン・予兆）→ `cueBus` ／ 判定SE・演出SE → `sfxBus`。外部音源の音量は `musicBase()` = `song.audio.volume`。
-- **ダッキング**：`duckAt` が曲のベース音量 × `DUCK_EXTERNAL = 0.42`（合成BGMは ×0.55）。
-- **コンボ層**：`scheduleBgmBeat` は `extActive` なら `scheduleExternalBeat`（音程なしのハット・刻み・FEVER オープンハット／突入クラッシュ）だけ。
+- **ダッキング**：`duckAt` が曲のベース音量 × `section.duck`（その accent の transport 時刻が属する区間。既定 `DUCK_EXTERNAL = 0.42`。合成BGMは ×0.55）。
+- **cue の「コッ」**：`extActive` のとき `accentAt`/`tickAt` に `cueClick`（1318Hz sine＋2365Hz sine、30〜45ms）を重ねる（ドン 0.16 / タン 0.07。cueBus）。
+- **コンボ層**：`scheduleBgmBeat` は `extActive` なら `scheduleExternalBeat(beat)` だけ：level≥2 小節頭に `chordAt` の5度×8・根音×8 のきらめき（0.012/0.008）、
+  level≥3 小節頭に根音×2・5度×2 の triangle をのばす（0.007/0.005）、FEVER 突入の小さなクラッシュ（0.045）＋裏拍オープンハット（0.018）。
+  `api.fever()` は外部音源中は音量 ×0.5。`scheduleFinish` は `audio.ownEnding` なら何も鳴らさない。
+- **和音**：`chordAt(t)` = `section.harmony`（セクション頭から1小節ずつ順に・最後を保持）→ `song.harmony`（小節ごとに循環）→ 合成BGMの進行。
 - **止め方**：再戦・終了は `stopExternal(c, fade)`（50ms フェード→stop）。`stopMusic()` は外部音源中は何もしない（予約済みの終わりのフェードを活かす）。
   `startTransport` の冒頭・例外時・時計停止（`fallbackToPerformance`）でも止める＝時計がずれた音源を鳴らし続けない。
 - **iOS**：resume 打ち切り・currentTime の前進確認・プレイ中の時計監視は従来どおり。performance 時計になった回は無音（外部音源も止める）。
-- **beatmap**（chaos-pendulum.ts `newTarget`）：`firstBeat + 5 > entry.beat` なら通常パターンより優先。入力拍が予測範囲（`PRED_HORIZON`）外なら
-  的を出さずに待つ（`waitingForMap`。ループが毎フレーム `newTarget` を呼び直す）。過ぎた・未知パターン・曲の終わりに収まらないエントリは飛ばす。
+- **newTarget の順序**（chaos-pendulum.ts）：
+  1. `firstBeat = nextBeatIndex(gameTime)`。区間に `restBeats > 0` があれば `earliest = max(firstBeat, ceil(直前の入力拍 + 1 + restBeats))`、
+     無ければ `earliest = firstBeat`（60秒版は従来と同一＝密度・得点の基準は不変）。
+  2. 過ぎた・未知・曲の終わりに収まらないエントリを飛ばす。次の通常パターン（`peekPattern`＝消費しない）を置くと
+     `place(p) + p.hitBeat + 2 > entry.beat`（見逃したら次は入力拍＋2 からなので、エントリに間に合わない）か、区間が `autoFill: false` ならエントリの番：入力拍が予測範囲（`PRED_HORIZON` 2.6秒）の外なら的を出さずに待ち
+     （`waitingForMap`。ループが毎フレーム `newTarget` を呼び直す）、入れば `spawn(pattern, entry.beat, …, entry.final)`。
+  3. `autoFill: false`（エントリが無い）または `beatTime(earliest + 4)` がまだ予測範囲外（休符中）なら待つ。
+  4. それ以外はセクションの sequencePool から次のパターン → `place()`（`earliest` 以降で、入力拍まで 0.5 秒以上）→ `spawn`。
+- **CHAOS**：`speed ≥ section.chaosSpeed ?? 7.5` かつ `section.id !== 'intro'` かつ直前がチャンスでない。
+- **FINAL**：`target.final`（beatmap の `final: true`）で GOOD 以上なら判定ラベルを `FINAL PERFECT` / `FINAL HIT!`（虹色・大）、虹の大爆発＋シェイク。得点式は同じ。
+- **hype**：`section.hype` 1/2 のとき（FEVER・FINAL カウント中以外）、拍頭で枠がピンク／黄色に明滅（2 は背景もかすかに）。reduced-motion で弱める。
+- **時間表示**：`duration ≥ 100` なら `m:ss`。`finalCountdown: false` の曲は FINAL の 5→1 と FINAL 枠を出さない。
 - **debug**：`initGame({ debugInfo })` → `drawDebug()`（左上テキスト＋右上メトロノーム）。`audio.debugLines()` がモード・src・startAt/offset・ファイル内位置を返す。
 - **検証方法**（ヘッドレス Chromium・実 AudioContext）：BPM120 のクリック音源（ファイル 2.35s から 0.5s 間隔、0s/1s にデコイ）を
   `?song=external_test&debug=1&bpm=120&startAt=2.0&offset=0.35` で流し、外部音源の出力を AudioWorklet で直接タップしてクリックの
   audio 時刻を測る → transport 時刻に直して拍グリッド・`rhythm_pattern.hitTime` と比較。
+
+## Burning Heart FULL の解析と譜面（song.ts `BURNING_HEART_SONG`）
+- **解析の手順**（再調整するときも同じ手順で）：
+  1. Chromium の `decodeAudioData`（ゲームと同じデコーダ）で PCM にする（44.1kHz・13,791,744 サンプル＝312.738 秒。先頭 0.87 秒は無音）。
+  2. テンポ：オンセット強度（スペクトルフラックス）の自己相関 → 約 70.95×2 = 141.9。次に 150Hz 以下のエネルギーの立ち上がり（hop 1.45ms）に
+     「BPM × 位相」の格子を当てはめて全曲で最大化 → **142.000 BPM**、格子の位相 0.0325 秒。40 秒ごとの中央残差 0〜3ms（テンポ一定）。
+  3. 拍0：最初の音（ギター）の立ち上がり 0.8728 秒 ＝ 格子の拍2（0.8776）。全帯域の立ち上がりはキックのエネルギーより約 5ms 早いので、
+     拍0 = **0.8735 秒**（耳に聞こえる頭）。ここから4拍ごとの小節で、全セクション境界・ブレイク・最後の和音が小節（拍）の上に乗る。
+  4. 構成：小節ごとの帯域エネルギー（低域＝キックとベース／中域／高域）、中央定位の強さ（mid/side 比。Aメロで高い＝歌・リード）、
+     クロマ（12 音）の自己相似（8 小節ブロック）。サビ = 小節 8–23 ≡ 52–67 ≡ 146–161（類似度 0.96〜0.99）、Aメロ 32–47 ≡ 76–91、リフ 24–31 ≡ 68–75。
+     ソロ 117–136 はどことも似ていない（B のペダル → E♭ → 小節128で D へ転調）。
+  5. 決めどころ：各小節の 16 分グリッドでキック（30–120Hz）・スネア帯（1.5–5kHz）・シンバル帯（7k–16kHz）のオンセットを並べて確認
+     （小節75・137 の頭の一撃のあと低域が消える＝ストップ、小節169 の2拍でドラム終了、最後の和音はファイル 300.14 秒＝拍 708.25）。
+- **譜面の密度**（的と的の間隔の平均。自動プレイの実測）：INTRO 7拍／サビ 3.0〜3.1／リフ 4〜4.8／Aメロ 7〜8（restBeats 3〜4）／Bメロ 4.5〜6／
+  ブリッジ 7／ソロ 3.0〜3.3／ブレイク 1打のみ／ラスサビ 2.8〜2.9（最密）／アウトロ 2打のみ。1曲で的は約165〜173。
+- **固定譜面の置き方**：`chorusEntry(d)` = `[d−3 A|E → d, d+1 H → d+2, d+3 H → d+4, d+5 A → d+8]`（全サビ共通）、
+  `soloPhrase(d)` = `[d−3 A → d, d+1 J → d+2.5, d+4 J → d+5.5, d+6 C → d+8.5]`（ソロ頭とラスサビ後半。裏拍が3つ続く）。
+  サビ・ソロの間は sequencePool（`BH_*_SEQUENCES`）。H/J/Z は FULL 専用パターンで 60秒版のプールには入れていない。
 
 ## 判定音が育つ（audio.ts `judgment(kind, combo)`）
 - コンポーネントが hit ごとに `judgment(p.kind, p.combo)`（combo は判定後の値）を呼ぶ。

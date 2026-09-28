@@ -19,6 +19,8 @@ export interface RhythmPattern {
 	cues: { beat: number; sound: CueSound }[];
 	/** 入力すべき拍（パターン先頭からの拍位置）。ここに先端がターゲットへ来る */
 	hitBeat: number;
+	/** フル尺の曲の譜面専用（曲の終わりの差し替え候補などに使わない＝60秒版の譜面を変えない） */
+	fullOnly?: boolean;
 }
 
 // 極端に複雑にしない。どれも「タン（拍の刻み）を聞けばドンの位置が予測できる」形。
@@ -37,6 +39,13 @@ export const RHYTHM_PATTERNS: RhythmPattern[] = [
 	{ id: 'F', lengthBeats: 4, cues: [t(0), t(2), t(2.5), a(3)], hitBeat: 3 },
 	// G：タン タン ・タ ・ドン（裏拍で入力。直前の裏拍タンから1拍後）
 	{ id: 'G', lengthBeats: 4, cues: [t(0), t(1), t(2.5), a(3.5)], hitBeat: 3.5 },
+	// --- フル尺の曲用（60秒版のプールには入れない） ---
+	// H：タン ドン（1拍後に入力。続けると2拍ごとの「短い連続入力」になる）
+	{ id: 'H', lengthBeats: 2, cues: [t(0), a(1)], hitBeat: 1, fullOnly: true },
+	// J：タン ・ドン（1.5拍後の裏拍で入力。ソロのシンコペーション用）
+	{ id: 'J', lengthBeats: 2, cues: [t(0), a(1.5)], hitBeat: 1.5, fullOnly: true },
+	// Z：タン タン タン（溜め）ドン — 最後の一打。ドンは4拍目の16分後（Burning Heart の最後の和音に合わせる）
+	{ id: 'Z', lengthBeats: 4, cues: [t(0), t(1), t(2), a(3.25)], hitBeat: 3.25, fullOnly: true },
 ];
 function t(beat: number) {
 	return { beat, sound: 'tick' as const };
@@ -98,7 +107,8 @@ export const SEQUENCE_BY_ID: Record<string, RhythmSequence> = Object.fromEntries
 );
 const ids = (list: RhythmSequence[]) => list.map((s) => s.id);
 
-export type SectionId = 'intro' | 'groove' | 'build' | 'climax' | 'final';
+/** 60秒版は intro/groove/build/climax/final。曲ごとのセクション（chorus・solo 等）は曲が自由に名付ける。'intro' は CHAOS チャンスを出さない */
+export type SectionId = string;
 
 /** セクションの基本アレンジ（コンボと無関係に鳴る「曲の進行」側）。コンボ層は audio が別に重ねる。 */
 export interface SectionArrangement {
@@ -130,6 +140,21 @@ export interface GameSection {
 	/** 的の大きさ倍率（難易度の targetR に掛ける）。INTRO は少し大きく分かりやすく */
 	targetScale: number;
 	arrangement: SectionArrangement;
+	/**
+	 * 休符：前の入力拍から最低この拍数あけてから次のパターンを始める（既定 0＝すぐ次）。
+	 * 4拍パターンなら 0 で約4拍に1回、4 で約8拍に1回。歌やギターを聞かせる区間に使う。
+	 */
+	restBeats?: number;
+	/** false なら sequencePool で埋めず、手書き譜面（beatmap）の的だけを出す（ブレイク・アウトロ等の「聞く」区間）。既定 true */
+	autoFill?: boolean;
+	/** CHAOS チャンスとみなす先端速度（既定 7.5 u/s）。サビで少し下げてチャンスを増やす */
+	chaosSpeed?: number;
+	/** 盛り上がり演出（0=なし / 1=サビ：拍で枠が光る / 2=ラスサビ：さらに強く） */
+	hype?: number;
+	/** 外部音源のダッキング倍率（ドンの前後で曲をこの倍率に）。曲の音量差に合わせて区間ごとに。既定 0.42 */
+	duck?: number;
+	/** 判定音の音階に使う和音（[根音, 3度, 5度] Hz）。セクション頭から1小節ずつ順に使い、最後の和音を保持。無ければ song.harmony */
+	harmony?: number[][];
 }
 
 /**
@@ -146,8 +171,20 @@ export interface ExternalAudio {
 	offset: number;
 	/** 曲の音量 0..1（cue・判定音より小さめに。cue の前後はさらにダッキング） */
 	volume: number;
-	/** ゲーム終了後も鳴らす秒数（この間にフェードアウト）。曲に自然な終わりがあるならそこまでの長さにする。既定 1.5 */
+	/** ゲーム終了後も鳴らす秒数（曲に自然な終わりがあるならそこまでの長さにする）。既定 1.5 */
 	tail?: number;
+	/** tail の最後の何秒でフェードアウトするか。既定 = tail 全体（切り出し曲は終止から徐々に下げる） */
+	fadeOut?: number;
+	/** 拍0より前から鳴らす秒数（カウントイン中に曲の頭＝ピックアップを鳴らす）。既定 0 */
+	preroll?: number;
+	/** 曲自身にエンディングがある（合成の終止音を重ねない） */
+	ownEnding?: boolean;
+	/**
+	 * デコーダ差の補正用の目印：ファイルの最初の鋭い立ち上がり（左チャンネルの振幅が level を初めて超える時刻）。
+	 * ギャップレス情報の無い MP3 は、ブラウザごとにデコーダ遅延の扱いが違うことがある（数 ms〜数十 ms 前後にずれる）。
+	 * 実行時にデコード結果から同じ点を探し、ずれていればその分 offset を補正する（±0.06 秒以内のときだけ）。
+	 */
+	anchor?: { level: number; time: number };
 }
 
 export interface SongCredit {
@@ -160,6 +197,8 @@ export interface SongCredit {
 export interface BeatmapEntry {
 	beat: number;
 	pattern: string;
+	/** 曲の最後の一打（叩けたら FINAL PERFECT / FINAL HIT! 表示。得点は通常どおり） */
+	final?: boolean;
 }
 
 export interface SongDefinition {
@@ -183,6 +222,10 @@ export interface SongDefinition {
 	beatmap?: BeatmapEntry[];
 	/** 判定音（コンボで上がる音階）に使う和音（小節ごとに循環、各 [根音, 3度, 5度] Hz）。外部曲は曲のキーに合わせる。既定は Dm */
 	harmony?: number[][];
+	/** 最後のセクションで 5→1 のカウントを出す（既定 true＝60秒版）。フル尺の曲は false（アウトロを聞かせる） */
+	finalCountdown?: boolean;
+	/** モード名（スタート画面・結果に出す）。例：'FULL SONG' */
+	modeLabel?: string;
 }
 
 /** 正式モード：60秒で1曲 */
@@ -277,10 +320,191 @@ export const TEST_EXTERNAL_SONG: SongDefinition = {
 	],
 };
 
-/** id → 曲。ページの ?song= で選べる（UI の曲選択はまだ無い） */
+// ---------------------------------------------------------------------------------------------
+// Burning Heart（魔王魂）フル尺ステージ
+// 実音源（maou_08_burning_heart.mp3, 44.1kHz, 312.74 秒）を解析して決めた値（docs/design/chaos-beat.md 参照）：
+//   BPM 142.000（キックの立ち上がり 720 個に当てはめ。曲全体で一定＝40 秒ごとの中央残差 0〜3ms）
+//   拍0 = ファイル 0.8735 秒（最初の小節頭＝ギターの最初の一撃）。ここから4拍=1小節で最後まで割り切れる
+//   構成は小節ごとの帯域エネルギーとクロマの自己相似（同じ進行の繰り返し＝サビ）から：
+//     小節 0 INTRO（ギター→8 小節目でドラム）/ 8 サビ1 / 24 リフ / 32 Aメロ / 48 Bメロ / 52 サビ2 / 68 リフ（75 でブレイク）/
+//     76 Aメロ2 / 92 Bメロ2 / 96 サビ3 / 112 ブリッジ / 117 ソロ（128 で転調）/ 137 ブレイク / 142 ラスサビ（158 から繰り返し）/
+//     169 アウトロ（ドラム終わり）/ 最後の和音 = 拍 708.25（ファイル 300.14 秒）
+// 入力の基準は歌ではなく楽器（キック・スネア・クラッシュの小節頭・ブレイクの一撃・最後の和音）。
+// ---------------------------------------------------------------------------------------------
+const BH_BPM = 142;
+const BH_BAR = (4 * 60) / BH_BPM;
+const bhBar = (n: number) => n * BH_BAR;
+// 判定音の和音（区間のキーに合わせる。オクターブは judgment 側で上げる）
+const B_MAJ = [246.94, 311.13, 369.99]; // B – D♯ – F♯（サビ・イントロ・アウトロ）
+const EB_MAJ = [311.13, 392.0, 466.16]; // E♭ – G – B♭（リフ・Aメロ・Bメロ：Cm/E♭ の進行）
+const D_MIN = [293.66, 349.23, 440.0]; // D – F – A（ソロ後半の転調）
+
+/** Aメロ：休符多め。聞く区間（歌・リード） */
+export const BH_VERSE_SEQUENCES: RhythmSequence[] = [
+	{ id: 'bv1', patterns: ['A', 'B', 'A', 'D'] },
+	{ id: 'bv2', patterns: ['B', 'A', 'D', 'A'] },
+	{ id: 'bv3', patterns: ['E', 'A', 'E', 'B'] },
+];
+/** リフ（2バスの刻み）：8分入りの4拍パターンで一定に */
+export const BH_RIFF_SEQUENCES: RhythmSequence[] = [
+	{ id: 'br1', patterns: ['E', 'E', 'F', 'E'] },
+	{ id: 'br2', patterns: ['F', 'E', 'F', 'A'] },
+	{ id: 'br3', patterns: ['E', 'A', 'E', 'F'] },
+];
+/** Bメロ：サビ前の助走（裏拍の C で溜める） */
+export const BH_PRE_SEQUENCES: RhythmSequence[] = [
+	{ id: 'bp1', patterns: ['A', 'C', 'A', 'C'] },
+	{ id: 'bp2', patterns: ['E', 'C', 'E', 'C'] },
+];
+/** サビ1：4拍＋「タン ドン」の2拍で密度UP（覚えやすい繰り返し＝PERFECT を続けて FEVER に入りやすい） */
+export const BH_CHORUS1_SEQUENCES: RhythmSequence[] = [
+	{ id: 'bc1', patterns: ['A', 'H', 'A', 'H'] },
+	{ id: 'bc2', patterns: ['E', 'H', 'E', 'A'] },
+	{ id: 'bc3', patterns: ['A', 'A', 'H', 'H'] },
+];
+/** サビ2・3：サビ1＋裏拍（C/G）を少し */
+export const BH_CHORUS_SEQUENCES: RhythmSequence[] = [
+	{ id: 'bc4', patterns: ['E', 'H', 'C', 'H'] },
+	{ id: 'bc5', patterns: ['A', 'H', 'G', 'H'] },
+	{ id: 'bc6', patterns: ['C', 'H', 'E', 'H'] },
+];
+/** ソロ：裏拍入力（C/G/J）と短い連続（H）が主役。譜面の性格を変える */
+export const BH_SOLO_SEQUENCES: RhythmSequence[] = [
+	{ id: 'bs1', patterns: ['C', 'J', 'C', 'J'] },
+	{ id: 'bs2', patterns: ['G', 'H', 'G', 'H'] },
+	{ id: 'bs3', patterns: ['F', 'J', 'E', 'J'] },
+	{ id: 'bs4', patterns: ['J', 'J', 'G', 'C'] },
+];
+/** ラスサビ：ここまでに出たパターンの総復習（サビの H ＋ ソロの J/G/C を組み合わせる。新しい形は出さない） */
+// 平均の間隔 約2.6拍（サビ 約3.1拍・ソロ 約3.2拍より詰める）＋的が小さめ（0.9）＝いちばんの難所
+export const BH_FINAL_SEQUENCES: RhythmSequence[] = [
+	{ id: 'bf1', patterns: ['H', 'H', 'E', 'H'] },
+	{ id: 'bf2', patterns: ['J', 'H', 'C', 'H'] },
+	{ id: 'bf3', patterns: ['H', 'J', 'H', 'G'] },
+	{ id: 'bf4', patterns: ['F', 'H', 'J', 'H'] },
+	{ id: 'bf5', patterns: ['E', 'H', 'H', 'J'] },
+];
+
+for (const seq of [
+	...BH_VERSE_SEQUENCES,
+	...BH_RIFF_SEQUENCES,
+	...BH_PRE_SEQUENCES,
+	...BH_CHORUS1_SEQUENCES,
+	...BH_CHORUS_SEQUENCES,
+	...BH_SOLO_SEQUENCES,
+	...BH_FINAL_SEQUENCES,
+])
+	SEQUENCE_BY_ID[seq.id] = seq;
+
+/** サビ入りの決めフレーズ（全サビ共通＝覚えられる）：小節頭 D にドン → 2拍ごとに ドン・ドン → 4拍溜めてドン */
+function chorusEntry(d: number, lead: string): BeatmapEntry[] {
+	return [
+		{ beat: d - 3, pattern: lead }, // Bメロ/フィルの3拍を「タン」で数えて、サビ頭（クラッシュ）で「ドン」
+		{ beat: d + 1, pattern: 'H' },
+		{ beat: d + 3, pattern: 'H' },
+		{ beat: d + 5, pattern: 'A' },
+	];
+}
+/** ソロの決めフレーズ：小節頭のドン → 裏拍 → 裏拍 → 裏拍（d, d+2.5, d+5.5, d+8.5。ラスサビ後半でもう一度＝総復習） */
+function soloPhrase(d: number): BeatmapEntry[] {
+	return [
+		{ beat: d - 3, pattern: 'A' },
+		{ beat: d + 1, pattern: 'J' },
+		{ beat: d + 4, pattern: 'J' },
+		{ beat: d + 6, pattern: 'C' },
+	];
+}
+
+const arr = (
+	drums: SectionArrangement['drums'],
+	pad: boolean,
+	fill = false,
+	crash = true,
+): SectionArrangement => ({ drums, pad, motif: pad ? 'variation' : 'main', melodyGain: 0.1, fill, crash });
+
+export const BURNING_HEART_SONG: SongDefinition = {
+	id: 'burning-heart',
+	title: 'Burning Heart',
+	modeLabel: 'FULL SONG',
+	bpm: BH_BPM,
+	// 最後の和音（拍 708.25）の直後＝拍 710（300.0 秒）で本編終了。曲の余韻は tail で最後まで流す
+	duration: 710 * (60 / BH_BPM),
+	finalCountdown: false,
+	audio: {
+		src: '/audio/chaos-beat/maou_08_burning_heart.mp3',
+		startAt: 0,
+		offset: 0.8735,
+		preroll: 0.8735, // ファイルの頭（拍0の前のピックアップ）からカウントイン中に鳴らす
+		volume: 0.75,
+		tail: 6.2, // 最後の和音の余韻（ファイル 306 秒付近まで）
+		fadeOut: 1.0,
+		ownEnding: true,
+		anchor: { level: 0.1, time: 0.87283 },
+	},
+	credit: { label: 'Music: 魔王魂', url: 'https://maou.audio/' },
+	harmony: [B_MAJ],
+	sections: [
+		{ id: 'intro', label: 'INTRO', start: bhBar(0), end: bhBar(8), sequencePool: ids(EASY_SEQUENCES), musicIntensity: 0,
+			targetScale: 1.15, autoFill: false, duck: 0.5, harmony: [B_MAJ], arrangement: arr('sparse', false, true, false) },
+		{ id: 'chorus', label: 'CHORUS', start: bhBar(8), end: bhBar(24), sequencePool: ids(BH_CHORUS1_SEQUENCES), musicIntensity: 3,
+			targetScale: 1, hype: 1, chaosSpeed: 6.8, duck: 0.38, harmony: [B_MAJ], arrangement: arr('drive', true) },
+		{ id: 'riff', label: 'RIFF', start: bhBar(24), end: bhBar(32), sequencePool: ids(BH_RIFF_SEQUENCES), musicIntensity: 2,
+			targetScale: 1, duck: 0.4, harmony: [EB_MAJ], arrangement: arr('four', false) },
+		{ id: 'verse', label: 'VERSE', start: bhBar(32), end: bhBar(48), sequencePool: ids(BH_VERSE_SEQUENCES).slice(0, 2), musicIntensity: 1,
+			targetScale: 1.05, restBeats: 4, duck: 0.45, harmony: [EB_MAJ], arrangement: arr('basic', false, false, false) },
+		{ id: 'pre', label: 'PRE-CHORUS', start: bhBar(48), end: bhBar(52), sequencePool: ids(BH_PRE_SEQUENCES), musicIntensity: 2,
+			targetScale: 1, restBeats: 1, duck: 0.42, harmony: [EB_MAJ], arrangement: arr('drive', false, true, false) },
+		{ id: 'chorus', label: 'CHORUS', start: bhBar(52), end: bhBar(68), sequencePool: [...ids(BH_CHORUS1_SEQUENCES), ...ids(BH_CHORUS_SEQUENCES)], musicIntensity: 3,
+			targetScale: 1, hype: 1, chaosSpeed: 6.8, duck: 0.38, harmony: [B_MAJ], arrangement: arr('drive', true) },
+		{ id: 'riff', label: 'RIFF', start: bhBar(68), end: bhBar(76), sequencePool: ids(BH_RIFF_SEQUENCES), musicIntensity: 2,
+			targetScale: 1, duck: 0.4, harmony: [EB_MAJ], arrangement: arr('four', false) },
+		{ id: 'verse', label: 'VERSE', start: bhBar(76), end: bhBar(92), sequencePool: ids(BH_VERSE_SEQUENCES), musicIntensity: 1,
+			targetScale: 1.05, restBeats: 3, duck: 0.45, harmony: [EB_MAJ], arrangement: arr('basic', false, false, false) },
+		{ id: 'pre', label: 'PRE-CHORUS', start: bhBar(92), end: bhBar(96), sequencePool: ids(BH_PRE_SEQUENCES), musicIntensity: 2,
+			targetScale: 1, restBeats: 1, duck: 0.42, harmony: [EB_MAJ], arrangement: arr('drive', false, true, false) },
+		{ id: 'chorus', label: 'CHORUS', start: bhBar(96), end: bhBar(112), sequencePool: ids(BH_CHORUS_SEQUENCES), musicIntensity: 3,
+			targetScale: 0.96, hype: 1, chaosSpeed: 6.8, duck: 0.38, harmony: [B_MAJ], arrangement: arr('drive', true) },
+		{ id: 'bridge', label: 'BRIDGE', start: bhBar(112), end: bhBar(117), sequencePool: ids(BH_SOLO_SEQUENCES), musicIntensity: 2,
+			targetScale: 1, autoFill: false, duck: 0.42, harmony: [B_MAJ], arrangement: arr('sparse', false, false, true) },
+		{ id: 'solo', label: 'GUITAR SOLO', start: bhBar(117), end: bhBar(137), sequencePool: ids(BH_SOLO_SEQUENCES), musicIntensity: 3,
+			targetScale: 0.95, duck: 0.4,
+			// ソロ：小節 117–120 は B のペダル、121–127 は E♭、128 から D へ転調（小節ごとに循環せず、この順に1回）
+			harmony: [...Array(4).fill(B_MAJ), ...Array(7).fill(EB_MAJ), ...Array(9).fill(D_MIN)],
+			arrangement: arr('drive', false) },
+		{ id: 'break', label: 'BREAK', start: bhBar(137), end: bhBar(142), sequencePool: ids(EASY_SEQUENCES), musicIntensity: 1,
+			targetScale: 1.05, autoFill: false, duck: 0.45, harmony: [B_MAJ], arrangement: arr('sparse', false, true, false) },
+		{ id: 'final_chorus', label: 'FINAL CHORUS', start: bhBar(142), end: bhBar(169), sequencePool: ids(BH_FINAL_SEQUENCES), musicIntensity: 4,
+			targetScale: 0.9, hype: 2, chaosSpeed: 6.5, duck: 0.36, harmony: [B_MAJ], arrangement: arr('four', true) },
+		{ id: 'outro', label: 'OUTRO', start: bhBar(169), end: bhBar(178), sequencePool: ids(EASY_SEQUENCES), musicIntensity: 1,
+			targetScale: 1.1, autoFill: false, duck: 0.5, harmony: [B_MAJ], arrangement: arr('sparse', false, false, false) },
+	],
+	// 手書き譜面：曲の決めどころだけ固定（間はセクションの譜面）。beat はパターン先頭の拍、入力拍 = beat + hitBeat
+	beatmap: [
+		// INTRO：ギターだけの4小節＋ベースの4小節を、4〜8拍おきの小さな一打で。8小節目のフィルを数えてサビ頭（拍32）でドン
+		{ beat: 9, pattern: 'A' }, // → 12
+		{ beat: 17, pattern: 'B' }, // → 20
+		{ beat: 23, pattern: 'D' }, // → 26
+		...chorusEntry(32, 'A'), // → 32, 34, 36, 40
+		...chorusEntry(208, 'E'), // サビ2
+		{ beat: 297, pattern: 'A' }, // リフの最後の小節（75）：頭の一撃で全員が止まる → 拍300
+		...chorusEntry(384, 'E'), // サビ3
+		// BRIDGE：シンコペーションの一発ずつ（長めの休符→一打）
+		{ beat: 451, pattern: 'G' }, // → 454.5
+		{ beat: 459, pattern: 'C' }, // → 461.5
+		...soloPhrase(468), // ソロ頭（小節117）→ 468, 470.5, 473.5, 478.5
+		{ beat: 545, pattern: 'A' }, // ブレイク頭の一撃（小節137）→ 548。そこから約20拍は聞くだけ
+		...chorusEntry(568, 'E'), // ラスサビ（ドラムが戻る小節142）
+		...soloPhrase(632), // ラスサビ後半（小節158）でソロの決めフレーズをもう一度
+		{ beat: 673, pattern: 'A' }, // ドラム最後の一撃（小節169）→ 676
+		{ beat: 705, pattern: 'Z', final: true }, // 最後の和音 → 708.25（FINAL HIT）
+	],
+};
+
+/** id → 曲。ページの ?song= で選べる */
 export const SONGS: Record<string, SongDefinition> = {
 	[SONG_60.id]: SONG_60,
 	[TEST_EXTERNAL_SONG.id]: TEST_EXTERNAL_SONG,
+	[BURNING_HEART_SONG.id]: BURNING_HEART_SONG,
 };
 
 const gridCache = new WeakMap<SongDefinition, BeatGrid>();

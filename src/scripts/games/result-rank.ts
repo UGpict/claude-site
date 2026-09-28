@@ -40,14 +40,53 @@ export const RANK_THRESHOLDS: Record<Difficulty, Thresholds> = {
 	],
 };
 
-export function rankOf(score: number, difficulty: Difficulty): ResultRank {
-	const t = RANK_THRESHOLDS[difficulty];
+/**
+ * 曲ごとのしきい値（60秒版と尺も譜面も違う曲）。無い曲は RANK_THRESHOLDS。
+ * Burning Heart FULL（約5分・的 約200）：仮値。60秒版と同じ方法（押しズレ σ=15/30/50ms の自動プレイ）で決めた。
+ * 実プレイの分布（GA4 の game_over：song_id=burning-heart の score / result_rank）で調整する。
+ */
+export const SONG_RANK_THRESHOLDS: Record<string, Record<Difficulty, Thresholds>> = {
+	// 計測（1ゲームずつ、σ15 / σ30 / σ50）：easy 60.3k / 48.6–52.5k / 28.6k、normal 52.3–53.8k / 26.1–34.1k / 17.7–24.2k、
+	// hard 37.5k / 15.3–17.6k / 10.1k、oni 17.6k / 8.3–9.0k / 7.0k（的 約165〜173・パーフェクト演奏で約65k）
+	'burning-heart': {
+		easy: [
+			{ rank: 'S', min: 57000 },
+			{ rank: 'A', min: 46000 },
+			{ rank: 'B', min: 27000 },
+			{ rank: 'C', min: 0 },
+		],
+		normal: [
+			{ rank: 'S', min: 50000 },
+			{ rank: 'A', min: 28000 },
+			{ rank: 'B', min: 18000 },
+			{ rank: 'C', min: 0 },
+		],
+		hard: [
+			{ rank: 'S', min: 34000 },
+			{ rank: 'A', min: 16000 },
+			{ rank: 'B', min: 9500 },
+			{ rank: 'C', min: 0 },
+		],
+		oni: [
+			{ rank: 'S', min: 16000 },
+			{ rank: 'A', min: 8000 },
+			{ rank: 'B', min: 6000 },
+			{ rank: 'C', min: 0 },
+		],
+	},
+};
+
+const thresholdsOf = (difficulty: Difficulty, songId?: string): Thresholds =>
+	(songId && SONG_RANK_THRESHOLDS[songId]?.[difficulty]) || RANK_THRESHOLDS[difficulty];
+
+export function rankOf(score: number, difficulty: Difficulty, songId?: string): ResultRank {
+	const t = thresholdsOf(difficulty, songId);
 	return (t.find((x) => score >= x.min) ?? t[t.length - 1]).rank;
 }
 
 /** 1つ上のランクまであと何点か（S なら null）。「あと 820 点で S」の再戦導線に使う */
-export function nextRank(score: number, difficulty: Difficulty): { rank: ResultRank; need: number } | null {
-	const t = RANK_THRESHOLDS[difficulty];
+export function nextRank(score: number, difficulty: Difficulty, songId?: string): { rank: ResultRank; need: number } | null {
+	const t = thresholdsOf(difficulty, songId);
 	const i = t.findIndex((x) => score >= x.min);
 	if (i <= 0) return null;
 	return { rank: t[i - 1].rank, need: t[i - 1].min - score };
@@ -76,13 +115,17 @@ export function nextGoal(p: {
 	isNewBest: boolean;
 	bestScore: number;
 	topCombo: number;
+	/** 曲ごとのランク基準（無ければ60秒版） */
+	songId?: string;
 }): NextGoal {
 	const fmt = (n: number) => n.toLocaleString('ja-JP');
-	const nx = nextRank(p.score, p.difficulty);
-	if (nx) return { kind: 'rank', text: `あと ${fmt(nx.need)} 点で ${nx.rank}`, need: nx.need, close: nx.need <= SO_CLOSE_POINTS };
+	// フル尺の曲は点数の桁が大きいので「あと少し」の幅も広げる（的の数に比例して約3倍）
+	const close = p.songId && SONG_RANK_THRESHOLDS[p.songId] ? SO_CLOSE_POINTS * 3 : SO_CLOSE_POINTS;
+	const nx = nextRank(p.score, p.difficulty, p.songId);
+	if (nx) return { kind: 'rank', text: `あと ${fmt(nx.need)} 点で ${nx.rank}`, need: nx.need, close: nx.need <= close };
 	if (!p.isNewBest) {
 		const gap = Math.max(1, p.bestScore - p.score);
-		return { kind: 'best', text: `BEST まで あと ${fmt(gap)} 点`, need: gap, close: gap <= SO_CLOSE_POINTS };
+		return { kind: 'best', text: `BEST まで あと ${fmt(gap)} 点`, need: gap, close: gap <= close };
 	}
 	return { kind: 'combo', text: `MAX COMBO ${p.topCombo} を超えろ`, need: null, close: false };
 }
