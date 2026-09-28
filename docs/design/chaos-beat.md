@@ -146,6 +146,18 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
   タイマーは `game_start` で `cancelResultShow()`（演出中の再戦で残らない）。結果の数字部分クリックで `finishResultShow(true)`（音は二重に鳴らさない）。
 - 音：`resultTick`（1200→2100Hz の短い矩形波）、`resultPop`（E5→D6 の三角波）、`rankStamp`（低い衝撃＋ノイズ＋和音。S はきらめき、C は短調で控えめ）。
 
+## 報酬ループの表示（chaos-pendulum.ts の描画／ChaosPendulum.astro の結果／result-rank.ts／storage.ts）
+- 上部 HUD（FEVER 外）：`N COMBO` の下の1行を優先順で1つ：節目直後（milestoneT）「♪ X IN · ×倍率」→ `perfectStreak === 2` なら
+  「NEXT PERFECT → 🔥 CHAOS FEVER」（beatPulse で脈動）→ 次の節目まで ≤2 なら「NEXT n → ♪ X IN」。節目は COMBO 表示自体を 1.35 倍・黄色に。
+  （以前の中央上のポップは判定ラベルと重なるので廃止）
+- 判定ラベルの下の `resultSub`（得点ポップ `scorePop` が出ているときは描かない）。
+- FEVER 終了：`endFever(reason)` で `feverSummary = { reason, streak, chaos }`（chaos は FEVER 中の CHAOS PERFECT 数 `feverChaos`）→ 0.7 秒描画。
+  暗転は miss のときだけ。音は miss＝`feverEnd()`、timeout＝`resultPop(3)`。
+- 最初の CHAOS チャンス：`chaosHintShown`（ページを開いている間で1回、newGame で戻さない）→ 1.6 秒の2行説明（`fitText` で画面幅に収める）。
+- `storage.updateBest({ score, maxCombo, rank })` → `{ isNewBest, best(topCombo, gotS), prevBestScore, isNewTopCombo, prevTopCombo, isFirstS }`（旧データは topCombo=bestMaxCombo, gotS=false）。
+- `result-rank.nextGoal()`：S 未満→次のランクまで／S で未更新→BEST まで／S で更新→MAX COMBO 記録を超えろ。`need ≤ SO_CLOSE_POINTS(300)` で close。
+- 結果の段取りは従来どおり（無音→加算→各項目→ランク→NEW BEST）＋ ランクと同時に FIRST S、NEW BEST と同時に NEW MAX COMBO（小）、最後に NEXT GOAL。合計 ≤ 約3.4 秒。
+
 ## CHAOS FEVER の演出（chaos-pendulum.ts の描画・audio.ts の音。物理・判定には触れない）
 - 定数は `FX`（`ENTRY_TIME 0.7` / `ENTRY_FLASH_ALPHA 0.6` / `ENTRY_ZOOM 0.05` / `BEAT_FLASH_ALPHA 0.12` / `OVERLAY_ALPHA_MAX 0.2` /
   `TRAIL_LEN 140` / `FEVER_TRAIL_MULT 1.8` / `TRAIL_CHUNKS 28` / `FEVER_PARTICLE_MULT 2` / `MAX_PARTICLES 320` / `SHAKE_PX 6` /

@@ -92,6 +92,12 @@ const description =
 								<li>画面が虹色に変化</li>
 							</ul>
 						</div>
+						<div class="goal goal-chaos">
+							<p class="goal-kicker">RARE</p>
+							<h2>⚡ CHAOS PERFECT</h2>
+							<p class="goal-lead">振り子がいちばん荒れる瞬間、<br />的が電撃で光ったら PERFECT で叩き抜け。</p>
+							<p class="goal-note">1曲に数回だけのチャンス。結果画面に「取った数 / チャンス数」が残ります。</p>
+						</div>
 						<div class="goal goal-combo">
 							<p class="goal-kicker">COMBO</p>
 							<h2>♪ 曲が育つ</h2>
@@ -443,7 +449,7 @@ const description =
 	.goals {
 		margin-top: 1.4em;
 		display: grid;
-		grid-template-columns: 1.2fr 1fr;
+		grid-template-columns: 1fr 1fr;
 		gap: 12px;
 	}
 	.goal {
@@ -480,6 +486,7 @@ const description =
 	}
 	/* FEVER：黒板色のカードに虹の縁と虹色の見出し（白文字×淡色グラデの低コントラストを避ける） */
 	.goal-fever {
+		grid-column: 1 / -1;
 		color: #ece8dc;
 		border: 3px solid transparent;
 		background:
@@ -499,6 +506,18 @@ const description =
 	}
 	.goal-fever b {
 		color: #f2d06b;
+	}
+	.goal-chaos {
+		background: #14202a;
+		color: #e8fbff;
+		border: 2px solid #7fe3f0;
+	}
+	.goal-chaos .goal-kicker {
+		color: #7fe3f0;
+		opacity: 1;
+	}
+	.goal-chaos h2 {
+		color: #ffffff;
 	}
 	.goal-combo {
 		background: #2f3e37;

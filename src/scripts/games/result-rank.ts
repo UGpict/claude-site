@@ -52,3 +52,37 @@ export function nextRank(score: number, difficulty: Difficulty): { rank: ResultR
 	if (i <= 0) return null;
 	return { rank: t[i - 1].rank, need: t[i - 1].min - score };
 }
+
+/** 「あと少し」とみなす点差（これ以下なら SO CLOSE! で強調・もう一回の文言も変える） */
+export const SO_CLOSE_POINTS = 300;
+
+export interface NextGoal {
+	kind: 'rank' | 'best' | 'combo';
+	text: string;
+	/** 点差の目標なら残り点数（コンボ目標は null） */
+	need: number | null;
+	close: boolean;
+}
+
+/**
+ * 結果画面の NEXT GOAL（次の1プレイで狙うことを1つだけ）。優先順：
+ *   1. S 未満 → 次のランクまであと◯点
+ *   2. S 取得・自己ベスト未更新 → BEST まであと◯点
+ *   3. S 取得・自己ベスト更新 → 最大コンボ記録を超えろ
+ */
+export function nextGoal(p: {
+	score: number;
+	difficulty: Difficulty;
+	isNewBest: boolean;
+	bestScore: number;
+	topCombo: number;
+}): NextGoal {
+	const fmt = (n: number) => n.toLocaleString('ja-JP');
+	const nx = nextRank(p.score, p.difficulty);
+	if (nx) return { kind: 'rank', text: `あと ${fmt(nx.need)} 点で ${nx.rank}`, need: nx.need, close: nx.need <= SO_CLOSE_POINTS };
+	if (!p.isNewBest) {
+		const gap = Math.max(1, p.bestScore - p.score);
+		return { kind: 'best', text: `BEST まで あと ${fmt(gap)} 点`, need: gap, close: gap <= SO_CLOSE_POINTS };
+	}
+	return { kind: 'combo', text: `MAX COMBO ${p.topCombo} を超えろ`, need: null, close: false };
+}

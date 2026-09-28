@@ -36,6 +36,17 @@ per-game イベント（game_start / game_over / game_retry）に `reward_stage`
       ランクのしきい値は難易度別（人間らしい押しズレ σ15/30/50ms の自動プレイの得点から）：
       easy S10000/A8000/B5000・normal S9000/A6500/B4000・hard S6000/A4200/B2500・鬼 S4000/A2500/B1500。
       計測：game_over に result_rank / new_best（reward_stage 3）
+- [x] **報酬ループの磨き込み（2026-09-28・罰は足さない／HP なし・得点式とランクしきい値は不変）**
+  - 1打：PERFECT 2連で上部に「NEXT PERFECT → 🔥 CHAOS FEVER」（拍で脈打つ）＋ラベル下「PERFECT ×2」。GREAT「COMBO KEEP」/ GOOD「STILL ALIVE」/
+    チャンスの的を GREAT 以下で「⚡ CHAOS おしい！」（ラベル下に1行だけ・得点ポップと重ねない）
+  - 数秒：コンボ節目は上部の COMBO 表示が大きく黄色に＋「♪ BASS / HAT / MELODY IN · ×倍率」。節目の2手前から小さく「NEXT 10 → ♪ MELODY IN」。
+    CHAOS PERFECT の得点ポップに「⚡ CHAOS 3 / 7」（ここまでの取った数/チャンス数）。最初のチャンスで1度だけ「⚡ CHAOS チャンス！ 的が電撃で光ったら PERFECT を狙え」。
+    FEVER 中の表示を「×2 SCORE · STREAK n」に（倍率ではないと分かるように）。FEVER の終わりに 0.7 秒「FEVER END / FEVER CLEAR!（時間切れ）＋ STREAK n · ⚡ CHAOS PERFECT ×k」
+  - 1ゲーム：NEXT GOAL を1つだけ（次のランク → BEST まで → MAX COMBO 記録）。300点以内は「SO CLOSE!」で黄色く脈打つ。
+    NEW BEST に改善幅「+1,043」、最大コンボ記録の更新「NEW MAX COMBO! 12 → 18」（小さく）、S は金のハンコ＋光の帯、初 S は「FIRST S RANK!」。
+    再戦ボタン：あと少し→「あと少し！もう一回」/ 自己ベスト更新→「さらに更新する！」。発表は約 2.9〜3.4 秒で、ボタンは最初から押せる
+  - 自己ベストの保存に topCombo（最大コンボ記録）と gotS（S を取ったか）を追加（旧データ互換）
+  - 計測：game_over に score_delta / next_rank_need / max_combo_new_best / first_s_rank
 - [ ] 次：段階ごとの `game_retry ÷ game_over`（reward_stage 別）と、難易度別の result_rank 分布を見てしきい値を調整
 
 ## 完了：CHAOS FEVER 強化（2026-09-27）

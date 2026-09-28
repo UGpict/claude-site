@@ -392,8 +392,15 @@ export function initGame(options: InitGameOptions): GameHandle {
 	let popT = 0;
 	let resultLabel = '';
 	let lastHit: { d: number; kind: HitKind } | null = null;
-	let milestoneLabel = ''; // コンボ節目の演出（×1.2! など）
+	let milestoneLabel = ''; // コンボ節目の演出：上部の COMBO 表示が一瞬大きく黄色に＋「♪ BASS IN ×1.2」
 	let milestoneT = 0;
+	let resultSub = ''; // 判定ラベルの下の一言（PERFECT ×2 / COMBO KEEP / STILL ALIVE / ⚡ CHAOS おしい！）
+	// FEVER が終わった瞬間に「ここまで行けた」を短く残す（miss=暗転＋FEVER END / timeout=FEVER CLEAR!）
+	let feverSummary: { reason: 'miss' | 'timeout'; streak: number; chaos: number } | null = null;
+	let feverSummaryT = 0;
+	let feverChaos = 0; // 今回の FEVER 中の CHAOS PERFECT 数
+	let chaosHintShown = false; // 最初の CHAOS チャンスで1度だけ説明（ページを開いている間で1回。newGame では戻さない）
+	let chaosHintT = 0;
 
 	interface Particle {
 		x: number;
@@ -474,6 +481,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 		return c >= 10 ? 2.0 : c >= 5 ? 1.5 : c >= 3 ? 1.2 : 1;
 	}
 	const CHAOS_LABEL = '⚡ CHAOS PERFECT';
+	/** コンボ節目で解放される BGM の層（audio 側の musicLevel と同じ区切り） */
+	const LAYER_OF: Record<number, string> = { 3: '♪ BASS', 5: '♪ HAT', 10: '♪ MELODY' };
 	const LABEL: Record<HitKind, string> = {
 		perfect: 'PERFECT',
 		great: 'GREAT',
@@ -553,7 +562,13 @@ export function initGame(options: InitGameOptions): GameHandle {
 		// CHAOS チャンス：先端が最も荒れている瞬間の的。INTRO には出さず、直前の的がチャンスなら出さない（希少性）
 		const chaos = at.speed >= CHAOS_SPEED && sec.id !== 'intro' && !lastWasChaos;
 		lastWasChaos = chaos;
-		if (chaos) chaosChances++;
+		if (chaos) {
+			chaosChances++;
+			if (!chaosHintShown) {
+				chaosHintShown = true;
+				chaosHintT = 1;
+			}
+		}
 		target = {
 			x: at.x,
 			y: at.y,
@@ -621,6 +636,11 @@ export function initGame(options: InitGameOptions): GameHandle {
 		lastHit = null;
 		milestoneLabel = '';
 		milestoneT = 0;
+		resultSub = '';
+		feverSummary = null;
+		feverSummaryT = 0;
+		feverChaos = 0;
+		chaosHintT = 0;
 		particles = [];
 		// gameTime<0 ならカウントイン、そうでなければ即プレイ（最初の的を出す）。
 		if (gameTime < 0) {
@@ -668,6 +688,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		feverDropT = 0;
 		feverStreak = 0;
 		feverStartedAt = gameTime;
+		feverChaos = 0;
 		feverCount++;
 		// 突入：画面中央と先端から虹の粒子を大量に
 		const [, , x2, y2] = tips(s);
@@ -683,7 +704,12 @@ export function initGame(options: InitGameOptions): GameHandle {
 		feverEntryT = 0;
 		const dur = Math.max(0, gameTime - feverStartedAt);
 		feverTime += dur;
-		if (reason !== 'finish') feverDropT = 1; // 一瞬で静かになる落差（虹・太い軌跡が消え、暗く沈む）
+		if (reason === 'miss') feverDropT = 1; // MISS で切れた：一瞬で静かになる落差（虹・太い軌跡が消え、暗く沈む）
+		if (reason !== 'finish') {
+			// 失敗だけでなく「ここまで行けた」を 0.7 秒残す（時間切れは FEVER CLEAR!）
+			feverSummary = { reason, streak: feverStreak, chaos: feverChaos };
+			feverSummaryT = 1;
+		}
 		emit('fever_end', { reason, duration: Math.round(dur * 10) / 10, hits: feverStreak });
 	}
 
@@ -732,8 +758,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		const mult = comboMult(combo);
 		// コンボ節目（倍率が上がる＝BGMの層が増える瞬間）の演出
 		if (scoring && (combo === 3 || combo === 5 || combo === 10)) {
-			const layer = combo === 3 ? ' ♪BASS' : combo === 5 ? ' ♪HAT' : ' ♪MELODY';
-			milestoneLabel = `${combo} COMBO ×${mult}!${layer}`;
+			milestoneLabel = `${LAYER_OF[combo]} IN · ×${mult}`;
 			milestoneT = 1;
 		}
 		const add = scoring ? Math.round(pts * mult * (fever ? FEVER_MULT : 1)) : 0;
@@ -746,7 +771,21 @@ export function initGame(options: InitGameOptions): GameHandle {
 		}
 		if (scoring && wasFever) feverStreak++;
 		const chaosPerfect = kind === 'perfect' && target.chaos;
-		if (chaosPerfect) chaosPerfectCount++;
+		if (chaosPerfect) {
+			chaosPerfectCount++;
+			if (fever) feverChaos++;
+		}
+		// 判定ラベルの下の一言：つながっていることを見せる（文字は1行だけ）
+		resultSub =
+			kind === 'perfect' && !fever && perfectStreak === FEVER_STREAK - 1
+				? `PERFECT ×${perfectStreak}`
+				: target.chaos && scoring && !chaosPerfect
+					? '⚡ CHAOS おしい！'
+					: kind === 'great'
+						? 'COMBO KEEP'
+						: kind === 'good'
+							? 'STILL ALIVE'
+							: '';
 
 		const nearMissPx = kind === 'near' ? Math.round((d - R) * scale) : 0;
 		// 予定入力時刻（拍）とのズレ。負=早押し／正=遅押し。
@@ -781,7 +820,9 @@ export function initGame(options: InitGameOptions): GameHandle {
 				pendingBursts.push({ t: 0.08, x: gx, y: gy });
 				chaosFlashT = 1;
 				shakeT = FX.SHAKE_TIME * 1.6;
-				scorePop = { text: `+${add}`, big: true, t: 1.2, sub: fever ? `⚡ CHAOS × FEVER ×${FEVER_MULT}` : '⚡ CHAOS' };
+				// この曲で何回目か（取った数 / ここまでのチャンス数）
+				const tally = `${chaosPerfectCount} / ${chaosChances}`;
+				scorePop = { text: `+${add}`, big: true, t: 1.2, sub: fever ? `⚡ CHAOS ${tally} × FEVER` : `⚡ CHAOS ${tally}` };
 			}
 			$msg.textContent = fever
 				? `+${add}（×${mult}・FEVER ×${FEVER_MULT}）`
@@ -827,6 +868,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 		counts.miss++;
 		expiredCount++;
 		resultLabel = 'MISS';
+		resultSub = '';
 		popT = 1;
 		flash = 0.4;
 		lastHit = null;
@@ -938,6 +980,12 @@ export function initGame(options: InitGameOptions): GameHandle {
 	/** 判定ラベルの高さ。FEVER 中は上部の FEVER 見出し・ゲージと重ならないよう少し下げる */
 	const labelY = () => Math.max(H * 0.16, cy - scale * 1.7) + (fever ? Math.min(W, H) * 0.12 : 0);
 
+	/** 画面幅（92%）に収まるよう縮めてから中央揃えで描く */
+	function fitText(text: string, x: number, y: number, size: number, color: string, weight = 700) {
+		ctx!.font = `${weight} ${Math.round(size)}px "Klee One", sans-serif`;
+		const w = ctx!.measureText(text).width;
+		centeredText(text, x, y, w > W * 0.92 ? (size * W * 0.92) / w : size, color, weight);
+	}
 	function centeredText(text: string, x: number, y: number, size: number, color: string, weight = 700) {
 		ctx!.fillStyle = color;
 		ctx!.font = `${weight} ${Math.round(size)}px "Klee One", sans-serif`;
@@ -1060,6 +1108,12 @@ export function initGame(options: InitGameOptions): GameHandle {
 			const w = ctx!.measureText(resultLabel).width;
 			if (w > W * 0.92) size *= (W * 0.92) / w;
 			centeredText(resultLabel, cx, ly, size, color, 600);
+			// ラベルの下の一言（得点ポップが出ているときは重ねない）
+			if (resultSub && !scorePop) {
+				ctx!.globalAlpha = 0.9;
+				const subCol = resultSub.startsWith('PERFECT') ? col.yellow : resultSub.startsWith('⚡') ? '#7FE3F0' : col.chalk;
+				centeredText(resultSub, cx, ly + size * 0.62, m * 0.042, subCol, 700);
+			}
 			ctx!.restore();
 		}
 		if (scorePop && state !== 'over' && feverEntryT === 0) {
@@ -1257,8 +1311,26 @@ export function initGame(options: InitGameOptions): GameHandle {
 			ctx!.globalAlpha = 0.28 * feverDropT;
 			ctx!.fillStyle = '#000';
 			ctx!.fillRect(-20, -20, W + 40, H + 40);
-			ctx!.globalAlpha = Math.min(1, feverDropT * 1.5) * 0.85;
-			centeredText('FEVER END', cx, labelY() + m * 0.1, m * 0.045, col.chalk, 600);
+			ctx!.restore();
+		}
+		// FEVER の終わり：「ここまで行けた」を 0.7 秒残す（MISS＝FEVER END、時間切れ＝FEVER CLEAR!）
+		if (feverSummaryT > 0 && feverSummary && state !== 'over') {
+			const fs = feverSummary;
+			const y0 = labelY() + m * 0.19; // 判定ラベルとその下の一言の、さらに下（重ならない）
+			ctx!.save();
+			ctx!.globalAlpha = Math.min(1, feverSummaryT * 1.8) * 0.92;
+			centeredText(fs.reason === 'miss' ? 'FEVER END' : 'FEVER CLEAR!', cx, y0, m * 0.048, fs.reason === 'miss' ? col.chalk : col.yellow, 700);
+			const parts = [`STREAK ${fs.streak}`];
+			if (fs.chaos > 0) parts.push(`⚡ CHAOS PERFECT ×${fs.chaos}`);
+			centeredText(parts.join(' · '), cx, y0 + m * 0.06, m * 0.036, col.chalk, 600);
+			ctx!.restore();
+		}
+		// 最初の CHAOS チャンス：1度だけ説明（的が電撃で光ったら PERFECT で ⚡）
+		if (chaosHintT > 0 && state !== 'over') {
+			ctx!.save();
+			ctx!.globalAlpha = Math.min(1, chaosHintT * 2.5);
+			fitText('⚡ CHAOS チャンス！', cx, H * 0.8, m * 0.05, '#7FE3F0', 800);
+			fitText('的が電撃で光ったら PERFECT を狙え', cx, H * 0.8 + m * 0.065, m * 0.036, '#E8FBFF', 700);
 			ctx!.restore();
 		}
 
@@ -1274,7 +1346,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 				ctx!.fillText('🔥 CHAOS FEVER 🔥', cx, H * 0.04);
 				ctx!.fillStyle = col.chalk;
 				ctx!.font = `600 ${Math.round(m * 0.038)}px "Klee One", sans-serif`;
-				const streak = feverStreak > 0 ? ` · FEVER ×${feverStreak}` : '';
+				// STREAK は倍率ではなく「FEVER 中に何回つないだか」（得点倍率は ×2 のまま）
+				const streak = feverStreak > 0 ? ` · STREAK ${feverStreak}` : '';
 				ctx!.fillText(`×${FEVER_MULT} SCORE${streak}`, cx, H * 0.04 + m * 0.095);
 				const gw = m * 0.4;
 				const gy = H * 0.04 + m * 0.15;
@@ -1284,26 +1357,34 @@ export function initGame(options: InitGameOptions): GameHandle {
 				ctx!.globalAlpha = 1;
 				ctx!.fillStyle = rainbowAt(gameTime, 1);
 				ctx!.fillRect(cx - gw / 2, gy, gw * Math.max(0, feverT / FEVER_TIME), 4);
-			} else if (!fever && combo >= 2) {
-				ctx!.fillStyle = col.pink;
-				ctx!.font = `600 ${Math.round(m * 0.07)}px "Klee One", sans-serif`;
+			} else if (!fever && (combo >= 2 || perfectStreak === FEVER_STREAK - 1)) {
+				// 上部の COMBO 表示。節目（3/5/10）では一瞬大きく黄色に＋「♪ BASS IN ×1.2」（曲の層が増えることを目でも）
+				const ms = milestoneT > 0 && feverEntryT === 0 ? milestoneT : 0;
+				ctx!.fillStyle = ms > 0 ? col.yellow : col.pink;
+				ctx!.font = `700 ${Math.round(m * 0.07 * (1 + 0.35 * ms))}px "Klee One", sans-serif`;
 				ctx!.fillText(`${combo} COMBO`, cx, H * 0.05);
-				// 次の倍率まであと1回のときだけ緊張感を出す
-				const next = combo < 3 ? 3 : combo < 5 ? 5 : combo < 10 ? 10 : 0;
-				const nextMult = next === 3 ? 1.2 : next === 5 ? 1.5 : next === 10 ? 2.0 : 0;
-				if (next && next - combo === 1) {
+				const subY = H * 0.05 + m * (0.085 + 0.025 * ms);
+				ctx!.font = `600 ${Math.round(m * 0.038)}px "Klee One", sans-serif`;
+				if (ms > 0 && milestoneLabel) {
+					ctx!.globalAlpha = Math.min(1, ms * 1.6);
 					ctx!.fillStyle = col.yellow;
-					ctx!.font = `600 ${Math.round(m * 0.038)}px "Klee One", sans-serif`;
-					ctx!.fillText(`あと1回で ×${nextMult}`, cx, H * 0.05 + m * 0.08);
+					ctx!.fillText(milestoneLabel, cx, subY);
+					ctx!.globalAlpha = 1;
+				} else if (perfectStreak === FEVER_STREAK - 1) {
+					// PERFECT 2連：次の1打が FEVER（3打目の緊張感）。拍で脈打つ
+					ctx!.fillStyle = col.yellow;
+					ctx!.font = `700 ${Math.round(m * 0.042 * (1 + 0.1 * beatPulse()))}px "Klee One", sans-serif`;
+					ctx!.fillText('NEXT PERFECT → 🔥 CHAOS FEVER', cx, subY);
+				} else {
+					// 次のコンボ節目が近いときだけ小さく予告（常時は出さない）
+					const next = combo < 3 ? 3 : combo < 5 ? 5 : combo < 10 ? 10 : 0;
+					if (next && next - combo <= 2) {
+						ctx!.globalAlpha = 0.75;
+						ctx!.fillStyle = col.chalk;
+						ctx!.fillText(`NEXT ${next} → ${LAYER_OF[next]} IN`, cx, subY);
+						ctx!.globalAlpha = 1;
+					}
 				}
-			}
-			// コンボ節目のポップ（中央上）。FEVER 突入の瞬間は突入演出を優先
-			if (milestoneT > 0 && milestoneLabel && feverEntryT === 0) {
-				ctx!.globalAlpha = Math.min(1, milestoneT * 1.4);
-				ctx!.fillStyle = col.yellow;
-				ctx!.font = `600 ${Math.round(m * 0.06 * (1 + (1 - milestoneT) * 0.3))}px "Klee One", sans-serif`;
-				ctx!.fillText(milestoneLabel, cx, H * 0.2);
-				ctx!.globalAlpha = 1;
 			}
 			ctx!.textAlign = 'start';
 			ctx!.textBaseline = 'alphabetic';
@@ -1415,6 +1496,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 		if (feverEntryT > 0) feverEntryT = Math.max(0, feverEntryT - dt / FX.ENTRY_TIME);
 		if (feverDropT > 0) feverDropT = Math.max(0, feverDropT - dt / FX.DROP_TIME);
 		if (chaosFlashT > 0) chaosFlashT = Math.max(0, chaosFlashT - dt * 2.2);
+		if (feverSummaryT > 0) feverSummaryT = Math.max(0, feverSummaryT - dt / 0.7);
+		if (chaosHintT > 0) chaosHintT = Math.max(0, chaosHintT - dt / 1.6);
 		if (shakeT > 0) shakeT = Math.max(0, shakeT - dt);
 		if (scorePop) {
 			scorePop.t -= dt * 1.6;
