@@ -31,8 +31,11 @@ export interface ScheduledCue {
 export interface GameAudio {
 	/** 叩いた瞬間のごく短いクリック音 */
 	stopClick(): void;
-	/** 判定音（PERFECT/GREAT/GOOD/near/miss のフィードバックのみ。BGMレイヤーは別担当） */
-	judgment(kind: HitKind): void;
+	/**
+	 * 判定音。GOOD 以上はコンボ数に応じて「今の小節の和音の構成音」を 根音→3度→5度→オクターブ→＋きらめき と上っていく
+	 * （伴奏と濁らない）。コンボ（3以上）が切れた NEAR/MISS は「プツッ」＋BGM が一瞬抜ける。combo は判定後の値。
+	 */
+	judgment(kind: HitKind, combo?: number): void;
 	/** リズム予告（タン・タン・ドン）を transport 時刻で先読み予約（startTime + time。fps非依存）。accent 前後は BGM をダッキング */
 	scheduleRhythm(cues: ScheduledCue[]): void;
 	/** CHAOS FEVER 突入の上昇音 */
@@ -231,11 +234,22 @@ export function createAudio(): GameAudio {
 	let feverCrashPending = false; // FEVER 突入後、次に予約する拍頭にクラッシュ＋インパクト（拍に同期した「解放」）
 
 	const musicVol = () => (muted ? 0 : BGM_LEVEL);
+	// BGM の出口（ずっと1つ）。コンボ切れの「プツッ」で一瞬だけ抜くための専用ノード。
+	// cue のダッキング（bgmGain 側の自動化）とは別ノードなので互いの予約を壊さない。
+	let bgmOut: GainNode | null = null;
+	function ensureBgmOut(c: AudioContext): GainNode {
+		if (!bgmOut) {
+			bgmOut = c.createGain();
+			bgmOut.gain.value = 1;
+			bgmOut.connect(c.destination);
+		}
+		return bgmOut;
+	}
 	function ensureBgmGain(c: AudioContext): GainNode {
 		if (!bgmGain) {
 			bgmGain = c.createGain();
 			bgmGain.gain.value = musicVol();
-			bgmGain.connect(c.destination);
+			bgmGain.connect(ensureBgmOut(c));
 		}
 		return bgmGain;
 	}
@@ -330,6 +344,34 @@ export function createAudio(): GameAudio {
 		],
 		finale: [[587.33, 739.99, 880.0, 1174.66]], // D F# A D：長調へ持ち上げて締める
 	};
+	// 判定音の音階：今の小節の和音（伴奏パッドのあるセクション＝CLIMAX/FINAL は進行に追従、それ以外は Dm）
+	let lastCombo = 0;
+	function chordNow(): number[] {
+		if (!transport) return CHORDS[0];
+		const t = Math.max(0, api.now());
+		const secIdx = sectionIndexAt(song, t);
+		if (!song.sections[secIdx].arrangement.pad) return CHORDS[0];
+		const bar = Math.floor(t / BAR);
+		return CHORDS[((bar % 4) + 4) % 4];
+	}
+	/** コンボ切れ：短いクリック＋下降ブリップ（テープが止まる感じ）＋BGM が一瞬抜けて戻る。罰音ではなく「切れた」合図 */
+	function comboBreak(): void {
+		const c = ensureCtx();
+		if (!c || muted) return;
+		const now = c.currentTime;
+		const g = c.createGain();
+		g.gain.value = 1;
+		g.connect(c.destination);
+		bgmNoise(c, g, now, 0.012, 2500, 0.12); // プツッ
+		toneAt(c, 520, now + 0.005, 0.09, 'square', 0.06, 90);
+		setTimeout(() => g.disconnect(), 300);
+		const out = ensureBgmOut(c);
+		out.gain.cancelScheduledValues(now);
+		out.gain.setValueAtTime(out.gain.value, now);
+		out.gain.linearRampToValueAtTime(0.15, now + 0.015);
+		out.gain.setValueAtTime(0.15, now + 0.12);
+		out.gain.linearRampToValueAtTime(1, now + 0.45);
+	}
 	function scheduleBgmBeat(beat: number, time: number): void {
 		const c = ctx;
 		if (!c || !bgmGain) return;
@@ -457,40 +499,37 @@ export function createAudio(): GameAudio {
 		}
 	}
 
-	return {
+	const api: GameAudio = {
 		stopClick() {
 			// 短く控えめなクリック（主張しすぎない）
 			tone(1200, 0, 0.04, 'triangle', 0.12);
 		},
-		judgment(kind: HitKind) {
+		judgment(kind: HitKind, combo = 0) {
 			// 判定フィードバックのみ（曲の層は持続BGM側が担当）。
-			switch (kind) {
-				case 'perfect':
-					// 駆け上がる明るいアルペジオ＋高音のきらめき（最高の祝福音）
-					tone(784, 0, 0.09, 'triangle', 0.2); // G5
-					tone(988, 0.06, 0.09, 'triangle', 0.2); // B5
-					tone(1319, 0.12, 0.11, 'triangle', 0.22); // E6
-					tone(1976, 0.2, 0.2, 'triangle', 0.22); // B6
-					tone(2637, 0.22, 0.16, 'sine', 0.12); // E7 きらめき
-					break;
-				case 'great':
-					// 気持ちよく上がる2音
-					tone(660, 0, 0.1, 'triangle', 0.16); // E5
-					tone(988, 0.08, 0.13, 'triangle', 0.17); // B5
-					break;
-				case 'good':
-					// 軽い単音
-					tone(587, 0, 0.1, 'triangle', 0.14); // D5
-					break;
-				case 'near':
-					// 惜しい（軽く濁る）
-					tone(300, 0, 0.12, 'sawtooth', 0.12, 240);
-					break;
-				case 'miss':
-					// 低く少し濁った失敗音（不快すぎない）
-					tone(180, 0, 0.16, 'sawtooth', 0.14, 150);
-					break;
+			const prev = lastCombo;
+			lastCombo = combo;
+			if (kind === 'perfect' || kind === 'great' || kind === 'good') {
+				// 音が育つ：コンボ 1-2 根音 / 3-4 3度 / 5-6 5度 / 7-9 オクターブ / 10+ オクターブ＋きらめき
+				const [root, third, fifth] = chordNow();
+				const step = combo >= 10 ? 4 : combo >= 7 ? 3 : combo >= 5 ? 2 : combo >= 3 ? 1 : 0;
+				const f = [root, third, fifth, root * 2, root * 2][step] * 2; // 5〜6 オクターブ帯（BGM より上で抜ける）
+				if (kind === 'perfect') {
+					tone(f, 0, 0.16, 'triangle', 0.22);
+					tone(f * 2, 0.012, 0.12, 'sine', 0.07); // 倍音の艶
+					if (step === 4) [root, third, fifth, root * 2].forEach((x, i) => tone(x * 4, 0.05 + i * 0.035, 0.1, 'sine', 0.06)); // きらめき
+				} else if (kind === 'great') {
+					tone(f, 0, 0.14, 'triangle', 0.17);
+				} else {
+					tone(f, 0, 0.1, 'triangle', 0.12); // GOOD：同じ音程で控えめ（コンボは繋がっている）
+				}
+				return;
 			}
+			if (prev >= 3) {
+				comboBreak(); // 育てた音が「プツッ」と剥がれる
+				return;
+			}
+			if (kind === 'near') tone(300, 0, 0.12, 'sawtooth', 0.12, 240); // 惜しい（軽く濁る）
+			else tone(180, 0, 0.16, 'sawtooth', 0.14, 150); // 低く少し濁った失敗音（不快すぎない）
 		},
 		scheduleRhythm(cues) {
 			// cue.time は transport 時刻（=beatTime(beatIndex)）。BGM の拍と同じ startTime + time に予約する。
@@ -558,6 +597,7 @@ export function createAudio(): GameAudio {
 			musicLevel = 0;
 			feverOn = false;
 			feverCrashPending = false;
+			lastCombo = 0;
 			bgmBeat = 0;
 			lastTransportT = -(START_DELAY + lead * SPB);
 			if (!running || !c) return transport;
@@ -657,4 +697,5 @@ export function createAudio(): GameAudio {
 			return muted;
 		},
 	};
+	return api;
 }

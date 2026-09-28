@@ -265,6 +265,7 @@
 				window.clearTimeout(playHintTimer);
 				playHintTimer = window.setTimeout(() => playHint.classList.remove('show'), 6000);
 			};
+			const REWARD_STAGE = 1;
 			let gameSerial = 0; // game_start ごとに増やす（遅延表示の取り消し用）
 			const RESULT_DELAY_MS = 1300;
 			const musicLevelOf = (combo: number) => (combo >= 10 ? 3 : combo >= 5 ? 2 : combo >= 3 ? 1 : 0);
@@ -280,7 +281,9 @@
 					const params = (payload as Record<string, unknown>) ?? {};
 					// ゲーム単位のイベントには難易度を付けて送る（リトライ率・判定分布を難易度別に見るため）
 					const perGame = name === 'game_start' || name === 'game_over' || name === 'game_retry';
-					trackGameEvent(name, perGame ? { ...params, difficulty: currentDifficulty } : params);
+					// reward_stage：報酬設計の段階（0=導入前 / 1=音階＋プツッ / 2=＋CHAOS PERFECT / 3=＋結果発表）。
+					// 段階ごとに game_retry ÷ game_over（結果画面からの再戦率）を比べるための目印（古いキャッシュのプレイも分けられる）
+					trackGameEvent(name, perGame ? { ...params, difficulty: currentDifficulty, reward_stage: REWARD_STAGE } : params);
 
 					if (name === 'game_start') {
 						showPlayHint();
@@ -300,7 +303,7 @@
 
 					if (name === 'hit') {
 						const p = payload as GameEventPayloads['hit'];
-						audio.judgment(p.kind);
+						audio.judgment(p.kind, p.combo); // コンボで音階が上がる／切れたら「プツッ」
 						audio.setMusicLevel(musicLevelOf(p.combo)); // コンボで層が増減（MISSでcombo0→drumだけ）
 					}
 

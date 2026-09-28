@@ -115,6 +115,15 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
 - **cue の取り消し**：`scheduleRhythm` の先頭で、前パターンの未再生 cue（早押しで消えた的のドン等）を stop する。
 - `stopMusic()`：game_over で 0.3秒フェードアウト。ミュート時は BGM 0・cue/SE 無音（時計は動く）。
 
+## 判定音が育つ（audio.ts `judgment(kind, combo)`）
+- コンポーネントが hit ごとに `judgment(p.kind, p.combo)`（combo は判定後の値）を呼ぶ。
+- 段階 `step`：combo 1-2=0 / 3-4=1 / 5-6=2 / 7-9=3 / 10+=4 → 音 `[根音, 3度, 5度, 根音×2, 根音×2][step] × 2`。
+  和音は `chordNow()`：`api.now()` の transport 時刻から、伴奏パッドのあるセクションなら小節ごとの `CHORDS`（Dm–B♭–C–A）、それ以外は Dm。
+  PERFECT＝triangle＋1オクターブ上の sine、step 4 は構成音×4 のきらめき。GREAT/GOOD は同じ音程で控えめ。押した瞬間に鳴らす（拍に寄せない）。
+- 直前の combo（`lastCombo`）が 3 以上で NEAR/MISS/見逃しになったら `comboBreak()`：短いノイズのクリック＋520→90Hz の下降ブリップ＋
+  BGM 出口ノード `bgmOut` を 15ms で 0.15 まで下げ、0.45 秒で戻す。`bgmOut` は `bgmGain`（cue のダッキング）とは別ノードなので予約が干渉しない。
+  combo 3 未満の NEAR/MISS は従来の短い濁り音。
+
 ## CHAOS FEVER の演出（chaos-pendulum.ts の描画・audio.ts の音。物理・判定には触れない）
 - 定数は `FX`（`ENTRY_TIME 0.7` / `ENTRY_FLASH_ALPHA 0.6` / `ENTRY_ZOOM 0.05` / `BEAT_FLASH_ALPHA 0.12` / `OVERLAY_ALPHA_MAX 0.2` /
   `TRAIL_LEN 140` / `FEVER_TRAIL_MULT 1.8` / `TRAIL_CHUNKS 28` / `FEVER_PARTICLE_MULT 2` / `MAX_PARTICLES 320` / `SHAKE_PX 6` /

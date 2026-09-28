@@ -15,7 +15,20 @@ plan から外れる判断が出たら、コードより先に spec/design を�
 - [x] **ranking**：難易度別・今日/今週/歴代、score＋maxCombo、自己ベスト、GA4
 - [x] **transport sync / TAP TO START / instrumentation**、**60秒で1曲**（詳細は下の履歴）
 
-## Current：CHAOS FEVER 強化（2026-09-27 実装）
+## ルール：ランキング（D1）は初期化しない
+他の人が遊び始めているため、ランキングの行を消す・作り直す操作（DELETE・テーブル再作成・リセット用 migration）はしない。
+スコアの尺度が変わる変更（得点ボーナス等）は、既存ランキングと比べられなくならないよう設計段階で避けるか、オーナーに相談する。
+
+## Current：報酬の3階層（1打 → 数秒 → 60秒）
+順番：① 音が育つ → ④ CHAOS PERFECT → ② 結果発表。段階ごとに GA4 の `game_retry ÷ game_over`（結果画面からの再戦率）を比べる。
+per-game イベント（game_start / game_over / game_retry）に `reward_stage`（0=導入前 / 1 / 2 / 3）を付けて期間とキャッシュを切り分ける。
+- [x] **① 音が育つ（reward_stage 1）**：GOOD 以上の判定音がコンボで 根音(1-2) → 3度(3-4) → 5度(5-6) → オクターブ(7-9) → ＋きらめき(10+)。
+      音は「今の小節の和音」の構成音（伴奏パッドのある CLIMAX/FINAL は Dm–B♭–C–A に追従、それ以外は Dm）なので伴奏と濁らない。
+      PERFECT は倍音つき、GREAT/GOOD は同じ音程で控えめ。コンボ3以上が NEAR/MISS/見逃しで切れると「プツッ」＋BGM が一瞬（~0.45秒）抜ける
+- [ ] ④ CHAOS PERFECT（予兆あり。的の生成時に hitAt の先端速度が分かる＝予兆は本当の情報。得点の尺度は変えない方向で設計）
+- [ ] ② 結果発表（一瞬の無音 → 高速加算 → PERFECT → CHAOS PERFECT → MAX COMBO → FEVER → ランク → NEW BEST 前後比較・「あと◯点で S」）
+
+## 完了：CHAOS FEVER 強化（2026-09-27）
 ルール（PERFECT3連・5秒・×2・MISS/NEAR解除）は据え置き。演出と音だけ。
 - [x] `FX` 定数・FEVER 演出状態の整理（表示・集計のみ。物理/判定/hitAt/beat grid/timeScale 不変）
 - [x] 突入：フラッシュ・ズーム・巨大 CHAOS FEVER ×2 SCORE・虹の粒子・3層突入SE・次の拍頭のクラッシュ・バイブ
@@ -60,7 +73,6 @@ plan から外れる判断が出たら、コードより先に spec/design を�
 - [x] キーボード：開始前・終了後はエンジンが Space/Enter を奪わない（▶ PLAY・アコーディオン・ニックネーム入力が本来どおり動く）
 
 ## Next
-- [ ] **要オーナー判断：D1 ランキングの初期化**（30秒版スコアは比較不能。手順は履歴「60秒で1曲」参照。自動では実行しない）
 - [ ] **playtest tuning（60秒版）**：セクション境界ごとの判定分布（hit × section_change）、FEVER の発生回数（多ければ終了後の短いクールダウンを検討）、
       INTRO/CLIMAX の的サイズ倍率、BUILD のフィルや CLIMAX のパッドの音量。実機 20〜30 回＋GA4 の `averageTimingOffsetMs`・判定分布で、カウントイン長・音量・ダッキング量・
       出力レイテンシ補正の要否を決める（判定ロジックは変えない。必要なら timingOffset を補助条件にする案を spec に起こしてから）
@@ -91,13 +103,7 @@ plan から外れる判断が出たら、コードより先に spec/design を�
 - [x] スコア上限 `MAX_SCORE` 20000 → 40000、自己ベストのキーを `cb:best:60:<難易度>` に分離
 - [x] 検証：ヘッドレス自動プレイで section_change 5回（0 / 9.23 / 25.85 / 40.62 / 55.38）、34パターン全てで accent=hitTime=グリッド、
       譜面の性格がセクションで変わる（intro: A/B のみ → climax: C/E/F/G 中心 → final: E,C）、最後の入力拍 58.38 秒 → 60.00 秒で終止
-- [ ] **要オーナー判断：D1 ランキングの初期化**（30秒版のスコアは比較不能）。自動では実行しない。実行する場合：
-  ```
-  # 念のためバックアップ
-  npx wrangler d1 export chaos_pendulum --remote --output=backup-30s.sql
-  # 初期化（60秒版の公開直前・直後に）
-  npx wrangler d1 execute chaos_pendulum --remote --command="DELETE FROM chaos_pendulum_scores;"
-  ```
+- ~~D1 ランキングの初期化~~ → **しない**（2026-09-28 オーナー決定：他の人が遊び始めたため。以後もランキングは消さない）
 
 ### transport sync / TAP TO START / instrumentation（2026-09-27・完了）
 - [x] **transport sync**
