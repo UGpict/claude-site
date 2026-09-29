@@ -253,6 +253,15 @@ export function initGame(options: InitGameOptions): GameHandle {
 	const FEVER_STREAK = 3; // PERFECT 連続でフィーバー発火
 	const FEVER_TIME = 5; // フィーバー継続（実秒）
 	const FEVER_MULT = 2; // フィーバー中の得点倍率（速度は変えない＝リズム整合のため）
+	// 目押し封じ：位置判定に「拍精度（pressT と hitAt のズレ ms）」を段階的に AND する。
+	// 一気に厳しくしない：的の中(d<=R)なら拍が外れても GOOD は残す（救済）。位置が的の外なら位置どおり。
+	const BEAT_PERFECT_MS = 45; // これ以内でないと PERFECT にしない
+	const BEAT_GREAT_MS = 90; // 拍が強く効く範囲
+	const BEAT_GOOD_MS = 170;
+	const BEAT_NEAR_MS = 260;
+	// 案A：入力拍の直前±この時間だけ的の「正確な瞬間」を示す表示を弱める（音で合わせる価値を出す）。FEVERはさらに広げる。
+	const HIDE_MS = 95;
+	const HIDE_MS_FEVER = 175;
 	// CHAOS PERFECT：hitAt の瞬間に先端が速い（＝振り子が最も荒れている）的は「チャンス」。PERFECT で叩き抜くと特別な報酬。
 	// 速さは的の生成時に物理から確定するので、予兆は本当の情報（ランダム演出ではない）。
 	// 7.5 u/s ≒ 的の約15%（鬼は約20%）。INTRO には出さず、2連続では出さない → 1曲に 3〜4 回。
@@ -304,6 +313,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 	const eventTimeOf: (ts: number) => EventClockTime | null =
 		options.eventTime ?? (options.now ? () => null : (ts) => ({ t: ts / 1000 - perfOrigin, mode: 'performance' }));
 	let lastInput: InputDebugInfo | null = null; // ?debug=1 の表示用
+	let lastJudge: { kind: string; beatMs: number; posPx: number; g: number } | null = null; // 複合判定の内訳（debug）
 	let started = options.autostart !== false;
 	let lastClock = 0;
 
@@ -919,20 +929,21 @@ export function initGame(options: InitGameOptions): GameHandle {
 		options.onInputDebug?.(lastInput);
 		const d = Math.hypot(x2 - target.x, y2 - target.y);
 		const R = target.r;
-		let kind: HitKind;
-		if (d <= 0.35 * R) kind = 'perfect';
-		else if (d <= 0.7 * R) kind = 'great';
-		else if (d <= R) kind = 'good';
-		else if (d <= 1.25 * R) kind = 'near';
-		else kind = 'miss';
-		// 中央を狙う意味を強くするため、判定ごとに点差を広げる（内部100点満点は維持）。
-		const nd = d / R;
-		let pts: number;
-		if (kind === 'perfect') pts = Math.round(90 + 10 * (1 - nd / 0.35)); // 90〜100
-		else if (kind === 'great') pts = Math.round(70 + 20 * (1 - (nd - 0.35) / 0.35)); // 70〜90
-		else if (kind === 'good') pts = Math.round(40 + 30 * (1 - (nd - 0.7) / 0.3)); // 40〜70
-		else pts = 0;
-		pts = Math.max(0, Math.min(100, pts));
+		// --- 位置精度（振り子↔的）---
+		const posN = d / R; // 0=中心, 1=縁
+		const posRank = posN <= 0.35 ? 4 : posN <= 0.7 ? 3 : posN <= 1.0 ? 2 : posN <= 1.25 ? 1 : 0;
+		// --- 拍精度（押した瞬間の正確な時刻 pressT ↔ 入力拍 hitAt）---
+		const beatMs = Math.abs((pressT - target.hitAt) * 1000);
+		const beatRank = beatMs <= BEAT_PERFECT_MS ? 4 : beatMs <= BEAT_GREAT_MS ? 3 : beatMs <= BEAT_GOOD_MS ? 2 : beatMs <= BEAT_NEAR_MS ? 1 : 0;
+		// --- 複合（段階的・操作感優先）---
+		// 位置が土台。そのうえで拍でキャップ（PERFECT/GREAT には拍精度が要る＝目押し封じ）。
+		// 的の中(posRank>=2)なら拍が外れても GOOD は残す（救済）。的の外は位置どおり（near/miss）。
+		const g = posRank >= 2 ? Math.max(2, Math.min(posRank, beatRank)) : posRank;
+		const kind: HitKind = g === 4 ? 'perfect' : g === 3 ? 'great' : g === 2 ? 'good' : g === 1 ? 'near' : 'miss';
+		// 点数は「位置と拍の悪い方の誤差」で連続化（両方そろうほど高い。内部100点満点は維持）。
+		const worseN = Math.max(posN, beatMs / BEAT_GOOD_MS);
+		const pts = g >= 2 ? Math.round(Math.max(40, Math.min(100, 100 - worseN * 45))) : 0;
+		lastJudge = { kind, beatMs: Math.round(beatMs), posPx: Math.round(d * scale), g };
 
 		const scoring = kind === 'perfect' || kind === 'great' || kind === 'good';
 		// 順序：判定 → GOOD以上ならコンボ+1 → 倍率再計算 → 今回分を加算
@@ -1367,12 +1378,19 @@ export function initGame(options: InitGameOptions): GameHandle {
 			const targetCol = fever ? rainbowAt(gameTime) : col.yellow;
 			const ringCol = fever ? rainbowAt(gameTime, 2) : col.blue;
 
+			// 案A：入力拍への近さ vis（0=まさに拍で最も見えにくい／1=遠くてはっきり）。
+			// 「正確な瞬間」を示す表示（リング収束・中心十字）だけを拍直前に弱め、音（ドン）で合わせる価値を出す。
+			// 的の位置・半径・脈動・判定・hitAt は一切変えない（狙う"どこ"は見える）。
+			const msToHit = Math.abs(gameTime - target.hitAt) * 1000;
+			const vis = Math.min(1, msToHit / (fever ? HIDE_MS_FEVER : HIDE_MS));
+
 			// アプローチリング：bornAt→hitAt で大きな輪が的の大きさへ収束する（重なった時が入力拍＝grid.beatTime(hitBeat)＝ドン）
 			const lead = Math.max(0.001, target.hitAt - target.bornAt);
 			const prog = Math.min(1.3, Math.max(0, (gameTime - target.bornAt) / lead));
 			if (prog < 1.25) {
 				const approachR = baseR * (1 + 2.6 * Math.max(0, 1 - prog));
-				ctx!.globalAlpha = 0.2 + 0.55 * Math.min(1, prog) + (fever ? 0.15 : 0);
+				// 収束の瞬間だけ薄く＝目でジャストを読み切れない
+				ctx!.globalAlpha = (0.2 + 0.55 * Math.min(1, prog) + (fever ? 0.15 : 0)) * (0.25 + 0.75 * vis);
 				ctx!.strokeStyle = ringCol;
 				ctx!.lineWidth = fever ? 3 : 2;
 				ctx!.beginPath();
@@ -1427,12 +1445,28 @@ export function initGame(options: InitGameOptions): GameHandle {
 			ctx!.arc(tx, ty, rDraw, 0, Math.PI * 2);
 			ctx!.stroke();
 			ctx!.setLineDash([]);
-			ctx!.beginPath();
-			ctx!.moveTo(tx - 6, ty);
-			ctx!.lineTo(tx + 6, ty);
-			ctx!.moveTo(tx, ty - 6);
-			ctx!.lineTo(tx, ty + 6);
-			ctx!.stroke();
+			// 中心十字は「拍の瞬間」の目印になりやすいので、拍直前は消す（案A）
+			if (vis > 0.35) {
+				ctx!.globalAlpha = vis;
+				ctx!.beginPath();
+				ctx!.moveTo(tx - 6, ty);
+				ctx!.lineTo(tx + 6, ty);
+				ctx!.moveTo(tx, ty - 6);
+				ctx!.lineTo(tx, ty + 6);
+				ctx!.stroke();
+			}
+			// FEVER：拍直前に的の位置をわずかにブラす（ゴースト）＝耳を使うと有利。reduced-motion では出さない。
+			if (fever && vis < 0.9 && !reducedMotion) {
+				ctx!.globalAlpha = 0.14 * (1 - vis);
+				for (const o of [
+					[-9, 5],
+					[8, -7],
+				]) {
+					ctx!.beginPath();
+					ctx!.arc(tx + o[0], ty + o[1], rDraw, 0, Math.PI * 2);
+					ctx!.stroke();
+				}
+			}
 			ctx!.globalAlpha = 1;
 		}
 
@@ -1666,6 +1700,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 			`beat: ${beatNo}  phase: ${grid.beatPhase(gameTime).toFixed(2)}`,
 			`transport: ${gameTime.toFixed(3)}`,
 			...(target ? [`next hit: beat ${target.hitBeat} @ ${target.hitAt.toFixed(3)}`] : []),
+			...(lastJudge ? [`JUDGE ${lastJudge.kind}  beat=${lastJudge.beatMs}ms  pos=${lastJudge.posPx}px  (win P${BEAT_PERFECT_MS}/G${BEAT_GREAT_MS})`] : []),
 			...(options.debugInfo?.() ?? []),
 			...(lastInput
 				? [
