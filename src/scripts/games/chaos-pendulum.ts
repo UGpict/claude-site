@@ -262,6 +262,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 	// 案A：入力拍の直前±この時間だけ的の「正確な瞬間」を示す表示を弱める（音で合わせる価値を出す）。FEVERはさらに広げる。
 	const HIDE_MS = 95;
 	const HIDE_MS_FEVER = 175;
+	// 目押し封じの肝：的の中心＝「拍(hitAt)ではなく hitAt+DECOUPLE の先端位置」に置く。
+	// こうすると「距離最小の瞬間」と「拍」がずれ、視覚だけ（距離最小で押す）だと拍が外れて PERFECT にならない。
+	// BOT検証（scripts/bot-test.mjs）：0ms→視覚BOT100%PERFECT ／ 60ms→視覚0%・拍だけ11%・両方87%。
+	const JUDGE_DECOUPLE = 0.06;
 	// CHAOS PERFECT：hitAt の瞬間に先端が速い（＝振り子が最も荒れている）的は「チャンス」。PERFECT で叩き抜くと特別な報酬。
 	// 速さは的の生成時に物理から確定するので、予兆は本当の情報（ランダム演出ではない）。
 	// 7.5 u/s ≒ 的の約15%（鬼は約20%）。INTRO には出さず、2連続では出さない → 1曲に 3〜4 回。
@@ -713,10 +717,11 @@ export function initGame(options: InitGameOptions): GameHandle {
 		const hitAt = grid.beatTime(hitBeat); // 入力すべき時刻（transport 時刻）
 		lastHitBeat = hitBeat;
 
-		// 的の中心＝hitAt の時刻に実際の物理が通る点。判定と同じ tipAtTime（固定ステップ＋最後に端数1回）で求める
-		// （判定も同じ関数なので、hitAt ちょうどに押せば先端は的の中心＝配置と判定の計算が一致）。
+		// 的の中心＝「hitAt+DECOUPLE の先端位置」（目押し封じ）。距離最小の瞬間を拍から少しずらすため。
+		// CHAOS 判定用の速度は拍(hitAt)の瞬間で見る（押す瞬間の荒れ具合）。
 		recordPhys(); // この的の区間の起点（押した瞬間が次の描画より前でも、ここから同じ積分で進められる）
-		const at = tipAtTime(hitAt);
+		const at = tipAtTime(hitAt); // 速度・chaos 用
+		const pos = tipAtTime(hitAt + JUDGE_DECOUPLE); // 的の中心座標
 		// CHAOS チャンス：先端が最も荒れている瞬間の的。INTRO には出さず、直前の的がチャンスなら出さない（希少性）。
 		// サビは速度のしきい値を少し下げてチャンスを増やす（section.chaosSpeed）
 		const chaos = at.speed >= (sec.chaosSpeed ?? CHAOS_SPEED) && sec.id !== 'intro' && !lastWasChaos;
@@ -729,8 +734,8 @@ export function initGame(options: InitGameOptions): GameHandle {
 			}
 		}
 		target = {
-			x: at.x,
-			y: at.y,
+			x: pos.x,
+			y: pos.y,
 			r: TARGET_R * sec.targetScale, // セクションで的の大きさを少し変える（INTRO は大きめ）
 			bornAt: gameTime,
 			hitBeat,
