@@ -501,10 +501,60 @@ export const BURNING_HEART_SONG: SongDefinition = {
 };
 
 /** id → 曲。ページの ?song= で選べる */
+// ---------------------------------------------------------------------------------------------
+// SUMMER TRIANGLE（外部音源）フル尺ステージ
+// 自動解析（scripts/analyze-audio.mjs：WASM MP3デコード + music-tempo + 1秒RMS）で決めた値：
+//   BPM 175.0（music-tempo 175.01／全ビート平均間隔 0.3429s＝175.0。楽譜情報でも 4/4・175）
+//   拍0 ≈ ファイル 0.72 秒（最初の拍）。offset は ?debug=1 の拍ズレ表示で最終確認する。
+//   構成（1秒RMSのブレイク=急落から）：0–10 イントロ/Aメロ / ~10–30 上昇 / 31 ブレイク / 33–52 サビ1(ピーク51) /
+//     52–59 間奏 / 60–85 Bメロ→再上昇 / 86 ブレイク / 88–114 ラスサビ(ピーク106) / 114–128 アウトロ→終止(127≈無音)
+//   セクション秒は gameTime（=ファイル時刻 − offset）。system が小節頭に丸める。
+// ※ライセンス/クレジット：公開前に必ず利用条件を確認し credit を正しい表記に（未確認のまま本番公開しないこと）。
+// ---------------------------------------------------------------------------------------------
+const stArr = (drums: SectionArrangement['drums'], pad = false): SectionArrangement => ({
+	drums,
+	pad,
+	motif: pad ? 'variation' : 'main',
+	melodyGain: 0.1,
+	fill: false,
+	crash: true,
+});
+export const SUMMER_TRIANGLE_SONG: SongDefinition = {
+	id: 'summer-triangle',
+	title: 'SUMMER TRIANGLE',
+	modeLabel: 'FULL SONG',
+	bpm: 175,
+	duration: 124, // gameTime 秒（アウトロ手前まで。system が小節頭に丸める）
+	finalCountdown: false,
+	audio: {
+		src: '/audio/chaos-beat/summer_triangle.mp3',
+		startAt: 0,
+		offset: 0.72, // ?debug=1 で実音と拍を見ながら確定する
+		volume: 0.72,
+		tail: 3,
+		fadeOut: 1.5,
+		ownEnding: true,
+		anchor: { level: 0.15, time: 0.72 },
+	},
+	credit: { label: 'Music: SUMMER TRIANGLE（※クレジット/ライセンス要確認）' },
+	sections: [
+		{ id: 'intro', label: 'INTRO', start: 0, end: 10, sequencePool: ids(EASY_SEQUENCES), musicIntensity: 0, targetScale: 1.1, duck: 0.45, arrangement: stArr('sparse') },
+		{ id: 'groove', label: 'GROOVE', start: 10, end: 30, sequencePool: [...ids(EASY_SEQUENCES), ...ids(STANDARD_SEQUENCES)], musicIntensity: 1, targetScale: 1, duck: 0.42, arrangement: stArr('basic') },
+		{ id: 'pre', label: 'PRE-CHORUS', start: 30, end: 32, sequencePool: ids(STANDARD_SEQUENCES), musicIntensity: 2, targetScale: 1, duck: 0.42, arrangement: stArr('drive') },
+		{ id: 'chorus', label: 'CHORUS', start: 32, end: 51, sequencePool: [...ids(STANDARD_SEQUENCES), ...ids(CLIMAX_SEQUENCES)], musicIntensity: 3, targetScale: 0.95, hype: 1, duck: 0.38, arrangement: stArr('drive', true) },
+		{ id: 'interlude', label: 'INTERLUDE', start: 51, end: 59, sequencePool: [...ids(EASY_SEQUENCES), ...ids(STANDARD_SEQUENCES)], musicIntensity: 1, targetScale: 1.05, duck: 0.45, arrangement: stArr('basic') },
+		{ id: 'build', label: 'BUILD', start: 59, end: 85, sequencePool: [...ids(STANDARD_SEQUENCES), ...ids(BUILD_SEQUENCES)], musicIntensity: 2, targetScale: 1, duck: 0.4, arrangement: stArr('drive') },
+		{ id: 'break', label: 'BREAK', start: 85, end: 87, sequencePool: ids(EASY_SEQUENCES), musicIntensity: 1, targetScale: 1.05, duck: 0.45, arrangement: stArr('sparse') },
+		{ id: 'final_chorus', label: 'FINAL CHORUS', start: 87, end: 113, sequencePool: [...ids(CLIMAX_SEQUENCES), ...ids(FINAL_SEQUENCES)], musicIntensity: 4, targetScale: 0.92, hype: 2, duck: 0.36, arrangement: stArr('four', true) },
+		{ id: 'outro', label: 'OUTRO', start: 113, end: 124, sequencePool: ids(EASY_SEQUENCES), musicIntensity: 1, targetScale: 1.05, duck: 0.5, arrangement: stArr('sparse') },
+	],
+};
+
 export const SONGS: Record<string, SongDefinition> = {
 	[SONG_60.id]: SONG_60,
 	[TEST_EXTERNAL_SONG.id]: TEST_EXTERNAL_SONG,
 	[BURNING_HEART_SONG.id]: BURNING_HEART_SONG,
+	[SUMMER_TRIANGLE_SONG.id]: SUMMER_TRIANGLE_SONG,
 };
 
 const gridCache = new WeakMap<SongDefinition, BeatGrid>();
