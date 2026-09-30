@@ -310,6 +310,27 @@ export function initGame(options: InitGameOptions): GameHandle {
 
 	let preset: DifficultyPreset = DIFFICULTY_PRESETS[options.difficulty ?? 'normal'];
 	let TARGET_R = preset.targetR;
+	let diffKey: Difficulty = options.difficulty ?? 'normal';
+	// 決定論化：曲＋難易度ごとに固定シード。毎回同じ譜面＝公平・覚えられる・再現テスト可能。
+	// ゲームに効く乱数（初期状態・シーケンス選択）だけ srand を使う。演出の乱数は Math.random のまま。
+	const hashStr = (s: string) => {
+		let h = 2166136261 >>> 0;
+		for (let i = 0; i < s.length; i++) {
+			h ^= s.charCodeAt(i);
+			h = Math.imul(h, 16777619);
+		}
+		return h >>> 0;
+	};
+	const mulberry32 = (a: number) => () => {
+		a = (a + 0x6d2b79f5) | 0;
+		let t = Math.imul(a ^ (a >>> 15), 1 | a);
+		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+	let srand = mulberry32(hashStr(song.id + ':' + diffKey));
+	const reseed = () => {
+		srand = mulberry32(hashStr(song.id + ':' + diffKey));
+	};
 	// 共通トランスポート時計（BGM/cue と同じ原点）。全部これで gameTime を測る。
 	let perfOrigin = performance.now() / 1000;
 	const clock = options.now ?? (() => performance.now() / 1000 - perfOrigin);
@@ -442,10 +463,10 @@ export function initGame(options: InitGameOptions): GameHandle {
 	function pickSequence(sec: GameSection): RhythmSequence {
 		const pool = sec.sequencePool.map((id) => SEQUENCE_BY_ID[id]).filter(Boolean);
 		if (!pool.length) return SEQUENCE_BY_ID.e1;
-		let pick = pool[(Math.random() * pool.length) | 0];
+		let pick = pool[(srand() * pool.length) | 0];
 		let guard = 0;
 		while (pool.length > 1 && pick.id === lastSeqId && guard++ < 8) {
-			pick = pool[(Math.random() * pool.length) | 0];
+			pick = pool[(srand() * pool.length) | 0];
 		}
 		lastSeqId = pick.id;
 		return pick;
@@ -550,8 +571,9 @@ export function initGame(options: InitGameOptions): GameHandle {
 			y1 = L1 * Math.cos(t1);
 		return [x1, y1, x1 + L2 * Math.sin(t2), y1 + L2 * Math.cos(t2)];
 	};
-	const rand = (a: number, b: number) => a + Math.random() * (b - a);
-	const sign = () => (Math.random() < 0.5 ? -1 : 1);
+	// 決定論化：初期状態・シーケンス選択は srand（曲＋難易度シード）を使う。演出の乱数は Math.random のまま。
+	const rand = (a: number, b: number) => a + srand() * (b - a);
+	const sign = () => (srand() < 0.5 ? -1 : 1);
 	const P = (x: number, y: number): [number, number] => [cx + x * scale, cy + y * scale];
 
 	function comboMult(c: number): number {
@@ -753,6 +775,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 	}
 
 	function newGame() {
+		reseed(); // 毎回同じ譜面：曲＋難易度シードから初期状態・シーケンス選択を再現
 		s = [sign() * rand(preset.a1[0], preset.a1[1]), sign() * rand(preset.a2[0], preset.a2[1]), 0, 0];
 		trail = [];
 		started = true;
@@ -1859,6 +1882,7 @@ export function initGame(options: InitGameOptions): GameHandle {
 			if (opts.difficulty) {
 				preset = DIFFICULTY_PRESETS[opts.difficulty];
 				TARGET_R = preset.targetR;
+				diffKey = opts.difficulty; // 難易度ごとに固定シード（newGame の reseed で反映）
 			}
 			if (!options.now) perfOrigin = performance.now() / 1000;
 			if (opts.retry) emit('game_retry', undefined);
