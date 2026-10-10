@@ -1767,24 +1767,23 @@ export function initGame(options: InitGameOptions): GameHandle {
 			rafId = requestAnimationFrame(loop);
 			return;
 		}
-		// 時計は共通トランスポート（audio）。dt はその差分。
-		// dt を小さくクランプすると物理が transport から恒久的に遅れて的を通らなくなるので、0.25秒までは追従する
-		// （それ以上＝タブ非表示など。的は寿命切れ→次の的で予測し直すので自然に再同期する）。
+		// 音の出力時計に追従する。重いフレームでも物理の経過時間を捨てない。
+		// 曲の終端までに限定し、長時間タブを隠しても無制限には積分しない。
 		const t = clock();
-		const dt = Math.min(Math.max(0, t - lastClock), 0.25);
+		const elapsed = Math.max(0, Math.min(t, duration) - Math.min(lastClock, duration));
+		const dt = Math.min(Math.max(0, t - lastClock), 0.25); // 描画演出だけ上限を設ける
 		lastClock = t;
 		gameTime = t;
 
 		if (state === 'countin' || state === 'playing' || state === 'slowmo') {
 			// 【リズム整合】的が生きている間の timeScale は必ず 1（速度変更なし）。
 			// 固定タイムステップ積分で軌道が毎回同じ離散列になり、予測と完全一致する。
-			const ts = state === 'slowmo' ? SLOWMO_SCALE : 1;
-			acc += dt * ts;
-			let steps = 0;
-			while (acc >= FIXED_H && steps < 90) {
+			// スローの終了を跨ぐフレームでは残りのスロー時間だけ減速する。
+			const slowElapsed = state === 'slowmo' ? Math.min(elapsed, Math.max(0, slowmoT)) : 0;
+			acc += elapsed - slowElapsed + slowElapsed * SLOWMO_SCALE;
+			while (acc >= FIXED_H) {
 				s = rk4(s, FIXED_H);
 				acc -= FIXED_H;
-				steps++;
 			}
 			// 押した瞬間が次のフレームより前（イベントの時刻）でも、その時刻の状態から進められるように（timeScale = 1 の間だけ）
 			if (state === 'playing') recordPhys();
@@ -1805,11 +1804,11 @@ export function initGame(options: InitGameOptions): GameHandle {
 			} else {
 				// フィーバー残り時間（速度は変えず得点2倍＋演出だけ）
 				if (fever) {
-					feverT -= dt;
+					feverT -= elapsed;
 					if (feverT <= 0) endFever('timeout');
 				}
 				if (state === 'slowmo') {
-					slowmoT -= dt;
+					slowmoT -= elapsed;
 					if (slowmoT <= 0) {
 						state = 'playing';
 						newTarget();

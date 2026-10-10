@@ -74,7 +74,7 @@ export interface GameAudio {
 	audioMode(): 'external' | 'synth' | 'silent';
 	/** ?debug=1 用の表示行（外部音源の再生位置など） */
 	debugLines(): string[];
-	/** 現在の transport 時刻（秒。拍0で 0、カウントイン中は負）。エンジンの時計に渡す。 */
+	/** 耳に届いている音の transport 時刻（秒）。描画・物理・入力を同じ出力時計に揃える。 */
 	now(): number;
 	/**
 	 * 入力イベントの時刻（event.timeStamp：performance.now と同じ基準のミリ秒）→ transport 時刻（秒）。エンジンの eventTime に渡す。
@@ -966,7 +966,7 @@ export function createAudio(): GameAudio {
 		},
 		debugLines() {
 			const lines = [`audio: ${api.audioMode()}${muted ? ' (muted)' : ''}  clock: ${transport?.clock ?? '-'}`];
-			if (lastInputClock) lines.push(`CLOCK input: ${lastInputClock.mode}  out latency: ${lastInputClock.latencyMs.toFixed(1)}ms`);
+			if (lastInputClock) lines.push(`CLOCK output/input: ${lastInputClock.mode}  out latency: ${lastInputClock.latencyMs.toFixed(1)}ms`);
 			if (ctx) lines.push(`audio context: ${ctx.currentTime.toFixed(3)}`);
 			if (song.audio) {
 				lines.push(`src: ${song.audio.src.split('/').pop()}`);
@@ -974,7 +974,7 @@ export function createAudio(): GameAudio {
 				if (extActive && ctx && transport) {
 					// 今鳴っている音源ファイル内の位置（拍0 = startAt + offset）
 					lines.push(
-						`file pos: ${(song.audio.startAt + song.audio.offset + extShift + ctx.currentTime - transport.startTime).toFixed(3)}  decoder shift: ${(extShift * 1000).toFixed(1)}ms`,
+						`file pos (output): ${(song.audio.startAt + song.audio.offset + extShift + api.now()).toFixed(3)}  decoder shift: ${(extShift * 1000).toFixed(1)}ms`,
 					);
 				}
 			}
@@ -987,7 +987,10 @@ export function createAudio(): GameAudio {
 			if (!transport) return 0;
 			if (transport.clock === 'audio' && ctx) {
 				if (audioClockAlive(ctx)) {
-					lastTransportT = ctx.currentTime - transport.startTime;
+					// currentTime は音声の処理時計で、無線出力では画面が数百ms先行する。
+					// 入力と同じ出力時計を使う。デバイス切替時にもゲーム時計を逆行させない。
+					const output = api.eventTimeToTransport(performance.now());
+					if (output) lastTransportT = Math.max(lastTransportT, output.t);
 					return lastTransportT;
 				}
 				fallbackToPerformance(); // 音の時計が止まった：ゲームは止めずに performance 時計で続ける
@@ -996,6 +999,8 @@ export function createAudio(): GameAudio {
 		},
 		eventTimeToTransport(eventTimeStamp: number) {
 			if (!transport || !Number.isFinite(eventTimeStamp)) return null;
+			// now() を経由しない入力でも、停止した音声時計の原点を先に張り直す。
+			if (transport.clock === 'audio' && ctx && !audioClockAlive(ctx)) fallbackToPerformance();
 			// performance 時計のとき（音の時計が使えない／止まった）：event.timeStamp も performance.now と同じ基準なのでそのまま
 			if (transport.clock !== 'audio' || !ctx || ctx.state !== 'running') {
 				return { t: eventTimeStamp / 1000 - transport.startTime, mode: 'performance' };

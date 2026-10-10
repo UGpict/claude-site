@@ -30,7 +30,9 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
 ```
 
 - `AudioTransport { startTime, bpm, secondsPerBeat, clock: 'audio' | 'performance' }`。
-- `audio.now() = ctx.currentTime − startTime`（拍0で 0、カウントイン中は負）。エンジンには `now: () => audio.now()` として
+- `audio.now()` は `getOutputTimestamp()` の出力時刻と performance 時刻から「耳に届いている音の時刻」を求め、`startTime` を引く
+  （拍0で 0、カウントイン中は負）。未対応・異常値では `currentTime − baseLatency − outputLatency`。入力と同じ換算経路を使い、
+  無線出力の遅延ぶん画面だけ先行しない。出力経路の切替で時計が戻る場合は描画時計の逆行を防ぐ。エンジンには `now: () => audio.now()` として
   **関数だけ**渡す（エンジンは AudioContext を知らない）。`gameTime = now()`（rAF 累積はしない）。
 - AudioContext が無い／resume できない環境は `clock='performance'`（`performance.now()` 基準）で**無音のまま進行**だけ保証する。
 - 共通式：どの要素も **`audioTime = startTime + beatTime(beatIndex)`**。
@@ -63,8 +65,9 @@ user start（TAP / クリック / Space / もう一回 / 難易度変更）
 ### 固定タイムステップ（予測一致のための不変条件）
 - 物理は **FIXED_H = 1/300 秒** 固定（`acc += dt × timeScale`、`while (acc ≥ FIXED_H) rk4(s, FIXED_H)`）。
   的の位置・判定位置の計算も同じ FIXED_H・同じ rk4 で積分するので、予測と実機が**完全一致**する（補間・別積分は混ぜない）。
-- `dt = now() − 前フレーム` を **0.25秒まで**追従（1フレーム最大90ステップ）。小さくクランプすると物理が transport から恒久的に遅れて的を通らなくなる。
-  それを超える停止（タブ非表示など）は、的が寿命切れ→次の的で予測し直すので自然に再同期する。
+- 物理は `now() − 前フレーム` の経過を捨てず固定ステップで追従する（曲の終端までに限定）。描画演出だけ 0.25 秒でクランプする。
+  以前は 250ms 超のフレーム停止で時間を捨て、まだ有効な的の予測位置と実際の軌道がずれていた。
+  スロー終了を跨いだフレームでは、残りのスロー時間だけ減速し、残りは timeScale=1。FEVER とスローの終了も出力時計の実経過に従う。
 - **任意時刻の物理（`stateAtTime(t)` / `tipAtTime(t)`）**：物理状態 `s` は `gameTime − acc` の時点にある（`acc` = 未消化の固定ステップ時間）。
   t までを `n = floor((t − 起点)/FIXED_H)` 回の固定ステップ＋**最後に1回だけ `rk4(残り)`**（残り < 3.33ms）で積分する。
   ゲームの物理は 300Hz 固定のまま（`s` は変えない）、判定・予測だけ任意の時刻で求める。

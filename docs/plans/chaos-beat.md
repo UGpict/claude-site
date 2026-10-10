@@ -138,6 +138,11 @@ per-game イベント（game_start / game_over / game_retry）に `reward_stage`
 - [ ] 実機（iPhone / Android / Bluetooth イヤホン）で `?debug=1` の out latency と offset を確認（Bluetooth は getOutputTimestamp の精度次第）
 
 ## Next
+- [x] FULL・無線出力の同期修正：描画と入力を出力時計へ統一（以前は描画だけ処理時計で先行）。入力からの時計停止判定でも原点を張り直す。
+- [x] 250ms 超のフレーム停止で物理時間を捨てない。スロー終了を跨ぐ経過を分割し、曲の終端までで積分を制限。
+- [x] 回帰検証 `scripts/test-chaos-sync.mjs`：実 Chromium／FULL 音源で 240ms 遅延・再戦・30ms 入力キュー・出力 timestamp 未対応・音声中断、
+      QUICK/FULL の 450ms フレーム停止時の判定一致。元コードでは画面と入力が 240ms ずれ、フレーム停止で判定が変わることを確認。
+- [ ] 今回の出力時計修正を実端末・無線イヤホンで確認（ブラウザーの出力時刻報告精度と画面への表示遅延は実機に依存）。
 - [ ] **playtest tuning（60秒版）**：セクション境界ごとの判定分布（hit × section_change）、FEVER の発生回数（多ければ終了後の短いクールダウンを検討）、
       INTRO/CLIMAX の的サイズ倍率、BUILD のフィルや CLIMAX のパッドの音量。実機 20〜30 回＋GA4 の `averageTimingOffsetMs`・判定分布で、カウントイン長・音量・ダッキング量・
       出力レイテンシ補正の要否を決める（判定ロジックは変えない。必要なら timingOffset を補助条件にする案を spec に起こしてから）
