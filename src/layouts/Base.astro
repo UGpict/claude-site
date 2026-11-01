@@ -12,8 +12,9 @@ interface Props {
 	image?: ImageMetadata;
 	ogImage?: string;
 	shareTitle?: string;
+	wide?: boolean;
 }
-const { title, description, image, ogImage, shareTitle } = Astro.props;
+const { title, description, image, ogImage, shareTitle, wide = false } = Astro.props;
 ---
 
 <!doctype html>
@@ -22,18 +23,18 @@ const { title, description, image, ogImage, shareTitle } = Astro.props;
 		<BaseHead title={title} description={description} image={image} ogImage={ogImage} />
 		<slot name="head" />
 	</head>
-	<body>
+	<body class:list={{ 'home-wide': wide }}>
 		<Header />
-		<div class="layout">
-			<aside class="rail rail-left">
+		<div class:list={['layout', { 'layout-wide': wide }]}>
+			{!wide && <aside class="rail rail-left">
 				<ShareRail title={shareTitle ?? title} />
-			</aside>
+			</aside>}
 			<main class="content">
 				<slot />
 			</main>
-			<aside class="rail rail-right">
+			{!wide && <aside class="rail rail-right">
 				<Sidebar />
-			</aside>
+			</aside>}
 		</div>
 		<Footer />
 	</body>
@@ -69,6 +70,8 @@ const { title, description, image, ogImage, shareTitle } = Astro.props;
 </script>
 
 <style>
+	.home-wide { background:#f8f9f3; }
+	.layout.layout-wide { grid-template-columns:minmax(0,1fr); width:min(1120px,100% - 3rem); padding:2rem 0 4rem; }
 	.layout {
 		display: grid;
 		grid-template-columns: 64px minmax(0, 1fr) 300px;
