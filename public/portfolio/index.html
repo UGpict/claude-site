@@ -19,10 +19,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Unbounded:wght@400;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
 <script type="importmap">
 {"imports":{
-"three":"https://cdn.jsdelivr.net/npm/three@0.175.0/build/three.webgpu.min.js",
-"three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.175.0/build/three.webgpu.min.js",
-"three/tsl":"https://cdn.jsdelivr.net/npm/three@0.175.0/build/three.tsl.min.js",
-"three/addons/":"https://cdn.jsdelivr.net/npm/three@0.175.0/examples/jsm/"
+"three":"/portfolio/vendor/three.webgpu.min.js",
+"three/webgpu":"/portfolio/vendor/three.webgpu.min.js",
+"three/tsl":"/portfolio/vendor/three.tsl.min.js",
+"three/addons/":"/portfolio/vendor/jsm/"
 }}
 </script>
 <style>
@@ -325,6 +325,30 @@ p { margin: 16px 0 0; }
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
 })();
 </script>
+<script>
+// if the sparks never start, say why in the footer instead of failing silently
+(function () {
+  function show(m) {
+    if (window.__sparksOK) return;
+    var h = document.getElementById('hint'); if (h) h.textContent = String(m).slice(0, 160);
+    document.documentElement.classList.add('no-gl');
+  }
+  window.__sparksErr = show;
+  addEventListener('error', function (e) {
+    var t = e.target;
+    if (t && t.tagName && t.tagName !== 'SCRIPT') return; // a missing font or image is not a reason to give up
+    show('ERR ' + (e.message || (t && t.src) || 'script'));
+  }, true);
+  addEventListener('unhandledrejection', function (e) { show('ERR ' + (e.reason && e.reason.message || e.reason)); });
+  setTimeout(function () {
+    if (window.__sparksBoot) return;
+    show('ERR module not started');
+    ['three/webgpu', 'three/tsl', 'three/addons/tsl/display/BloomNode.js'].forEach(function (m) {
+      try { import(m).catch(function (e) { show('ERR ' + m + ': ' + (e && e.message || e)); }); } catch (e) { show('ERR import(): ' + e.message); }
+    });
+  }, 8000);
+})();
+</script>
 <script type="module">
 import * as THREE from 'three/webgpu';
 import { Fn, uniform, instancedArray, instanceIndex, hash, float, vec2, vec3, vec4, uv, smoothstep, step, mix, sin, abs, length, floor, ivec2, textureLoad, pass, mx_fractal_noise_float } from 'three/tsl';
@@ -332,6 +356,7 @@ import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { afterImage } from 'three/addons/tsl/display/AfterImageNode.js';
 import { rgbShift } from 'three/addons/tsl/display/RGBShiftNode.js';
 
+window.__sparksBoot = true;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const coarse = matchMedia('(pointer: coarse)').matches;
 const root = document.documentElement;
@@ -732,10 +757,16 @@ async function start() {
     roll += (P[2] + wind * .05 - roll) * .05; camera.rotateZ(roll);
     split.amount.value = .0006 + energy * .006 + Math.abs(wind) * .003 + (holding ? .003 : 0);
     post.render();
+    window.__sparksOK = true;
   });
   onScroll();
 }
-start().catch(err => { console.error(err); root.classList.add('no-gl'); });
+start().catch(err => {
+  console.error(err);
+  // one retry on the WebGL2 path before giving up
+  try { if (!forceGL) { sessionStorage.setItem('sparks-gl', '1'); location.reload(); return; } } catch (e) {}
+  window.__sparksErr('ERR ' + (err && err.message || err));
+});
 </script>
 </body>
 </html>
