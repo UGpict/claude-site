@@ -546,7 +546,7 @@ async function start() {
   const gpu = !!(renderer.backend && renderer.backend.isWebGPUBackend);
   // if the WebGPU device dies, come back once on the WebGL2 path
   renderer.onDeviceLost = () => { try { if (!forceGL) { sessionStorage.setItem('sparks-gl', '1'); location.reload(); } } catch (e) {} };
-  N = window.__N || (small ? (gpu ? 110000 : 70000) : (gpu ? 300000 : 170000));
+  N = window.__N || (small ? (gpu ? 60000 : 40000) : (gpu ? 300000 : 170000));
   const STEPS = window.__steps || 1;
   build();
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, coarse ? 1.5 : 1.75));
@@ -624,7 +624,8 @@ async function start() {
   const mat = new THREE.SpriteNodeMaterial({ transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending });
   const pA = posBuf.toAttribute(), rn = hash(instanceIndex.add(31));
   const heat = smoothstep(.6, 7, pA.w);
-  const gain = Math.min(.3, .07 * 170000 / N);
+  // gain normally rises as the count falls, so phones get their own dimmer on top
+  const gain = Math.min(.3, .07 * 170000 / N) * (small ? .5 : 1);
   mat.positionNode = pA.xyz;
   mat.scaleNode = float(.012).add(rn.mul(rn).mul(.03)).mul(heat.mul(.8).add(1));
   mat.colorNode = mix(mix(uColA, uColB, rn.mul(rn)), vec3(1, .96, .88), heat.mul(.8)).mul(heat.mul(3.5).add(1)).mul(gain);
