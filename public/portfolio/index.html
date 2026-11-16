@@ -10,6 +10,9 @@
 <meta property="og:title" content="伊藤大智 ポートフォリオ">
 <meta property="og:description" content="AIエージェント開発、BtoBサイトの立ち上げと集客、業務自動化の実績。">
 <meta property="og:url" content="https://yasashiibai.com/portfolio/">
+<meta property="og:image" content="https://yasashiibai.com/portfolio/trailer-poster.jpg">
+<meta property="og:video" content="https://yasashiibai.com/portfolio/trailer.mp4">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -119,6 +122,20 @@ p { margin: 16px 0 0; }
 .hero .col { width: min(100%, 620px); }
 .tagline { font-family: var(--f-display); font-size: clamp(26px, 3.6vw, 46px); line-height: 1.3; margin: 0; }
 .tagline span { color: var(--accent); display: inline-block; }
+.play {
+  margin-top: 26px; display: inline-flex; align-items: center; gap: 14px; cursor: pointer;
+  font-family: var(--f-body); font-weight: 700; font-size: 16px; color: var(--void); text-shadow: none;
+  background: var(--accent); border: 0; padding: 14px 24px 14px 18px; border-radius: 999px;
+  box-shadow: 0 0 34px color-mix(in srgb, var(--accent) 55%, transparent); transition: transform .2s, box-shadow .2s, background .6s;
+}
+.play:hover { transform: scale(1.04); box-shadow: 0 0 54px var(--accent); }
+.play i { width: 0; height: 0; border: solid transparent; border-width: 8px 0 8px 13px; border-left-color: var(--void); }
+.play small { font-family: var(--f-num); font-weight: 700; font-size: 10px; letter-spacing: .08em; opacity: .7; }
+.theater { position: fixed; inset: 0; z-index: 30; background: rgba(2,2,4,.94); display: flex; align-items: center; justify-content: center; padding: 56px clamp(12px, 4vw, 60px) 24px; }
+.theater[hidden] { display: none; }
+.theater video { max-width: 100%; max-height: 100%; aspect-ratio: 16 / 9; width: min(100%, 1500px); background: #000; box-shadow: 0 0 120px rgba(255,179,71,.18); }
+.theater .x { position: absolute; top: 12px; right: clamp(12px, 4vw, 60px); font-family: var(--f-body); font-weight: 700; font-size: 14px; color: var(--ink); background: none; border: 1px solid var(--rule); padding: 8px 16px; border-radius: 999px; cursor: pointer; }
+.theater .x:hover { border-color: var(--accent); color: var(--accent); }
 
 .figs { display: flex; flex-wrap: wrap; gap: 26px 40px; margin: 34px 0 0; padding: 0; list-style: none; align-items: flex-end; }
 .sec.c .figs { justify-content: center; }
@@ -168,6 +185,10 @@ p { margin: 16px 0 0; }
 <div class="bar" id="bar"></div>
 <div class="ring" id="ring" aria-hidden="true"></div>
 <div class="flash" id="flash" aria-hidden="true"></div>
+<div class="theater" id="theater" role="dialog" aria-modal="true" aria-label="トレーラー" hidden>
+  <button class="x" id="closeT" type="button">閉じる</button>
+  <video id="trailer" src="trailer.mp4" poster="trailer-poster.jpg" controls playsinline preload="none"></video>
+</div>
 
 <main>
   <section class="sec hero" id="top">
@@ -177,6 +198,7 @@ p { margin: 16px 0 0; }
       <p class="eyebrow">PORTFOLIO ／ AICHI, JAPAN</p>
       <p class="tagline">火花が出るまで、<span>手を動かす。</span></p>
       <p>精密研磨の会社で、Web・AI・業務自動化をひとりで作っています。研磨の職人として入社し、いまの配分は研磨1割、PMと開発9割です。</p>
+      <button class="play" id="playBtn" type="button"><i></i>トレーラーを見る<small>34秒・音あり</small></button>
     </div>
   </section>
 
@@ -291,6 +313,18 @@ p { margin: 16px 0 0; }
   </section>
 </main>
 
+<script>
+(function () {
+  var th = document.getElementById('theater'), v = document.getElementById('trailer'), btn = document.getElementById('playBtn');
+  function open() { th.hidden = false; window.__paused = true; try { var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {} document.getElementById('closeT').focus(); }
+  function close() { if (th.hidden) return; v.pause(); th.hidden = true; window.__paused = false; btn.focus(); }
+  btn.addEventListener('click', open);
+  document.getElementById('closeT').addEventListener('click', close);
+  th.addEventListener('click', function (e) { if (e.target === th) close(); });
+  th.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+})();
+</script>
 <script type="module">
 import * as THREE from 'three/webgpu';
 import { Fn, uniform, instancedArray, instanceIndex, hash, float, vec2, vec3, vec4, uv, smoothstep, step, mix, sin, abs, length, floor, ivec2, textureLoad, pass, mx_fractal_noise_float } from 'three/tsl';
@@ -667,7 +701,7 @@ async function start() {
   window.__sparks = { setShape, step(n) { uDt.value = 1 / 60; uDamp.value = Math.exp(-3.2 / 60); for (let i = 0; i < n; i++) renderer.compute(update); } };
   const clock = new THREE.Clock();
   renderer.setAnimationLoop(() => {
-    if (document.hidden) return;
+    if (document.hidden || window.__paused) { clock.getDelta(); return; }
     const dt = Math.min(clock.getDelta(), 1 / 30), t = clock.elapsedTime;
     now = t; angle += spin * dt;
     const cy = CYCLE[chapter];
