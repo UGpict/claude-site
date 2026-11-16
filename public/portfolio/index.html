@@ -109,10 +109,14 @@ main { position: relative; z-index: 2; }
 }
 .sec.r .no { left: auto; right: -.04em; }
 .eyebrow { font-family: var(--f-num); font-weight: 700; font-size: 11.5px; letter-spacing: .2em; color: var(--accent); margin: 0 0 18px; }
-h2 { font-family: var(--f-display); font-weight: 400; font-size: clamp(32px, 3.9vw, 56px); line-height: 1.25; margin: 0; text-wrap: balance; word-break: auto-phrase; }
+h2 { font-family: var(--f-display); font-weight: 400; font-size: clamp(32px, 3.9vw, 56px); line-height: 1.25; margin: 0; text-wrap: balance; }
 h3 { font-family: var(--f-display); font-weight: 400; font-size: 22px; margin: 44px 0 4px; letter-spacing: .03em; }
 h3 em { font-style: normal; font-family: var(--f-body); font-size: 13.5px; color: var(--ink-dim); margin-left: 10px; }
 p { margin: 16px 0 0; }
+/* Japanese breaks only at the phrase boundaries marked with <wbr> in the markup */
+main :is(p, h2, h3, li, .tagline) { word-break: keep-all; overflow-wrap: anywhere; }
+main :is(p, li) { text-wrap: pretty; }
+h3, .tagline { text-wrap: balance; }
 .small { font-size: 13.5px; color: var(--ink-dim); line-height: 1.8; }
 .stack { font-family: var(--f-num); font-size: 10.5px; letter-spacing: .06em; color: var(--ink-dim); line-height: 2; margin-top: 12px; }
 .go { display: inline-block; margin-top: 12px; font-family: var(--f-num); font-size: 11px; letter-spacing: .1em; }
@@ -157,6 +161,7 @@ p { margin: 16px 0 0; }
   .col { padding: 28px 22px 30px; }
   .hero .col { padding: 22px 18px; background: rgba(5,5,8,.7); }
   .items li { grid-template-columns: 1fr; gap: 2px; }
+  h3 em { display: block; margin: 6px 0 0; }
   .foot span:last-child { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
@@ -196,8 +201,8 @@ p { margin: 16px 0 0; }
     <div class="col">
       <h1 class="sr">伊藤大智</h1>
       <p class="eyebrow">PORTFOLIO ／ AICHI, JAPAN</p>
-      <p class="tagline">火花が出るまで、<span>手を動かす。</span></p>
-      <p>精密研磨の会社で、Web・AI・業務自動化をひとりで作っています。研磨の職人として入社し、いまの配分は研磨1割、PMと開発9割です。</p>
+      <p class="tagline">火花が<wbr>出るまで、<span>手を<wbr>動かす。</span></p>
+      <p>精密研磨の<wbr>会社で、<wbr>Web・AI・業務自動化を<wbr>ひとりで<wbr>作っています。<wbr>研磨の<wbr>職人と<wbr>して<wbr>入社し、<wbr>いまの<wbr>配分は<wbr>研磨1割、<wbr>PMと<wbr>開発9割です。</p>
       <button class="play" id="playBtn" type="button"><i></i>トレーラーを見る<small>34秒・音あり</small></button>
     </div>
   </section>
@@ -207,14 +212,14 @@ p { margin: 16px 0 0; }
     <div class="col">
       <span class="no" aria-hidden="true">01</span>
       <p class="eyebrow">AI AGENTS ／ 2026.06 –</p>
-      <h2>AIエージェントを、ゼロから組む。</h2>
-      <p>設計の判断も実装もデプロイも自分の手で進めます。ハッカソンを締め切りにして、動くところまで作り切った2本です。</p>
-      <h3>KangaL<em>ビジネスメール詐欺（BEC）検知</em></h3>
-      <p>詐欺メールを「緊急性・権威・誘因・行動要求・個人化・孤立化」の6つの心理レバーに分解し、文面の構造で検知します。攻撃役と防御役のエージェントを対抗させて鍛え、攻撃役には完成した詐欺文を書かせません。評価はWilson信頼区間で行いました。</p>
+      <h2>AIエージェントを、<wbr>ゼロから<wbr>組む。</h2>
+      <p>設計の<wbr>判断も<wbr>実装も<wbr>デプロイも<wbr>自分の<wbr>手で<wbr>進めます。<wbr>ハッカソンを<wbr>締め切りに<wbr>して、<wbr>動くところまで<wbr>作り切った<wbr>2本です。</p>
+      <h3>KangaL<em>ビジネスメール詐欺<wbr>（BEC）<wbr>検知</em></h3>
+      <p>詐欺メールを<wbr>「緊急性・権威・誘因・<wbr>行動要求・個人化・孤立化」の<wbr>6つの<wbr>心理レバーに<wbr>分解し、<wbr>文面の<wbr>構造で<wbr>検知します。<wbr>攻撃役と<wbr>防御役の<wbr>エージェントを<wbr>対抗させて<wbr>鍛え、<wbr>攻撃役には<wbr>完成した<wbr>詐欺文を<wbr>書かせません。<wbr>評価は<wbr>Wilson信頼区間で<wbr>行いました。</p>
       <p class="stack">NEXT.JS ／ CLOUD RUN ／ FIRESTORE ／ VERTEX AI (GEMINI 2.5 FLASH) ／ WEB RISK API ／ GMAIL OAUTH</p>
       <a class="go" href="https://protopedia.net/prototype/8730" target="_blank" rel="noopener">PROTOPEDIA</a>
       <h3>ふたりログ<em>デートプランAIエージェント</em></h3>
-      <p>3日半のチーム開発で、急遽バックエンドを担当。プラン生成は決定論で速く返し、材料集めと振り返りをエージェントに任せました。待たせないための役割分担です。</p>
+      <p>3日半の<wbr>チーム開発で、<wbr>急遽バックエンドを<wbr>担当。<wbr>プラン生成は<wbr>決定論で<wbr>速く<wbr>返し、<wbr>材料集めと<wbr>振り返りを<wbr>エージェントに<wbr>任せました。<wbr>待たせない<wbr>ための<wbr>役割分担です。</p>
       <p class="stack">NEXT.JS ／ FIREBASE ／ CLOUD RUN ／ GOOGLE MAPS</p>
       <a class="go" href="https://note.com/_k_i_n_o_c_o_/n/nac1534294ab2" target="_blank" rel="noopener">振り返り記事</a>
     </div>
@@ -225,17 +230,17 @@ p { margin: 16px 0 0; }
     <div class="col">
       <span class="no" aria-hidden="true">02</span>
       <p class="eyebrow">B2B WEBSITE ／ 2026.03 –</p>
-      <h2>なかった部署サイトを、受注の入口にした。</h2>
-      <p>受託分析部門のBtoBサイトを新規に立ち上げました。HTML未経験から約1か月半、ひとりで構築。取材、撮影、執筆、SEOまで担当しています。</p>
+      <h2>なかった<wbr>部署サイトを、<wbr>受注の<wbr>入口にした。</h2>
+      <p>受託分析部門の<wbr>BtoBサイトを<wbr>新規に<wbr>立ち上げました。<wbr>HTML未経験から<wbr>約1か月半、<wbr>ひとりで<wbr>構築。<wbr>取材、<wbr>撮影、<wbr>執筆、<wbr>SEOまで<wbr>担当しています。</p>
       <ul class="figs">
-        <li><span class="n">11<u>件</u></span><span class="l">サイト経由の問い合わせ</span></li>
-        <li><span class="n">9<u>件</u></span><span class="l">うち受注（2026年11月時点）</span></li>
-        <li><span class="n">3<u>件</u></span><span class="l">ChatGPT経由の問い合わせ</span></li>
+        <li><span class="n">11<u>件</u></span><span class="l">サイト経由の<wbr>問い合わせ</span></li>
+        <li><span class="n">9<u>件</u></span><span class="l">うち受注<wbr>（2026年11月時点）</span></li>
+        <li><span class="n">3<u>件</u></span><span class="l">ChatGPT経由の<wbr>問い合わせ</span></li>
       </ul>
       <ol class="flow" aria-label="受注までの流れ">
-        <li>自然検索</li><li>問い合わせ</li><li>初回面談</li><li>受注</li><li>大手グループR&amp;D法人の新規口座</li>
+        <li>自然検索</li><li>問い合わせ</li><li>初回面談</li><li>受注</li><li>大手グループR&amp;D法人の<wbr>新規口座</li>
       </ol>
-      <p>検索から売上までが1本につながり、同じ流れが3つのコンテンツ群で再現しました。ChatGPTに紹介されて届く問い合わせも出ています。</p>
+      <p>検索から<wbr>売上までが<wbr>1本に<wbr>つながり、<wbr>同じ流れが<wbr>3つの<wbr>コンテンツ群で<wbr>再現しました。<wbr>ChatGPTに<wbr>紹介されて<wbr>届く<wbr>問い合わせも<wbr>出ています。</p>
       <p class="stack">NEXT.JS 16 ／ REACT 19 ／ TYPESCRIPT ／ TAILWIND CSS 4 ／ STATIC EXPORT ／ 構造化データ ／ GA4</p>
     </div>
   </section>
@@ -245,13 +250,13 @@ p { margin: 16px 0 0; }
     <div class="col">
       <span class="no" aria-hidden="true">03</span>
       <p class="eyebrow">AUTOMATION ／ 2025.09 –</p>
-      <h2>手作業を、仕組みに置き換える。</h2>
-      <p>プログラミングの実務はここから。現場で自分が困ったことを、動く仕組みにして運用に乗せています。</p>
+      <h2>手作業を、<wbr>仕組みに<wbr>置き換える。</h2>
+      <p>プログラミングの<wbr>実務は<wbr>ここから。<wbr>現場で<wbr>自分が<wbr>困ったことを、<wbr>動く仕組みに<wbr>して<wbr>運用に<wbr>乗せています。</p>
       <ul class="items">
-        <li><b>GAS</b><span>中古機器を4サイト横断で検索し、条件に合うものを定期メールで届ける仕組み。温湿度の監視と自動アラート、月次レポート。月次の経理処理。すべて稼働中です。</span></li>
-        <li><b>AWS</b><span>社内向けシステムを、設計から構築までひとりで作り切りました。</span></li>
-        <li><b>LINE</b><span>公式アカウントの作成と運用を担当しています。</span></li>
-        <li><b>展示会</b><span>配布物の渡し方と接客の型を作り直し、ヒアリングシートの回収が2年で5倍に。</span></li>
+        <li><b>GAS</b><span>中古機器を<wbr>4サイト横断で<wbr>検索し、<wbr>条件に<wbr>合うものを<wbr>定期メールで<wbr>届ける<wbr>仕組み。<wbr>温湿度の<wbr>監視と<wbr>自動アラート、<wbr>月次レポート。<wbr>月次の<wbr>経理処理。<wbr>すべて<wbr>稼働中です。</span></li>
+        <li><b>AWS</b><span>社内向けシステムを、<wbr>設計から<wbr>構築まで<wbr>ひとりで<wbr>作り切りました。</span></li>
+        <li><b>LINE</b><span>公式アカウントの<wbr>作成と<wbr>運用を<wbr>担当しています。</span></li>
+        <li><b>展示会</b><span>配布物の<wbr>渡し方と<wbr>接客の<wbr>型を<wbr>作り直し、<wbr>ヒアリングシートの<wbr>回収が<wbr>2年で<wbr>5倍に。</span></li>
       </ul>
     </div>
   </section>
@@ -261,10 +266,10 @@ p { margin: 16px 0 0; }
     <div class="col">
       <span class="no" aria-hidden="true">04</span>
       <p class="eyebrow">OWNED MEDIA ／ 2025.10 – 2026.02</p>
-      <h2>書いて、売れるまでを体で覚えた。</h2>
-      <p>ゲーム系のブログを個人で運営。10万字規模の記事を月に何本も出し続けた5か月でした。検索の感覚、成約率の考え方、コピーの土台はここでできています。</p>
+      <h2>書いて、<wbr>売れるまでを<wbr>体で<wbr>覚えた。</h2>
+      <p>ゲーム系の<wbr>ブログを<wbr>個人で<wbr>運営。<wbr>10万字規模の<wbr>記事を<wbr>月に<wbr>何本も<wbr>出し続けた<wbr>5か月でした。<wbr>検索の<wbr>感覚、<wbr>成約率の<wbr>考え方、<wbr>コピーの<wbr>土台は<wbr>ここで<wbr>できています。</p>
       <ul class="figs">
-        <li><span class="n"><s>月約</s>300<u>万円</u></span><span class="l">紹介経由の商品売上。約1,000円のゲームが月約3,000本</span></li>
+        <li><span class="n"><s>月約</s>300<u>万円</u></span><span class="l">紹介経由の<wbr>商品売上。<wbr>約1,000円の<wbr>ゲームが<wbr>月約3,000本</span></li>
         <li><span class="n"><s>約</s>3<u>万PV</u></span><span class="l">月間ページビュー</span></li>
       </ul>
     </div>
@@ -275,12 +280,12 @@ p { margin: 16px 0 0; }
     <div class="col">
       <span class="no" aria-hidden="true">05</span>
       <p class="eyebrow">RETAIL ／ 2022.04 – 2025.01</p>
-      <h2>現場の困りごとを、数字にして通す。</h2>
-      <p>ニトリで販売スタッフからフロアマネージャーへ。最大100名のスタッフを見ながら改善提案を続けました。</p>
-      <p>毎週月曜、値下げデータの入れ替えで全店舗のPCが止まっていました。一部の拠点でまとめて印刷し、POP資材と一緒に入荷させる方式を、自店での削減額を試算して提案、実行。全店舗分で<strong>約7億円規模の人時削減</strong>になりました。</p>
+      <h2>現場の<wbr>困りごとを、<wbr>数字に<wbr>して通す。</h2>
+      <p>ニトリで<wbr>販売スタッフから<wbr>フロアマネージャーへ。<wbr>最大100名の<wbr>スタッフを<wbr>見ながら<wbr>改善提案を<wbr>続けました。</p>
+      <p>毎週<wbr>月曜、<wbr>値下げデータの<wbr>入れ替えで<wbr>全店舗の<wbr>PCが<wbr>止まっていました。<wbr>一部の<wbr>拠点で<wbr>まとめて<wbr>印刷し、<wbr>POP資材と<wbr>一緒に<wbr>入荷させる<wbr>方式を、<wbr>自店での<wbr>削減額を<wbr>試算して<wbr>提案、<wbr>実行。<wbr>全店舗分で<wbr><strong>約7億円規模の<wbr>人時削減</strong>に<wbr>なりました。</p>
       <ul class="figs">
-        <li><span class="n">10<u>位</u></span><span class="l">課題解決提案の件数。社員・パート約2万人中</span></li>
-        <li><span class="n">No.1</span><span class="l">重点販売アイテムの販売比で日本一</span></li>
+        <li><span class="n">10<u>位</u></span><span class="l">課題解決提案の<wbr>件数。<wbr>社員・パート約2万人中</span></li>
+        <li><span class="n">No.1</span><span class="l">重点販売アイテムの<wbr>販売比で<wbr>日本一</span></li>
       </ul>
     </div>
   </section>
@@ -290,11 +295,11 @@ p { margin: 16px 0 0; }
     <div class="col">
       <span class="no" aria-hidden="true">06</span>
       <p class="eyebrow">FOUNDATION</p>
-      <h2>ぜんぶの土台にあるもの。</h2>
-      <p>大学は情報工学科。C、C#、C++、Java、JavaScriptを学び、AndroidアプリやLINE Botを自作していました。</p>
+      <h2>ぜんぶの<wbr>土台に<wbr>あるもの。</h2>
+      <p>大学は<wbr>情報工学科。<wbr>C、<wbr>C#、<wbr>C++、<wbr>Java、<wbr>JavaScriptを<wbr>学び、<wbr>Androidアプリや<wbr>LINE Botを<wbr>自作していました。</p>
       <ul class="items">
-        <li><b>最優秀賞</b><span>Microsoft Azureを使って新製品を考える、アイデアソン形式のハッカソン（在学中）。</span></li>
-        <li><b>科目合格</b><span>中小企業診断士 一次試験「経営情報システム」。</span></li>
+        <li><b>最優秀賞</b><span>Microsoft Azureを<wbr>使って<wbr>新製品を<wbr>考える、<wbr>アイデアソン形式の<wbr>ハッカソン<wbr>（在学中）。</span></li>
+        <li><b>科目合格</b><span>中小企業診断士 一次試験<wbr>「経営情報システム」。</span></li>
       </ul>
     </div>
   </section>
@@ -303,10 +308,10 @@ p { margin: 16px 0 0; }
     <div class="mq" aria-hidden="true">NEXT ／ NEXT ／ NEXT</div>
     <div class="col">
       <p class="eyebrow">NEXT</p>
-      <h2>次の火花を、いま散らしています。</h2>
+      <h2>次の<wbr>火花を、<wbr>いま散らしています。</h2>
       <ul class="links">
         <li><a class="go" href="https://protopedia.net/prototype/8730" target="_blank" rel="noopener">KANGAL（PROTOPEDIA）</a></li>
-        <li><a class="go" href="https://note.com/_k_i_n_o_c_o_/n/nac1534294ab2" target="_blank" rel="noopener">ふたりログ 振り返り（NOTE）</a></li>
+        <li><a class="go" href="https://note.com/_k_i_n_o_c_o_/n/nac1534294ab2" target="_blank" rel="noopener">ふたりログ 振り返り<wbr>（NOTE）</a></li>
       </ul>
       <p class="small" style="margin-top:30px"><a href="#top">最初に戻る</a></p>
     </div>
